@@ -1,0 +1,327 @@
+/* public/css/character-select.css - 角色选择界面美化样式 */
+
+/* ==================== 角色卡片动画 ==================== */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(242,193,78,0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(242,193,78,0.6);
+  }
+}
+
+/* ==================== 角色卡片容器 ==================== */
+.character-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 20px;
+}
+
+/* ==================== 角色卡片 ==================== */
+.char-card {
+  position: relative;
+  background: linear-gradient(135deg, #1a1c24 0%, #12141a 100%);
+  border: 2px solid var(--border);
+  border-radius: 16px;
+  padding: 24px;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) backwards;
+}
+
+.char-card:nth-child(1) { animation-delay: 0.05s; }
+.char-card:nth-child(2) { animation-delay: 0.1s; }
+.char-card:nth-child(3) { animation-delay: 0.15s; }
+.char-card:nth-child(4) { animation-delay: 0.2s; }
+
+/* 卡片背景光晕 */
+.char-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(201,58,58,0.12) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s;
+  pointer-events: none;
+}
+
+.char-card:hover::before {
+  opacity: 1;
+}
+
+/* 悬浮效果 */
+.char-card:hover {
+  transform: translateY(-12px);
+  border-color: rgba(242,193,78,0.5);
+  box-shadow:
+    0 16px 48px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(242,193,78,0.2),
+    0 8px 24px rgba(201,58,58,0.3);
+}
+
+/* 选中状态 */
+.char-card.selected {
+  border-color: var(--gold);
+  background: linear-gradient(135deg, #2a1c1c 0%, #1a1214 100%);
+  box-shadow:
+    0 0 0 3px rgba(242,193,78,0.3),
+    0 12px 40px rgba(201,58,58,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.1);
+  animation: glow 2s ease-in-out infinite;
+}
+
+.char-card.selected::after {
+  content: '✓';
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, var(--gold) 0%, #d4a650 100%);
+  color: #1a1c24;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(242,193,78,0.4);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* ==================== 角色头像 ==================== */
+.char-portrait {
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #c93a3a 0%, #8f2323 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.6),
+    inset 0 -4px 12px rgba(0,0,0,0.4),
+    0 0 0 4px rgba(201,58,58,0.2);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.char-card:hover .char-portrait {
+  transform: scale(1.08);
+  box-shadow:
+    0 12px 32px rgba(0,0,0,0.7),
+    inset 0 -4px 12px rgba(0,0,0,0.4),
+    0 0 0 4px rgba(242,193,78,0.4),
+    0 0 32px rgba(242,193,78,0.3);
+}
+
+.char-portrait canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ==================== 角色信息 ==================== */
+.char-name {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.char-weapon {
+  font-size: 13px;
+  color: var(--gold);
+  text-align: center;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.char-weapon::before {
+  content: '⚔';
+  font-size: 14px;
+}
+
+.char-desc {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: center;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  min-height: 40px;
+}
+
+/* ==================== 角色属性标签 ==================== */
+.char-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.stat-badge {
+  background: rgba(242,193,78,0.08);
+  border: 1px solid rgba(242,193,78,0.25);
+  border-radius: 8px;
+  padding: 8px 4px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+.char-card:hover .stat-badge {
+  background: rgba(242,193,78,0.15);
+  border-color: rgba(242,193,78,0.4);
+}
+
+.stat-value {
+  display: block;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--gold);
+  margin-bottom: 4px;
+  text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
+.stat-label {
+  display: block;
+  font-size: 11px;
+  color: var(--text-mute);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ==================== 解锁徽章 ==================== */
+.char-badge {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  background: linear-gradient(135deg, rgba(109,100,85,0.9) 0%, rgba(74,64,53,0.9) 100%);
+  color: var(--text-dim);
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  border: 1px solid rgba(109,100,85,0.3);
+}
+
+.char-badge.unlocked {
+  background: linear-gradient(135deg, var(--gold) 0%, #d4a650 100%);
+  color: #1a1c24;
+  border-color: rgba(242,193,78,0.5);
+  box-shadow: 0 2px 8px rgba(242,193,78,0.4);
+}
+
+/* ==================== 响应式 ==================== */
+@media (max-width: 768px) {
+  .character-grid {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .char-card {
+    padding: 20px;
+  }
+
+  .char-portrait {
+    width: 120px;
+    height: 120px;
+  }
+
+  .char-name {
+    font-size: 18px;
+  }
+
+  .char-stats {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+  }
+}
+
+/* ==================== 性能监控面板 ==================== */
+.perf-panel {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  background: rgba(18,20,26,0.95);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-family: 'Courier New', monospace;
+  font-size: 11px;
+  color: var(--text-dim);
+  z-index: 9999;
+  min-width: 200px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+}
+
+.perf-panel .perf-title {
+  color: var(--gold);
+  font-weight: 700;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.perf-panel .perf-row {
+  display: flex;
+  justify-content: space-between;
+  margin: 4px 0;
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.perf-panel .perf-label {
+  color: var(--text-mute);
+}
+
+.perf-panel .perf-value {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.perf-panel .perf-value.good {
+  color: #6bb66b;
+}
+
+.perf-panel .perf-value.warning {
+  color: #f2c14e;
+}
+
+.perf-panel .perf-value.bad {
+  color: #d94a4a;
+}

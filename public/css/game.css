@@ -1,0 +1,3132 @@
+/* public/css/game.css —— 游戏页专用样式（HUD / 面板 / 遮罩）
+ *
+ * 与 theme.css 共用配色变量：暗红 + 琥珀金 + 冷灰，禁用紫色与紫蓝色。
+ * 这里只放游戏页的东西，主题变量仍归 theme.css 管。
+ *
+ * 视觉层次约定（改样式时按这个来，别各写各的）：
+ *   1 层  画面本身（Canvas）
+ *   2 层  暗角 / 低血警示 —— 只压边角，不吃鼠标
+ *   3 层  顶部状态条、底部槽位、悬浮提示
+ *   4 层  全屏遮罩（角色选择 / 升级 / 暂停 / 结算）
+ *
+ *   4 层有一个例外：**联机升级**用 .overlay-dock / .panel-dock，
+ *   贴底悬浮、不模糊、不吃事件 —— 联机世界在服务端一直跑，
+ *   把战场盖死等于让人盲选（详见那一段的注释）。
+ */
+
+/* ============================================================
+   画布与整体布局
+   ============================================================ */
+
+html,
+body.game-body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  height: 100%;
+  background: #0f1114;
+}
+
+#game-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  /* 手机浏览器（iOS Safari / 安卓 Chrome）的地址栏会伸缩，100vh 是「地址栏收起时」
+     的高度 —— 用它会让画面底部被地址栏盖住一截。dvh 跟着实际可视高度走。
+     不支持 dvh 的老浏览器会自动忽略这一行，退回上面的 100vh（所以两条都要写，
+     而且顺序不能反：后写的生效）。 */
+  height: 100dvh;
+  display: block;
+  background: #0f1114;
+}
+
+/* HUD 整层不吃鼠标事件，避免挡住画布输入；需要交互的元素单独打开 */
+#hud {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  /* 【2026-10-03 修】这里原来硬编码了「雅黑」字体栈 —— 它把 theme.css 里
+     body 的像素字体整个盖掉了，因为 #hud 是这一页所有面板/按钮/文字的祖先，
+     它的 font-family 会一路继承下去，body 那条根本轮不到。
+     症状极具迷惑性：改 theme.css 的 body 看似生效（getComputedStyle(body)
+     确实返回 Zpix 栈），但页面上的字一个没变。改字体要先看有没有这种
+     「中间层容器自己声明了字体」。 */
+  font-family: var(--font-pixel);
+  color: #e7eaee;
+  user-select: none;
+  /* 统一数字宽度，倒计时和击杀数跳动时不会左右抖 */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Vue 未挂载前藏起来，防止闪现原始模板 */
+[v-cloak] {
+  display: none !important;
+}
+
+#hud button,
+#hud .clickable {
+  pointer-events: auto;
+}
+
+/* ============================================================
+   第 2 层：暗角 与 低血警示
+   ============================================================ */
+
+/* 四角压暗。作用是让画面边缘的怪物不那么"跳出来"，
+   同时把视觉重心压回屏幕中央的玩家身上。 */
+.hud-vignette {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(120% 90% at 50% 50%,
+      rgba(0, 0, 0, 0) 42%,
+      rgba(0, 0, 0, 0.28) 76%,
+      rgba(0, 0, 0, 0.55) 100%);
+}
+
+/* 低血量：屏幕四边泛红并脉冲。比只看左上角血条更快反应过来。 */
+.hud-hurt {
+  position: absolute;
+  inset: 0;
+  box-shadow:
+    inset 0 0 120px rgba(201, 58, 58, 0.55),
+    inset 0 0 40px rgba(201, 58, 58, 0.35);
+  animation: hurtPulse 1.1s ease-in-out infinite;
+}
+
+@keyframes hurtPulse {
+  0%, 100% { opacity: 0.45; }
+  50%      { opacity: 0.95; }
+}
+
+/* ============================================================
+   第 3 层：顶部状态条
+   ============================================================ */
+
+.hud-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 18px 34px;
+  /* 顶部压一层渐变遮罩：地面纹理再花，HUD 文字也读得清 */
+  background: linear-gradient(180deg,
+    rgba(6, 7, 10, 0.78) 0%,
+    rgba(6, 7, 10, 0.42) 55%,
+    rgba(6, 7, 10, 0) 100%);
+}
+
+.hud-left {
+  /* ★从固定 300px 改成「等分剩余空间」。
+     原因不是省宽度，是**让中间的倒计时真的居中**：
+     顶栏三块左 300 / 中 flex:1 / 右 158，中间那块的可用宽度是
+     「视口 - 300 - 158 - 间距」，它的中心自然就偏向宽的那一侧 ——
+     iPad 820 上实测倒计时中心 481、视口中心 410，偏了正好 (300-158)/2 = 71px。
+     两侧等宽之后，中间块的中心才落在视口中央。
+     ★窄屏不受影响：那边另有 .hud-left { flex: 0 1 auto } 的规则（在 720 断点里）。 */
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+}
+
+/* ---------- 状态条 ---------- */
+
+.bar {
+  position: relative;
+  height: 20px;
+  background: rgba(0, 0, 0, 0.62);
+  border: 1px solid #3a2226;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow:
+    inset 0 2px 5px rgba(0, 0, 0, 0.75),
+    0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bar + .bar {
+  margin-top: 7px;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  transition: width 0.12s linear;
+  position: relative;
+}
+
+/* 条内顶部一道高光，让填充看起来有厚度而不是一块平色 */
+.bar i::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.30), rgba(255, 255, 255, 0));
+  border-radius: 9px 9px 0 0;
+}
+
+/* 生命：暗红渐变 */
+.bar.hp i {
+  background: linear-gradient(180deg, #e05555 0%, #c93a3a 45%, #7a1616 100%);
+}
+
+/* 生命告急：整条脉冲，余光就能看见 */
+.bar.hp.low {
+  border-color: #c93a3a;
+  animation: hpLow 0.85s ease-in-out infinite;
+}
+
+.bar.hp.low i {
+  background: linear-gradient(180deg, #ff6a5a 0%, #d92f2f 45%, #8d1414 100%);
+}
+
+@keyframes hpLow {
+  0%, 100% { box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.75), 0 0 0 0 rgba(201, 58, 58, 0.0); }
+  50%      { box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.75), 0 0 14px 2px rgba(201, 58, 58, 0.55); }
+}
+
+/* 经验：琥珀金渐变 */
+.bar.exp {
+  height: 13px;
+  border-color: #3a3422;
+  border-radius: 7px;
+}
+
+.bar.exp i {
+  background: linear-gradient(180deg, #ffe08a 0%, #f4c455 28%, #dfa426 62%, #8a6415 100%);
+}
+
+.bar .label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.95), 0 0 8px rgba(0, 0, 0, 0.7);
+}
+
+/* ---------- 等级徽章 ---------- */
+
+.hud-level {
+  position: absolute;
+  right: -10px;
+  top: -8px;
+  min-width: 38px;
+  padding: 2px 8px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  color: #2b2005;
+  background: linear-gradient(180deg, #ffe08a 0%, #f4c455 45%, #dfa426 100%);
+  border: 1px solid #8a6415;
+  border-radius: 11px;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.55),
+    0 0 12px rgba(223, 164, 38, 0.35);
+}
+
+/* ---------- 中间：倒计时 ---------- */
+
+.hud-center {
+  /* ★从 flex:1 改成「按内容宽」。
+     两侧等分剩余空间时，中间这块只有**不参与分食**，它才会落在正中央；
+     否则三块按 1:1:1 分，中间块虽然也居中，但宽度被压到 1/3，
+     倒计时与波次文字容易换行（窄屏另有 order:-1 的独占一行的规则）。 */
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.hud-timer {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 3px;
+  line-height: 1.15;
+  text-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.9),
+    0 0 22px rgba(0, 0, 0, 0.6);
+}
+
+/* 最后 60 秒：变红并轻微脉冲，制造压迫感 */
+.hud-timer.urgent {
+  color: #ff7a6a;
+  animation: timerUrgent 1s ease-in-out infinite;
+}
+
+@keyframes timerUrgent {
+  0%, 100% { text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9); }
+  50%      { text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9), 0 0 20px rgba(201, 58, 58, 0.75); }
+}
+
+.hud-wave {
+  margin-top: 3px;
+  font-size: 12px;
+  color: #9ba3af;
+  letter-spacing: 0.4px;
+}
+
+.hud-wave .sep {
+  margin: 0 7px;
+  color: #4d5560;
+}
+
+.hud-wave b {
+  color: #cfd6de;
+  font-weight: 600;
+}
+
+/* ---------- 右侧：击杀 / 金币 / 暂停 ---------- */
+
+.hud-right {
+  /* ★宽度改成「等分剩余空间」而不是固定 158px：
+     ① 固定宽度让顶栏左右不对称（左 300 / 右 158）→ 中间倒计时偏心 71px（见 .hud-left）
+     ② 这一块的宽度本来就该由内容决定，固定值只会白占地方 */
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: right;
+  font-size: 13px;
+  color: #9ba3af;
+  /* ★行高 1.75 → 1.25。1.75 是给「两行竖排」留的余量，
+     并成一行之后它只会把整块撑高 20 多像素。
+     行高不会因为元素并排就自动变紧 —— 这是「压成一行」最容易漏的一处。 */
+  line-height: 1.25;
+  /* ★★align-items:center —— 同一行里的按钮要**底边对齐**靠的是它，不是 min-height。
+     min-height 只保证「不小于 44」，各按钮的实际高度仍可能不同
+     （实测暂停 47 宽、倍速 34 宽、帮助 27 宽，底边差 4.5px）。
+     这里让它们在行内垂直居中，视觉上就是齐的。 */
+  align-items: center;
+}
+
+/* 击杀 / 金币：宽屏与 iPad 上并成**一行**（窄屏另有一套更紧的规则）。
+   【原来为什么那么占地方】两个 .stat 是 block 子元素 → 各占一行；
+   而 theme.css 里的 `.stat` 是给「设置页那种两行文字的面板块」设计的
+   （padding 11px + 面板底色 + 边框），一个就 52px 高、158px 宽
+   → 右侧整块实测 **158x158**（用户报的就是这个）。 */
+.hr-stats {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 16px;
+}
+
+.hud-right .stat {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  /* ★把继承来的「面板块」外观清干净：HUD 顶栏上要的是「图标+文字+数字」，
+     不是两个带底色的方框。只清 padding 是不够的 —— 底色和边框还在，
+     看起来仍然是两张小卡片，而且那圈边框本身也占 2px 高。 */
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+}
+
+.hud-right .ico {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  font-size: 12px;
+  color: #6d7683;
+}
+
+.hud-right b {
+  color: #f2c14e;
+  font-size: 16px;
+  font-weight: 700;
+  /* ★去掉了 min-width: 44px。它本来是为了「数字跳动时盒子不左右抖」，
+     而 #hud 上已经设了等宽数字（tabular-nums），本来就不抖了 ——
+     留着只会让「击杀 5」这种小数字也占满 44px，白白把右侧撑宽。 */
+  text-align: right;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* 倍速按钮：×1 时跟普通按钮一样，×2/×4 变琥珀色 ——
+   加速是个「可能玩着玩着就忘了自己开着」的状态，必须有个显眼标记。
+   （颜色取项目主色琥珀，不用紫。） */
+.speed-btn.on {
+  color: #f2c14e;
+  border-color: #a8761f;
+  font-weight: 700;
+  /* 轻轻脉动，提醒「现在不是正常速度」——幅度要小，别在顶栏上晃眼 */
+  animation: speedPulse 1.6s ease-in-out infinite;
+}
+
+@keyframes speedPulse {
+  0%, 100% { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45); }
+  50%      { box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45), 0 0 10px rgba(242, 193, 78, 0.45); }
+}
+
+/* 暂停按钮：手机没有 Esc 键，必须给一个可点的入口 */
+.pause-btn {
+  margin-top: 9px;
+  padding: 5px 16px;
+  font-size: 12px;
+}
+
+/* ============================================================
+   Boss 血条：顶部正中，比普通怪的头顶小血条醒目得多
+   ============================================================ */
+
+.boss-bar {
+  position: absolute;
+  top: 96px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(560px, 68vw);
+  text-align: center;
+  animation: bossIn 0.35s ease-out;
+}
+
+@keyframes bossIn {
+  from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.boss-bar .boss-name {
+  display: inline-block;
+  margin-bottom: 5px;
+  padding: 2px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: #ffd0d0;
+  background: rgba(60, 12, 18, 0.86);
+  border: 1px solid rgba(201, 58, 58, 0.7);
+  border-radius: 999px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+}
+
+.boss-bar .boss-track {
+  position: relative;
+  height: 14px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid #6f1616;
+  border-radius: 7px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.8), 0 0 16px rgba(201, 58, 58, 0.28);
+}
+
+.boss-bar .boss-fill {
+  display: block;
+  height: 100%;
+  background: linear-gradient(180deg, #ff6a5a 0%, #c93a3a 42%, #6f1616 100%);
+  transition: width 0.16s linear;
+}
+
+.boss-bar .boss-fill::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 45%;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0));
+}
+
+.boss-bar .boss-hp {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #b9a0a0;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   底部：武器与被动槽位
+   ============================================================ */
+
+.hud-slots {
+  position: absolute;
+  left: 18px;
+  bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  /* 联机升级面板贴底时这块要整体上抬（见 .hud-slots.lift），给个过渡别硬跳 */
+  transition: bottom 0.18s ease-out;
+}
+
+.slot-row {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  max-width: 54vw;
+}
+
+/* ============================================================
+   技能区折叠（第二十轮）
+   ============================================================
+   折叠角标：手机竖屏下技能区满配占屏近三成，而这是要边跑边躲的游戏。
+   折叠成一个 44×44 的角标，点一下展开。
+
+   ★为什么角标要显示「已学几件」而不是纯图标：
+     折叠是为了省空间，不是让人看不出自己学了什么。
+     「我现在几级技能」是随时要看的信息（决定要不要升级某个）。
+   ★组合技另外给一个金色「技」字：
+     组合技是这一局最值得炫耀的东西，折叠起来也必须让玩家知道凑出来了。 */
+.slot-fold {
+  position: absolute;
+  left: 18px;
+  bottom: 16px;
+  z-index: 3;                     /* 与 .hud-slots 同层，别被战场元素压住 */
+  width: 44px;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;         /* 图标在上、数字在下，竖向两行更紧凑 */
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 3px 4px;
+  background: linear-gradient(180deg, #2a1a1c 0%, #1a1012 100%);
+  border: 1px solid var(--border);
+  /* 像素风硬边，不圆角 */
+  border-radius: 0;
+  color: var(--amber);
+  font-family: var(--font-pixel);
+  cursor: pointer;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .55);
+}
+
+.slot-fold .sf-ico {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.slot-fold .sf-n {
+  font-size: 11px;
+  line-height: 1;
+  color: var(--text);
+}
+
+.slot-fold .sf-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--amber);
+  color: #2b2005;
+  border: 1px solid var(--amber-hi);
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+/* 展开态的「收起」按钮：★绝对定位到技能区右上角**（见 game.html 的注释）——
+   为什么不能放进任何 .slot-row：作为第 11 个子元素，它在 390px 宽屏上会被
+   flex-wrap 折到第二行 → 行高翻倍 → 打破「10 格一行」的硬约束（hudsize 断言守着）。
+   技能区是贴底的，右上角那块本来是空的，不与格子竞争宽度。 */
+.slot-fold-btn {
+  position: absolute;
+  /* 贴着技能区右上角；负一点右/上让它稍微探出去，手指更好点 */
+  right: 0;
+  top: -2px;
+  z-index: 4;
+  /* ★触摸目标下限 44px（项目约定）—— 它只有几个字符，高度必须显式给足。
+     ★宽度用 min-width：跟着文字走，改文案后不会留一段空白。 */
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 16, 18, .85);
+  border: 1px solid var(--border-soft);
+  border-radius: 0;
+  color: #9ba3af;
+  font-size: 11px;
+  font-family: var(--font-pixel);
+  line-height: 1;
+  cursor: pointer;
+  /* ★flex 布局里按钮会被压扁（见 memory「三条白屏级坑」第 2 条） */
+  flex: 0 0 auto;
+}
+
+.slot-fold-btn:active {
+  background: rgba(60, 30, 34, .9);
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px 5px 8px;
+  font-size: 12px;
+  background: linear-gradient(180deg, rgba(34, 39, 46, 0.92), rgba(18, 21, 25, 0.92));
+  border: 1px solid #3a2a2a;
+  border-left: 3px solid #a32323;
+  border-radius: 7px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+/* 武器槽左侧一枚小菱形，比纯文字更像"道具" */
+.slot .dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  background: #c93a3a;
+  transform: rotate(45deg);
+  box-shadow: 0 0 6px rgba(201, 58, 58, 0.6);
+}
+
+/* 空槽位：只占一格窄宽度、不写文字。
+   它的作用是「告诉玩家还剩几个位置能学技能」，不是抢注意力 ——
+   所以做成虚线空心 + 压低透明度，跟已学的那排一眼能分开。
+   ★固定 22px 宽很关键：10 个空槽加起来 220px，宽屏一行放得下
+     （.slot-row 在宽屏可用 54vw），不像已学的槽那样一多就把这行撑到换行。
+   ★手机上另有一档更窄的覆盖（窄屏段里 width: 16px）—— 半屏宽放不下 10 个 22px。 */
+.slot.empty {
+  width: 22px;
+  padding: 5px 0;
+  justify-content: center;
+  background: rgba(18, 21, 25, 0.5);
+  /* 虚线框 + 去掉左边那条实心红边：那条红边是「已学到」的标记，空位不该有 */
+  border: 1px dashed #39414b;
+  border-left: 1px dashed #39414b;
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+/* 空位的菱形做成**空心**的：实心 = 已经拿到，空心 = 位置还空着 */
+.slot.empty .dot {
+  background: transparent;
+  box-shadow: none;
+  border: 1px solid #4d5661;
+}
+
+.slot .lv {
+  color: #f2c14e;
+  font-weight: 700;
+  font-size: 11px;
+}
+
+/* 已进化的武器：金色描边 + 流光，一眼看出来 */
+.slot.evolved {
+  border-color: #dfa426;
+  border-left-color: #f4c455;
+  color: #ffe6a8;
+  box-shadow:
+    0 0 0 1px rgba(223, 164, 38, 0.35),
+    0 0 14px rgba(223, 164, 38, 0.3),
+    0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.slot.evolved .dot {
+  background: #f4c455;
+  box-shadow: 0 0 8px rgba(244, 196, 85, 0.9);
+}
+
+/* 被动：冷灰系，跟武器区分开 */
+.slot.passive {
+  background: linear-gradient(180deg, rgba(40, 45, 52, 0.9), rgba(22, 25, 29, 0.9));
+  border-color: #313842;
+  border-left-color: #6d7683;
+  color: #b9c0ca;
+}
+
+.slot.passive .dot {
+  background: #8b95a1;
+  box-shadow: none;
+}
+
+/* ============================================================
+   右下角调试信息
+   ============================================================ */
+
+.hud-debug {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  padding: 7px 11px;
+  font-size: 12px;
+  font-family: Consolas, Menlo, monospace;
+  color: #9ba3af;
+  background: rgba(18, 21, 25, 0.86);
+  border: 1px solid #262c34;
+  border-radius: 7px;
+  line-height: 1.65;
+  text-align: right;
+}
+
+.hud-debug b {
+  color: #4aa96c;
+}
+
+.hud-debug .kbd-hint {
+  color: #6d7683;
+}
+
+/* ============================================================
+   悬浮提示（波次 / Boss 来袭）
+   ============================================================ */
+
+.toast-wrap {
+  position: absolute;
+  top: 152px;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  pointer-events: none;
+}
+
+.toast {
+  padding: 7px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #ffe6a8;
+  background: rgba(18, 21, 25, 0.88);
+  border: 1px solid rgba(223, 164, 38, 0.45);
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  animation: toastIn 0.28s cubic-bezier(0.22, 1.2, 0.4, 1);
+}
+
+.toast.boss {
+  color: #ffd0d0;
+  border-color: rgba(201, 58, 58, 0.75);
+  background: rgba(60, 12, 18, 0.92);
+  font-weight: 700;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 20px rgba(201, 58, 58, 0.4);
+}
+
+@keyframes toastIn {
+  from { opacity: 0; transform: translateY(-10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ============================================================
+   第 4 层：全屏遮罩（角色选择 / 升级 / 暂停 / 结算）
+   ============================================================ */
+
+/* ★★这里原来写的是 `align-items: center`，是个会吃内容的写法
+   ----------------------------------------------------------
+   flex 容器里「居中的子项」一旦比容器**高**，它的顶部会被推到容器内容区之外，
+   而 `overflow-y: auto` 的滚动条只能往下走 —— 于是**上面那一截永远滚不回来**。
+   表现就是：角色选择页上方一整排角色（猎魔人/修女）凭空消失，只剩中间四张。
+
+   为什么难发现：① 不报错、不白屏，只是「少了两张卡」
+   ② `scrollTop` 读出来是 0，看着像「没滚动过」，排查时被引到别处
+   ③ 宽屏上「勉强能看」的比例很容易蒙混过关，只有偏矮的窗口必现
+
+   修法是 flex 的标准解法：**去掉 align-items，改用 margin:auto**。
+   `margin:auto` 在 flex 里做居中，溢出的处理与 `center` 完全不同 ——
+   内容矮时仍然精确居中，内容高时**顶部留在容器内**，可正常滚上去。
+
+   ★别改回 align-items —— 也不要图省事只加 `align-items: flex-start`：
+   那样内容短时面板会贴到顶部，暂停/结算这类短面板就散了。 */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  /* 居中交给 .overlay > * 的 margin:auto（见下面），这里必须不设 align-items */
+  justify-content: center;
+  padding: 20px;
+  /* 中间亮、四角更暗，把注意力吸到面板上 */
+  background:
+    radial-gradient(90% 70% at 50% 45%, rgba(30, 12, 14, 0.55) 0%, rgba(6, 7, 10, 0.88) 75%),
+    rgba(6, 7, 10, 0.6);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+  overflow-y: auto;
+  /* 触屏：允许在遮罩上直接滑动翻页。缺这一行时，矮屏上「唯一的滚动容器」
+     响应迟钝（内容超高时移动端浏览器会把滚动吃掉）。 */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 真正的居中：内容矮 → 上下左右精确居中；内容高 → 顶部留在视口内，可滚。
+   auto 的上/下外边距在 flex 里各分一半剩余空间，天然实现「居中但不裁」。 */
+.overlay > * {
+  margin: auto;
+}
+
+.panel {
+  position: relative;
+  width: 100%;
+  max-width: 720px;
+  padding: 26px;
+  background: linear-gradient(180deg, #1e2228 0%, #171a1f 100%);
+  border: 1px solid #313842;
+  border-radius: 14px;
+  box-shadow:
+    0 18px 50px rgba(0, 0, 0, 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: panelIn 0.22s ease-out;
+  overflow: hidden;
+}
+
+@keyframes panelIn {
+  from { opacity: 0; transform: translateY(10px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 面板顶沿一条暗红 → 琥珀金渐变细线，把整个面板"框"起来 */
+.panel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #6f1616 0%, #c93a3a 28%, #f4c455 62%, rgba(244, 196, 85, 0) 100%);
+}
+
+.panel h2 {
+  margin: 0 0 6px;
+  padding-left: 14px;
+  font-size: 21px;
+  letter-spacing: 1.5px;
+  position: relative;
+}
+
+/* 标题左侧一枚血色菱形，比单纯的文字有仪式感 */
+.panel h2::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  width: 8px;
+  height: 8px;
+  background: #c93a3a;
+  transform: rotate(45deg);
+  box-shadow: 0 0 10px rgba(201, 58, 58, 0.8);
+}
+
+.panel h2 em {
+  font-style: normal;
+  color: #dfa426;
+}
+
+.panel .sub {
+  margin: 0 0 20px;
+  font-size: 13px;
+  color: #9ba3af;
+}
+
+.panel .sub .nick {
+  color: #e7eeff;
+  font-weight: 600;
+}
+
+.panel .sub .warn-guest {
+  color: #d08a2c;
+}
+
+/* ---------- 角色卡片 ---------- */
+
+/* ★角色网格自己也要能滚（`.overlay` 已修好不裁顶，但 8 张卡排开有 1961px 高，
+   不给上限的话玩家要滚过整个面板才够得到「开始对局」按钮，而标题会一起滚走 ——
+   滚到一半就不知道自己是在选谁了）。
+   上下留 6px：给面板的圆角与卡片阴影让位，不然最上/最下那张卡的阴影会被切平。 */
+.character-grid {
+  max-height: min(58vh, 620px);
+  overflow-y: auto;
+  /* 滚到边缘时让卡片不要紧贴容器边（有留白才看得出还有内容） */
+  padding: 6px 4px 6px 0;
+  /* 细滚动条靠这条才有（Chrome 默认给 overlay 的滚动条是粗的） */
+  scrollbar-width: thin;
+}
+
+/* 【`.char-grid` 已删】它和 `.character-grid` 长得几乎一样（都是两列网格），
+   但模板里用的是 `.character-grid`（见 game.html）—— 也就是这个选择器**从来没生效过**。
+   留着它最大的害处是：以后有人看到`.char-grid` 会以为「角色网格」就是它，
+   改了样式却发现界面上没反应。两套死代码合并成一套，行为不变。 */
+.char-card {
+  position: relative;
+  padding: 15px 15px 15px 18px;
+  text-align: left;
+  background: linear-gradient(180deg, #262c34 0%, #20242a 100%);
+  border: 1px solid #313842;
+  border-radius: 11px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s, box-shadow 0.15s;
+  font-family: inherit;
+  color: inherit;
+  overflow: hidden;
+}
+
+/* 左侧竖条：选中/未选中一眼可辨 */
+.char-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #3d444e;
+  transition: background 0.15s;
+}
+
+.char-card:hover:not(.locked) {
+  border-color: #dfa426;
+  background: linear-gradient(180deg, #2d333c 0%, #262c34 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+}
+
+.char-card.selected {
+  border-color: #dfa426;
+  background: linear-gradient(180deg, rgba(223, 164, 38, 0.14) 0%, rgba(223, 164, 38, 0.05) 100%);
+  box-shadow: 0 0 0 1px rgba(223, 164, 38, 0.4), 0 0 20px rgba(223, 164, 38, 0.2);
+}
+
+.char-card.selected::before {
+  background: linear-gradient(180deg, #f4c455, #dfa426);
+}
+
+.char-card.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.char-card .name {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.char-card .weapon {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 1px 8px;
+  font-size: 11px;
+  color: #ffd98a;
+  background: rgba(223, 164, 38, 0.14);
+  border: 1px solid rgba(223, 164, 38, 0.35);
+  border-radius: 999px;
+}
+
+.char-card .desc {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #9ba3af;
+  line-height: 1.55;
+}
+
+.char-card .lock {
+  margin-top: 7px;
+  font-size: 11px;
+  color: #6d7683;
+}
+
+/* ---------- 按钮 ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.5px;
+  color: #e7eaee;
+  background: linear-gradient(180deg, #2f353e 0%, #242931 100%);
+  border: 1px solid #3a424e;
+  border-radius: 9px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, transform 0.08s, box-shadow 0.15s;
+}
+
+.btn:hover {
+  background: linear-gradient(180deg, #39414c 0%, #2c323b 100%);
+  border-color: #4c5766;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+}
+
+.btn:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+
+.btn-primary {
+  color: #fff;
+  background: linear-gradient(180deg, #d84747 0%, #a32323 60%, #6f1616 100%);
+  border-color: #d24a4a;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.btn-primary:hover {
+  background: linear-gradient(180deg, #e55555 0%, #c93a3a 60%, #8a1c1c 100%);
+  border-color: #e06a6a;
+  box-shadow: 0 4px 18px rgba(201, 58, 58, 0.35);
+}
+
+.btn-gold {
+  color: #2b2005;
+  background: linear-gradient(180deg, #ffe08a 0%, #dfa426 62%, #a2761a 100%);
+  border-color: #f4c455;
+}
+
+.btn-gold:hover {
+  background: linear-gradient(180deg, #ffeb9e 0%, #f4c455 62%, #8a6415 100%);
+  border-color: #ffd472;
+  box-shadow: 0 4px 18px rgba(223, 164, 38, 0.35);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 18px;
+  /* ★允许换行 —— 这是「按钮被裁」的根本修法，写在**通用**类上而不是某个面板上。
+     起因：`.panel-actions .btn { flex: 1 }`（= 1 1 0）会硬切等分，
+     三个按钮平分内容宽，放不下时右缘超出面板，被 `.panel` 的 overflow:hidden切掉
+     —— 而且**手机窄屏同样裁**（实测右缘 371 vs 面板 370）。
+     ★只放宽面板是治标：那样只是把「装不下」推到更宽的屏幕上再犯一次。
+     ★`flex: 1`（= 1 1 0）要改成 `1 1 auto`：等分会无视文字长度，
+       「邀请队友（扫码）」比「返回大厅」长得多，等分必然把它压到裁切。
+     写在这里而不是 .panel-narrow / .panel-wide，是因为**每加一个面板就要抄一遍**
+     是个必然被忘掉的活（第十二轮已经因此踩了一次：暂停面板改用 .panel-wide 后
+     就丢了这条修法，「重开一局」当场又被裁掉）。 */
+  flex-wrap: wrap;
+}
+
+.panel-actions .btn {
+  flex: 1 1 auto;
+  min-width: 110px;
+  white-space: nowrap;
+}
+
+/* 明确要求独占一行的按钮（继续游戏 / 开始对局）不受最小宽度约束 */
+.panel-actions .btn-block {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+/* ============================================================
+   暂停面板：局内商店 + 角色详细数据（第十二轮）
+   ============================================================ */
+
+/* 暂停面板现在装的东西变多了（商店 + 数据 + 按钮），宽度给得比「窄面板」宽一档。
+   仍不用内联 max-width —— 那样会压住 PC 放大段（见 .panel-narrow 的注释）。 */
+.panel-wide {
+  max-width: 560px;
+}
+
+/* ★暂停面板换成 .panel-wide 后，**必须继承 .panel-narrow 的换行修法**。
+   上一版只给了宽度，「重开一局」在窄屏上又被裁掉 1px（面板 350、按钮右缘 371）。
+   —— 这就是「同一个问题在两个类上各修一次」的代价：改宽度时很容易只改一半。
+
+   治本的做法是**把换行能力给到所有 .panel**，而不是只给这两个类：
+   以后再加新面板（结算、观战…）就不用记得抄一遍。 */
+/*换行修法同样来自通用的 `.panel-actions`，不重复写。
+
+/* ---------- 商店 ---------- */
+.shop {
+  margin: 14px 0 4px;
+  padding: 12px 12px 10px;
+  background: #12161a;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+}
+
+.shop-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.shop-title {
+  font-size: 15px;
+  color: var(--text);
+}
+
+/* 可花余额：与顶栏的「本局金币」是**两个不同的数**（hud.shopGold vs hud.gold），
+   所以这里明确写「可花」两个字 —— 玩家看到数字不同才不会以为出 bug。 */
+.shop-bal {
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+.shop-bal b {
+  font-family: var(--font-arcade);
+  font-size: 20px;
+  color: var(--amber);
+  margin-left: 5px;
+}
+
+/* 三件商品：PC 上并排，窄屏上纵向堆叠 */
+.shop-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.shop-item {
+  flex: 1 1 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 11px;
+  text-align: left;
+  font-family: inherit;
+  background: var(--panel-2);
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+  color: inherit;
+  cursor: pointer;
+  /* 像素风：按下时整块陷进影子里 */
+  transition: transform 0.06s linear, box-shadow 0.06s linear, background 0.12s linear;
+}
+
+.shop-item:hover:not(:disabled) {
+  background: var(--panel-3);
+  transform: translate(-1px, -1px);
+}
+
+.shop-item:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+/* 买不起 / 已满层：不能用「降低透明度」—— 实心投影还在会显得「只是颜色浅，仍可点」 */
+.shop-item.poor,
+.shop-item.maxed {
+  opacity: 0.5;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, 0.35);
+  cursor: not-allowed;
+}
+
+.si-name {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.si-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.si-price {
+  font-size: 12px;
+  color: var(--amber);
+}
+
+.shop-item.maxed .si-price {
+  color: var(--text-mute);
+}
+
+/* 买/买不了的原因。**必须有这一行** ——
+   只把按钮一禁了之，玩家不知道是「还差 25 枚」还是「已经满 3 层」，就没法决定下一步。 */
+.shop-msg {
+  margin-top: 7px;
+  font-size: 12px;
+  color: var(--amber-hi);
+}
+
+/* ---------- 两段式商品的选择器（血脉契约 / 置换契约）----------
+   嵌在暂停面板里，不做成弹层（那会变成「面板里再叠一层面板」）。
+   ★清单可能有三十来项（全部武器 + 被动），**必须自己带 max-height + overflow-y**：
+     否则整个暂停面板会被撑得比屏幕还高，而 .panel 是 overflow:hidden ——
+     多出来那截直接被切掉，且不报任何错（这个坑在剧情关卡列表上踩过一次）。 */
+.shop-pick {
+  margin-top: 11px;
+  padding: 10px;
+  background: #0e1216;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+}
+
+.sp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sp-title {
+  font-size: 13px;
+  color: var(--text);
+}
+
+/* 取消按钮刻意不用 .btn：它不该和「确认」抢注意力 */
+.sp-cancel {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-mute);
+  background: transparent;
+  border: 2px solid #39414b;
+  cursor: pointer;
+}
+
+.sp-cancel:hover { color: var(--text); border-color: #5b6674; }
+
+.sp-label {
+  margin: 8px 0 6px;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+.sp-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  /* ★长清单自己滚（见 .shop-pick 的注释） */
+  max-height: 168px;
+  overflow-y: auto;
+}
+
+.sp-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: var(--panel-2);
+  border: 2px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+  cursor: pointer;
+}
+
+.sp-chip i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-mute);
+}
+
+.sp-chip b {
+  font-size: 11px;
+  color: var(--amber);
+}
+
+.sp-chip:hover { background: var(--panel-3); color: var(--text); }
+
+/* 选中态：金色描边 + 提亮。清单三四十项，看串行时这是「我点的就是它」
+   的唯一反馈 —— 少了它玩家会怀疑自己到底点中没有。 */
+.sp-chip.on {
+  color: var(--amber-hi);
+  border-color: var(--amber);
+  background: #1d1a12;
+}
+
+.sp-empty {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+.sp-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 2px solid #1c2127;
+}
+
+.sp-note {
+  flex: 1 1 auto;
+  min-width: 140px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--amber-hi);
+}
+
+/* ---------- 开关行（升级自动领补给）---------- */
+.opt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0 4px;
+  padding: 9px 11px;
+  background: #12161a;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+}
+
+.opt-name {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.opt-name em {
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-mute);
+}
+
+.opt-btn {
+  flex: 0 0 auto;
+  min-width: 92px;
+}
+
+/* 开着的时候要一眼看得出来（这是「以后不再打扰你」的状态，
+   不是按一下就完事的一次性按钮） */
+.opt-btn.on {
+  color: #1a1206;
+  background: linear-gradient(180deg, var(--amber-hi), var(--amber));
+  border-color: #0b0d10;
+}
+
+/* ---------- 技能全满后的自动补给开关（升级面板里）---------- */
+.auto-supply {
+  margin-top: 12px;
+  padding-top: 11px;
+  border-top: 2px solid #1c2127;
+  text-align: center;
+}
+
+.auto-supply .sub { margin: 0 0 8px; }
+
+/* ---------- 角色详细数据 ---------- */
+.detail {
+  margin: 12px 0 4px;
+  padding: 12px;
+  background: #12161a;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+}
+
+.dt-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 9px;
+}
+
+.dt-title {
+  font-size: 15px;
+  color: var(--text);
+}
+
+.dt-char {
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+/* 四列网格：宽屏一行放得下，窄屏自动折成两列/一列 */
+.dt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 6px;
+}
+
+.dt-cell {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 4px 8px;
+  background: #0d1013;
+  border: 2px solid var(--border-soft);
+}
+
+.dt-k {
+  font-size: 11px;
+  color: var(--text-mute);
+  white-space: nowrap;
+}
+
+.dt-v {
+  font-family: var(--font-arcade);
+  font-size: 15px;
+  color: var(--text);
+}
+
+/* 被升级点起来的属性高亮：让「我这次变强了」这件事在一屏里看得见。
+   ★不靠加粗 —— Zpix 是点阵字，描边与合成粗体都会把字内间隙填满糊成白斑。 */
+.dt-v.up {
+  color: var(--amber);
+}
+
+/* 持有技能：一眼看到在练什么，不用去翻技能图鉴 */
+.dt-own {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 9px;
+  padding-top: 8px;
+  border-top: 2px solid var(--border-soft);
+}
+
+.dt-own-row {
+  padding: 2px 7px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: #0d1013;
+  border: 2px solid var(--border-soft);
+}
+
+.dt-own-row b {
+  font-family: var(--font-arcade);
+  color: var(--amber);
+  margin-left: 3px;
+}
+
+.dt-own-row.combo {
+  border-color: var(--blood-lo);
+  color: #ffc9c9;
+}
+
+.dt-own-row i {
+  margin-left: 4px;
+  font-size: 10px;
+  font-style: normal;
+  color: var(--amber-hi);
+}
+
+/* ---------- 升级候选的关联说明 ----------
+   「这件技能能通往哪」。玩家在候选卡上问的是「我为什么该选它」，
+   只写「伤害 12→14」他不知道有更远的路。 */
+
+/* 关联说明里的「另一件」（组合技的另一件武器 / 进化需要的被动）。
+   ★已有的用琥珀高亮 = 「你手上这件」；未持有的压暗。
+   玩家在候选卡上真正的判断是「我还差什么」，所以这两态必须一眼可分。 */
+.lk-pair {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 0.92em;
+  color: var(--text-mute);
+  background: #0e1114;
+  border: 1px solid var(--border);
+}
+
+.lk-pair .lk-plus {
+  opacity: .55;
+}
+
+.lk-pair.have {
+  color: var(--amber-hi);
+  border-color: var(--amber-lo);
+}
+
+.lk-pair.ready {
+  color: var(--ok);
+  border-color: var(--ok);
+}
+
+.lk-pair b {
+  font-variant-numeric: tabular-nums;
+}
+
+.lk-tag {
+  font-size: 0.85em;
+  opacity: .85;
+}
+
+.lk-tag.ok {
+  color: var(--ok);
+  opacity: 1;
+}
+
+.lk-tag.miss {
+  opacity: .6;
+}
+
+.choice .link {
+  display: block;
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 3px solid var(--border);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--text-dim);
+}
+
+/* 配方已齐：这是一个「现在就该去升级第二件」的信号，琥珀色 + 实心左标高亮 */
+.choice .link.st-ready {
+  color: var(--amber-hi);
+  border-left-color: var(--amber);
+}
+
+/* 进化去向：与组合技区分开（进化是单件武器的终点，组合技是两件的交汇） */
+.choice .link.st-evo {
+  color: #ffc9c9;
+  border-left-color: var(--blood);
+}
+
+@media (max-width: 720px) {
+  /* 窄屏：暂停面板装的东西多，给它更宽的可用高度但让内容自己滚 */
+  .panel-wide {
+    max-width: 100%;
+  }
+
+  .dt-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .dt-k { font-size: 12px; }
+  .dt-v { font-size: 16px; }
+  .si-name { font-size: 15px; }
+  .si-desc { font-size: 12px; }
+  .shop-item { flex: 1 1 100%; }
+}
+
+/* ============================================================
+   窄面板（暂停 / 联机菜单）
+   ============================================================
+   这两个面板的内容是「几个并排的按钮」，而其它面板（选人/ 升级 / 结算）
+   是一列长内容 —— 所以它们不该跟 `.panel` 用同一个宽度策略。
+
+   ★为什么原来会裁按钮：模板里写的是内联 `style="max-width: 420px"`。
+     **内联样式的优先级高于样式表里的任何 @media**，于是
+     `@media (pointer:fine) .panel { max-width: 900px }` 对它根本不生效（实测停在 420px）；
+     而同一段里的 `.panel .btn { font-size:17px; padding:13px 26px }` 却照常生效。
+     结果就是「按钮变大了、容器没变大」，三个按钮平分 348px 装不下
+     「重开一局」，右缘超出面板 → 被 `.panel` 的 overflow:hidden **直接切掉**。
+     窄屏同样裁（实测 371 > 370），所以这不是「只有 PC 有问题」。
+
+   ★三条修法缺一不可：
+     ① 宽度改用类（模板里去掉内联），让PC 放大段能接管
+     ② 按钮行**允许换行**（wrap）—— 这样任何宽度下都不会溢出被裁，
+        这才是根治：只放宽面板只是把「装不下」推到更宽的屏幕上再犯一次
+     ③ 给一个下限，别让它在超宽屏上拉得太散（三个按钮横跨 1600px 反而难按） */
+.panel-narrow {
+  /* 默认（窄屏 / 触屏）：撑满可用宽度，靠 padding 收边 */
+  max-width: 520px;
+}
+
+/*【换行修法已上移到通用的 `.panel-actions`（见上面那一段）】
+   ★这里**故意不再重复**写一遍 `.panel-narrow .panel-actions` 的规则。
+   上一轮就是两份（通用 + 窄面板），第十二轮把暂停面板换成 .panel-wide 时
+   只改了宽度、忘了新类也带这套修法，「重开一局」当场又被裁掉 1px。
+   两处维护的必然结果就是「改了一处另一处没改」—— 现在只有一处。 */
+
+@media (pointer: fine) {
+  /* PC 放大：与其它面板同一档，让暂停/菜单也享受大字号与大点击区。
+     ★不用内联写死：内联会压住这条（原来就是这么坏的）。
+     ★按钮字号的那几条在文件后面的 PC 放大段里（靠「后来者居上」覆盖本段），
+       别在这里再写一份 —— 两处维护的必然结果是改了一处另一处没改。 */
+  .panel-narrow {
+    max-width: 720px;
+  }
+
+  .panel-narrow .panel-actions {
+    gap: 12px;
+  }
+}
+
+/* ---------- 升级三选一 ---------- */
+
+.choice-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 15px 17px;
+  text-align: left;
+  background: linear-gradient(180deg, #262c34 0%, #20242a 100%);
+  border: 1px solid #313842;
+  border-radius: 11px;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+
+.choice:hover {
+  border-color: #dfa426;
+  background: linear-gradient(180deg, #2e343d 0%, #272d35 100%);
+  transform: translateX(3px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.choice .tag {
+  flex: 0 0 auto;
+  min-width: 46px;
+  padding: 4px 10px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #9ba3af;
+  background: #171a1f;
+  border: 1px solid #313842;
+  border-radius: 5px;
+}
+
+.choice.evolve {
+  border-color: rgba(223, 164, 38, 0.6);
+  background: linear-gradient(180deg, rgba(223, 164, 38, 0.14) 0%, rgba(223, 164, 38, 0.04) 100%);
+  box-shadow: 0 0 18px rgba(223, 164, 38, 0.15);
+}
+
+.choice.evolve .tag {
+  color: #2b2005;
+  background: linear-gradient(180deg, #f4c455, #dfa426);
+  border-color: #f4c455;
+  font-weight: 800;
+}
+
+.choice .body {
+  flex: 1;
+  min-width: 0;
+}
+
+.choice .name {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.choice .desc {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #9ba3af;
+  line-height: 1.55;
+}
+
+/* ---------- 联机升级：贴底悬浮，让出战场 ---------- */
+/* 为什么不直接改 .overlay：单机的角色选择 / 暂停 / 结算**本来就需要盖住画面**，
+   只有「联机升级」这一处需要让出画面。混在一起改会把单机那几屏一起弄花。
+   所以单开一套 .overlay-dock / .panel-dock，由 game.html 的 dockLevelUp 控制。
+   【这段必须放在 .panel / .choice 之后】—— 它们是同权重选择器，
+   靠「后来者居上」覆盖，放前面就会被原样式盖掉。 */
+
+.overlay-dock {
+  align-items: flex-end;
+  /* ★必须把上面那条 `.overlay > * { margin: auto }` 的居中**显式撤掉**。
+     那个 auto 在垂直方向会分掉全部剩余空间，恰好与 flex-end 相反 ——
+     联机升级面板的整个设计就是「贴底悬浮、上半屏让给战场」，
+     被拉回垂直居中等于把战场重新盖死（roomcheck 有一条断言在守这个）。
+     ★必须写在 `.overlay-dock` 自己的规则里（同权重靠后 + 更高 specificity），
+       光在 .overlay 上加注释没有用。 */
+  padding: 0 14px max(14px, env(safe-area-inset-bottom));
+  /* 上半屏完全干净，只在接近底部压一层很淡的渐变保证读字，
+     绝不能沿用它那套「中间亮、四角更暗」的径向遮罩 */
+  background: linear-gradient(180deg,
+    rgba(6, 7, 10, 0) 0%,
+    rgba(6, 7, 10, 0) 46%,
+    rgba(6, 7, 10, 0.55) 82%,
+    rgba(6, 7, 10, 0.8) 100%);
+  /* 【关键 1】不模糊：blur 一开战场就糊了，等于变相遮住 */
+  backdrop-filter: none;
+  /* 【关键 2】整层不吃事件，点击 / 触屏落到 canvas 上。
+     联机升级时世界照跑，触屏浮动摇杆与「按住左键朝光标走」必须还能用 */
+  pointer-events: none;
+}
+
+/* ★把通用那条 margin:auto 撤掉（理由见上面 .overlay-dock 的注释）。
+   写在 .overlay-dock 之后：`.overlay > *` 与 `.overlay-dock > *` 同为 0,0,1,0，
+   靠「后来者居上」取胜 —— 这样只影响 dock，不动其它遮罩的居中。 */
+.overlay-dock > * {
+  margin: 0 auto;
+}
+
+.panel-dock {
+  /* 只有面板本体吃事件：否则点在面板空白处会被当成「朝那个方向走」 */
+  pointer-events: auto;
+  max-width: 980px;
+  max-height: 60vh;
+  padding: 14px 16px 16px;
+  /* 半透明而非实心：底下的战场仍然透得出来 */
+  background: linear-gradient(180deg, rgba(30, 34, 40, 0.9) 0%, rgba(23, 26, 31, 0.94) 100%);
+  box-shadow:
+    0 -8px 30px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  animation: dockIn 0.18s ease-out;
+}
+
+@keyframes dockIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.panel-dock h2 {
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+
+.panel-dock h2::before {
+  top: 6px;
+}
+
+.panel-dock .sub {
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+/* 「世界仍在推进」那枚小标记：提醒玩家这不是一个能慢慢挑的暂停界面 */
+.panel-dock .live-tag {
+  color: #dfa426;
+  font-weight: 700;
+}
+
+/* 三张卡横排：横向占位比竖排矮一大截，露出来的战场更多 */
+.panel-dock .choice-grid {
+  flex-direction: row;
+  gap: 8px;
+  max-height: 38vh;
+  overflow-y: auto;
+}
+
+.panel-dock .choice {
+  flex: 1 1 0;
+  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  padding: 10px 12px;
+}
+
+/* 横排时往右挪的悬浮反馈会顶到旁边的卡，改成往上抬 */
+.panel-dock .choice:hover {
+  transform: translateY(-2px);
+}
+
+.panel-dock .choice .tag {
+  align-self: flex-start;
+  min-width: 0;
+  padding: 3px 8px;
+  font-size: 10px;
+}
+
+.panel-dock .choice .name {
+  font-size: 14px;
+}
+
+.panel-dock .choice .desc {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+/* 窄屏（手机竖屏）：三张卡横排会挤成面条，退回竖排，卡片区自己滚 */
+@media (max-width: 720px) {
+  .panel-dock {
+    max-height: 58vh;
+  }
+
+  .panel-dock .choice-grid {
+    flex-direction: column;
+    max-height: 36vh;
+  }
+
+  .panel-dock .choice {
+    flex: 0 0 auto;
+  }
+
+  .panel-dock .choice:hover {
+    transform: none;
+  }
+}
+
+/* 面板贴底时把左下角的武器槽抬起来 —— 选技能的时候正好最需要看「我带着什么」。
+   只在够宽的屏上抬：手机竖屏本来就没地方放，硬挪反而会顶到画面中间。 */
+@media (min-width: 721px) {
+  .hud-slots.lift {
+    bottom: 214px;
+  }
+}
+
+/* ---------- 结算 ---------- */
+
+.result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 520px) {
+  .result-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.result-item {
+  position: relative;
+  padding: 13px 10px;
+  text-align: center;
+  background: linear-gradient(180deg, #262c34 0%, #1d2126 100%);
+  border: 1px solid #313842;
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+/* 每格顶沿一条细金线，六格并排时显得整齐 */
+.result-item::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 0;
+  height: 2px;
+  background: linear-gradient(90deg, rgba(223, 164, 38, 0), rgba(223, 164, 38, 0.7), rgba(223, 164, 38, 0));
+}
+
+.result-item .num {
+  display: block;
+  font-size: 23px;
+  font-weight: 800;
+  color: #f4c455;
+  line-height: 1.35;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.6);
+}
+
+.result-item .lbl {
+  font-size: 12px;
+  color: #6d7683;
+  letter-spacing: 0.5px;
+}
+
+.result-title {
+  margin-bottom: 4px;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 5px;
+}
+
+.result-title.win {
+  color: #f4c455;
+  text-shadow: 0 0 26px rgba(244, 196, 85, 0.55), 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.result-title.lose {
+  color: #c93a3a;
+  text-shadow: 0 0 26px rgba(201, 58, 58, 0.5), 0 2px 8px rgba(0, 0, 0, 0.8);
+}
+
+.kbd {
+  padding: 1px 7px;
+  font-size: 12px;
+  color: #dfa426;
+  background: #171a1f;
+  border: 1px solid #313842;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   结算面板 · 全队战绩
+   ============================================================ */
+/* 结算包里本来就带着每个人的数字（kills/gold/level），但界面以前只显示
+   「我自己」那一份 —— 合作模式里「这局谁最能打」是要看的，顺手补上。 */
+
+.result-team {
+  margin: 14px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+}
+
+.result-team .rt-head {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--text-mute);
+}
+
+.result-team .rt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(20, 23, 27, .6);
+  font-size: 12px;
+}
+
+/* 「我」用琥珀金点出来，人多时一眼找到自己 */
+.result-team .rt-row.me {
+  border-color: var(--amber-lo);
+  background: rgba(163, 35, 35, .18);
+}
+
+/* 中途退出的队友：整体压暗，并缀一个「已离开」标签 */
+.result-team .rt-row.left {
+  opacity: .62;
+}
+
+.result-team .rt-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.result-team .rt-num {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.result-team .rt-num b {
+  color: var(--amber-hi);
+  font-size: 13px;
+}
+
+.result-team .rt-tag {
+  margin-left: 6px;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 10px;
+  color: var(--text-mute);
+}
+
+/* ============================================================
+   观战
+   ============================================================ */
+
+/* 左上角那行「观战中 · 跟着谁」。取代血条/经验条的位置 ——
+   观战者没有血，画一条空槽会让人以为界面坏了 */
+.spec-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 5px 12px;
+  border: 1px solid var(--amber-lo);
+  border-radius: var(--radius-sm);
+  background: rgba(12, 14, 17, .82);
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.spec-badge b {
+  color: var(--amber-hi);
+  letter-spacing: 2px;
+  font-size: 13px;
+}
+
+/* 底部控制条。贴底、pointer-events 只给自己的按钮，
+   别把整条铺满 —— 那会挡住玩家点地图/看战况 */
+.spec-dock {
+  position: absolute;
+  left: 50%;
+  bottom: 14px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: rgba(12, 14, 17, .86);
+  font-size: 12px;
+  color: var(--text-dim);
+  pointer-events: none;   /* 条本身不吃点击，战场照常可点 */
+  z-index: 6;
+}
+
+.spec-now b { color: var(--text); }
+.spec-now .spec-sub {
+  margin-left: 8px;
+  color: var(--text-mute);
+}
+
+.spec-btns {
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;    /* 按钮要能点 */
+}
+
+/* ============================================================
+   本轮新增：关卡名 / 组合技（HUD 槽位 + 升级候选）/ 候选提示行
+   ============================================================ */
+
+/* 关卡区域名。信息层级低于难度标签（难度是「这一局多难」，
+   关卡名是「打到哪了」），所以用更淡的描边、不加底色块。 */
+.stage-tag {
+  color: var(--text-dim);
+  background: transparent;
+  border: 1px solid var(--border-soft);
+}
+
+/* 组合技槽位：金色描边 + 暗红底。
+   与武器（灰）和被动（更淡）拉开，因为它是「这一局凑出来的东西」，
+   是玩家最想被看见的那一项。 */
+.slot.combo {
+  border-color: rgba(242, 193, 78, 0.55);
+  background: linear-gradient(180deg, rgba(143, 35, 35, 0.45) 0%, rgba(143, 35, 35, 0.2) 100%);
+  color: var(--amber-hi);
+  font-weight: 700;
+}
+
+.slot.combo .dot {
+  background: var(--amber-hi);
+}
+
+/* ============================================================
+   技能说明卡（点左下角技能格）
+   ============================================================
+   贴在左下角技能区**上方**，不是全屏弹层：看说明的时候战场还得看得见
+   （联机下世界根本不等人，全屏遮罩等于把玩家眼睛蒙上）。
+   用固定 bottom 让它始终待在技能格上面，不必用 JS 去量槽位区的高度。 */
+.slot-card {
+  position: absolute;
+  left: 18px;
+  bottom: 96px;
+  width: min(360px, 80vw);
+  /* ★「我的技能」可能有十几行，长列表必须自己滚 ——
+     这里是常驻 HUD 层，.overlay 那套 max-height 帮不上忙。 */
+  max-height: 46vh;
+  overflow-y: auto;
+  padding: 10px 11px;
+  background: rgba(14, 18, 22, 0.96);
+  border: 3px solid #0b0d10;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.6);
+  z-index: 3;
+}
+
+.sc-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.sc-title {
+  font-size: 13px;
+  color: var(--text-mute);
+}
+
+.sc-close {
+  flex: 0 0 auto;
+  width: 26px;
+  height: 26px;
+  line-height: 1;
+  font-family: inherit;
+  font-size: 16px;
+  color: var(--text-mute);
+  background: transparent;
+  border: 2px solid #39414b;
+  cursor: pointer;
+}
+
+.sc-close:hover { color: var(--text); border-color: #5b6674; }
+
+.sc-name {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 15px;
+  color: var(--amber-hi);
+}
+
+.sc-tag {
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.sc-lv {
+  font-family: var(--font-arcade);
+  font-size: 15px;
+  color: var(--amber);
+}
+
+.sc-lv.none {
+  font-family: inherit;
+  font-size: 11px;
+  color: #6b7480;
+}
+
+.sc-desc {
+  margin: 7px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.sc-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.sc-num {
+  padding: 2px 6px;
+  font-size: 11px;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 1px solid #2a323b;
+}
+
+.sc-row {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.sc-row .lb {
+  display: inline-block;
+  min-width: 40px;
+  margin-right: 4px;
+  color: var(--amber);
+}
+
+.sc-flavor {
+  margin: 7px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #7d8794;
+}
+
+.sc-actions { margin-top: 9px; }
+
+.sc-actions .btn { width: 100%; }
+
+.sc-hint {
+  margin: 0 0 7px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--text-mute);
+}
+
+/* 「我的技能」列表的每一行。
+   ★min-height 44px = 触摸目标下限（项目约定）。这正是不把技能格本身做成按钮的原因：
+     格子只有 20~28px，做成 <button> 要么违反约定，要么被 pixel-ui.css 强行拉到 44px
+     把槽位行撑成一堵高墙 —— 把可点区域放进这个列表，两边都能满足。 */
+.mc-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;
+  padding: 6px 9px;
+  margin-bottom: 5px;
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  color: var(--text-dim);
+  background: var(--panel-2);
+  border: 2px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+  cursor: pointer;
+}
+
+.mc-row:hover { color: var(--text); background: var(--panel-3); }
+
+.mc-row b {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--amber);
+}
+
+.mc-tag {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--text-mute);
+}
+
+/* 鼠标（精细指针）下技能格是能点的：手型 + 悬停提亮。
+   ★只在 pointer: fine 下写 hover —— 触屏点一下会一直保持悬停态，
+     看起来像「卡住了」，不如不给。 */
+@media (pointer: fine) {
+  .hud-slots { cursor: pointer; }
+
+  .slot:not(.empty):hover {
+    background: var(--panel-3);
+    border-left-color: var(--amber);
+  }
+}
+
+/* 组合技候选项。
+   用暗红而不是进化那种琥珀金 —— 两者是**不同类别**的奖励
+   （进化是单件武器的终点，组合技是两件武器的交汇），
+   同色会让玩家以为它们是同一回事。 */
+.choice.combo {
+  border-color: rgba(201, 58, 58, 0.62);
+  background: linear-gradient(180deg, rgba(201, 58, 58, 0.16) 0%, rgba(201, 58, 58, 0.05) 100%);
+  box-shadow: 0 0 18px rgba(201, 58, 58, 0.16);
+}
+
+.choice.combo .tag {
+  color: #fff2e0;
+  background: linear-gradient(180deg, #c93a3a, #8f2323);
+  border-color: #c93a3a;
+  font-weight: 800;
+}
+
+/* 候选的提示行（组合技配方 / 风味文案）。
+   用左侧竖线 + 小字，与 desc 明确分开：desc 说「它是什么」，
+   hint 说「你怎么拿到它的」—— 后者是决策依据，不能和前者糊在一起。 */
+.choice .hint {
+  display: block;
+  margin-top: 5px;
+  padding-left: 8px;
+  border-left: 2px solid rgba(242, 193, 78, 0.5);
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: var(--amber-hi);
+  opacity: 0.85;
+}
+
+/* ============================================================
+   技能图鉴（顶栏 ? 按钮打开的右侧抽屉）
+   ============================================================
+   【为什么是抽屉而不是 .overlay】
+   .overlay 是全屏遮罩 + blur(4px)，等于告诉玩家「现在可以不管战场了」。
+   但联机世界停不下来（见 game.js 的注释），单机也没有「查资料时冻结世界」这条逻辑 ——
+   两边都得边看边打。所以这里只占屏幕右侧一条：
+     · 不做全屏遮罩，不 blur
+     · 整层 pointer-events: none，只在 .sb-panel 上打开
+       （这样触屏浮动摇杆与「按住左键朝光标走」都不被挡 —— 与 .overlay-dock 同一条理由）
+   ============================================================ */
+
+.help-btn {
+  /* ★margin-top 与 .pause-btn 一致（同为顶栏按钮）：原来 pause 有 9px、help 没有，
+     宽屏下这会让「?」比「暂停」高 9px —— 同一行里的按钮底边必须齐。
+     ★行高统一 1：按钮盒子高度由 padding + line-height 决定，
+     「?」字号 15px 而「暂停」12px，line-height 不统一的话两者盒子高度不同。 */
+  margin-top: 9px;
+  margin-left: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 1;
+  /* 「?」是这一屏唯一的纯符号按钮，视觉上要比暂停键更轻，
+     免得它看起来像第二个主操作。 */
+  color: var(--amber-hi);
+  border-color: var(--border);
+}
+
+.help-btn.on {
+  color: #2b2005;
+  background: var(--amber);
+  border-color: var(--amber-hi);
+}
+
+.skillbook {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  /* 整层不吃事件：留给画布（摇杆 / 按住走位）。面板本体自己打开。 */
+  pointer-events: none;
+  /* 抽屉右侧压一层很淡的暗，让文字读得清，但绝不遮战场 */
+  background: linear-gradient(270deg,
+    rgba(6, 7, 10, 0.72) 0%,
+    rgba(6, 7, 10, 0.45) 34%,
+    rgba(6, 7, 10, 0) 62%);
+}
+
+.sb-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(400px, 92vw);
+  display: flex;
+  flex-direction: column;
+  padding: 12px 12px 14px;
+  /* 实体背景：图鉴是「读字」界面，背后透出会干扰识读。
+     与 .panel-dock 那套半透明不同 —— 那套要透出战场是因为它挡在战斗中间，
+     而抽屉贴着屏幕边，背后本来就是玩家角色的另一侧，遮住不亏。 */
+  background: #191d22;
+  border-left: 1px solid var(--border);
+  pointer-events: auto;
+  animation: sbIn 0.18s ease-out;
+}
+
+@keyframes sbIn {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.sb-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sb-head h2 {
+  margin: 0;
+  font-size: 17px;
+  letter-spacing: 1px;
+}
+
+/* 联机提示条：明确「世界不会因为你查资料而停下」。
+   宁可让玩家多看一眼这句话，也不要他以为图鉴是暂停界面。 */
+.sb-live {
+  flex: 1;
+  font-size: 11px;
+  color: var(--amber-hi);
+}
+
+/* 分类页签 */
+.sb-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 10px 0 8px;
+}
+
+.sb-tab {
+  flex: 1;
+  padding: 6px 4px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--text-dim);
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  cursor: pointer;
+}
+
+.sb-tab.on {
+  color: var(--text);
+  background: var(--blood);
+  border-color: var(--blood-hi);
+}
+
+.sb-tab i {
+  margin-left: 4px;
+  font-size: 12px;
+  font-style: normal;
+  opacity: 0.7;
+}
+
+.sb-hint {
+  margin-bottom: 8px;
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.sb-list {
+  flex: 1;
+  overflow-y: auto;
+  /* 手机上给滚动留出底部安全区，否则最后一条会压在home 条下面 */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  -webkit-overflow-scrolling: touch;
+}
+
+.sb-item {
+  margin-bottom: 9px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border: 1px solid var(--border-soft);
+  border-left: 3px solid var(--border);
+}
+
+.sb-item.owned {
+  border-left-color: var(--amber);
+}
+
+.sb-item.ready {
+  border-left-color: var(--ok);
+}
+
+.sb-row1 {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.sb-name {
+  font-size: 17px;
+  color: var(--text);
+}
+
+/* 类别标签：四个类别用四种色，与升级面板那套（进化=琥珀 / 组合=暗红）一致 */
+.sb-tag {
+  padding: 2px 7px;
+  font-size: 12px;
+  color: var(--text-dim);
+  background: #0e1114;
+  border: 1px solid var(--border);
+}
+
+.sb-tag.c-evo { color: var(--amber-hi); border-color: var(--amber-lo); }
+.sb-tag.c-combo { color: #ffc9c9; border-color: var(--blood); }
+
+.sb-own {
+  margin-left: auto;
+  font-size: 13px;
+  color: var(--amber);
+}
+
+.sb-own.evo { color: var(--amber-hi); }
+
+.sb-desc {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* 配方 / 起始 / 组合那几行交叉信息 */
+.sb-recipe {
+  margin-top: 5px;
+  font-size: 13.5px;
+  color: var(--amber-hi);
+}
+
+.sb-recipe .lb {
+  display: inline-block;
+  min-width: 34px;
+  margin-right: 6px;
+  padding: 0 5px;
+  font-size: 12px;
+  color: var(--text-mute);
+  border: 1px solid var(--border-soft);
+}
+
+.sb-recipe .ok {
+  margin-left: 8px;
+  color: var(--ok);
+}
+
+.sb-recipe .no {
+  margin-left: 8px;
+  color: var(--text-mute);
+}
+
+.sb-nums {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+.sb-flavor {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-mute);
+  opacity: 0.8;
+}
+
+/* 手机：抽屉改成占满整屏（92vw 已经很宽了，但 390px 屏上 92vw 仍留一条缝，
+   反而变成「一条窄缝里塞满文字」）。此时全屏是合理的 —— 竖屏本来就窄，
+   玩家查图鉴时单手持机、另一只手不好走位，视野被占满反而不会误判。 */
+@media (max-width: 720px) {
+  .sb-panel {
+    width: 100%;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  }
+
+  /* 手机端与桌面保持同一档字号 —— 图鉴是「查资料」界面，
+     小一号就等于查不清（用户明确反馈过字号太小）。
+     桌面在文件末尾的 pointer:fine 段里还会再放大一档。 */
+  .sb-name { font-size: 17px; }
+  .sb-desc { font-size: 14px; }
+  .sb-nums, .sb-recipe { font-size: 13.5px; }
+  .sb-tab { min-height: 44px; }
+}
+
+/* ============================================================
+   手机端优化（本轮）
+   ============================================================
+   两套条件分开写，因为它们管的是不同的事：
+     · max-width: 720px —— 屏幕真的窄，**布局**必须改（换行、缩小、单列）
+     · pointer: coarse  —— 手指操作，**触摸目标**必须够大（与屏幕宽窄无关：
+                            平板也是手指，窄桌面窗口却是鼠标）
+   只用宽度来判断，会出现「大屏手机上按钮太小」和「窄窗口里按钮过大」两种错。
+   加上刘海屏安全区：横屏时左右刘海、竖屏时底部手势条都会盖住 HUD。
+   ============================================================ */
+
+/* ---------- 触摸设备：把所有可点目标抬到 44px 以上 ----------
+   （44px 是 iOS HIG 的下限；安卓建议 48dp。这里取 44 作为统一底线。） */
+@media (pointer: coarse) {
+  .btn {
+    min-height: 44px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .pause-btn {
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  /* 升级候选项整块就是按钮，必须够高 */
+  .choice {
+    min-height: 64px;
+  }
+
+  /* 手机上不要 hover 位移：手指点完会留下「粘住」的悬停态，看着像卡了 */
+  .choice:hover {
+    transform: none;
+  }
+
+  .char-card:hover:not(.locked) {
+    transform: none;
+  }
+}
+
+/* ---------- 窄屏布局 ---------- */
+@media (max-width: 720px) {
+  /* 顶部状态条：允许换行 + 收紧内边距。
+     原来是一行 flex，窄屏上「难度 + 关卡 + 波次 + 同屏 + 角色 + 联机人数 + 房间号」
+     会被挤成一条细线甚至溢出屏幕 —— 玩家最需要看的倒计时反而被压到最小。 */
+  .hud-top {
+    flex-wrap: wrap;
+    /* gap 的行间距从 8 收到 6：换行后一共三行（倒计时 / 血条+击杀金币 / 波次），
+       行间距乘以行数就是实打实的占用。 */
+    gap: 6px 8px;
+    /* ★底部内边距 26 → 12：那 26px 是**桌面单行版**为渐变过渡留的
+       （背景是 180deg渐变，要一段淡出区才不生硬）。
+       窄屏已经换成三行了，每行下面都有一段渐变，26px 纯属浪费 ——
+       手机竖屏的纵向像素比宽度金贵得多。 */
+    padding: 8px 10px 12px;
+    /* 刘海屏：顶部要避开状态栏 */
+    padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  }
+
+  .hud-center {
+    flex: 1 1 100%;
+    order: -1;                 /* 倒计时排到第一行：它是这一屏最重要的数字 */
+  }
+
+  .hud-timer {
+    font-size: 26px;
+  }
+
+  .hud-wave {
+    font-size: 11px;
+    letter-spacing: 0.2px;
+    /* 窄屏上这一行经常放不下，允许换行而不是横向溢出 */
+    white-space: normal;
+    line-height: 1.6;
+  }
+
+  .hud-wave .sep {
+    margin: 0 4px;
+  }
+
+  .hud-left {
+    /* 原来这里只改了 gap，却留着 `flex: 0 0 300px` 的固定宽 ——
+       390 宽的竖屏上它一家就吃掉 77%（300/390），把右边全挤没了。
+       现在改成**按内容**（0 1 auto）：血条有多长就多宽，
+       ★不能写 `flex: 1 1 auto` —— 那会让它把整行剩余空间全吃掉（实测 255px），
+       而这一行的剩余空间本来是留给击杀/金币的。 */
+    flex: 0 1 auto;
+    min-width: 0;
+    gap: 6px;
+  }
+
+  /* 血条给个上下限：太短读不出血量，太长又把右边挤走。
+     ★132 → 116：顶栏这一行现在是「血条 + 击杀金币 + 三个按钮（暂停/倍速/?）」并排，
+       390 屏实测 132 + 8 + 239 = 379 > 可用 370 —— **差 9px 就换行**，
+       而换行会让顶栏多占一整行，直接压住 Boss 血条（top:126）。
+       血量数字本来就写在上方（「120 / 120」），条短一点照样读得出。 */
+  .hud-left .bar.hp {
+    width: 116px;
+    min-width: 96px;
+    max-width: 150px;
+  }
+
+  .hud-left .bar.exp {
+    width: 116px;
+    min-width: 80px;
+    max-width: 150px;
+  }
+
+  .hud-level {
+    font-size: 12px;
+  }
+
+  /* ---------- Boss 血条：让开右侧的「?」按钮 ----------
+     原来宽 min(560px, 68vw)：390 屏上是 265px、居中，
+     而顶栏右侧的「?」按钮正好落在它的右端（截图里叠在一起）。
+     两个都不是可选元素 —— 玩家要知道 Boss 剩多少血，也要能随时查图鉴。
+     做法：窄屏上血条靠左排布并收窄，给右侧留出按钮的位置。 */
+  .boss-bar {
+    /* ★换思路：不再与顶栏「并排让位」，而是**下移到顶栏之下**。
+     *   前一版按「给 ? 按钮留 56px」处理，量出来仍然相交 ——
+     *   真正的距离不是按钮宽度，而是「.hud-right 这个块有多宽」（实测 107px，
+     *   ? 按钮落在它的 76~107px 处即 310~341）。按按钮宽去估算让位量永远算不准。
+     *   下移一行之后，两者不在同一行，让位量不用算、也不会因文案变化再失效。
+     *   ★top 必须落在「顶栏之外」：实测 ? 按钮的盒子是 92~121（它在 .hud-right 里，
+     *   属于顶栏那一行），而血条自己还有 60px 高。
+     *   前面两次分别写 62 / 92：62 撞上、92 正好与按钮顶部对齐 —— 都是同一个错，
+     *   判据是这一条：**量到 ? 按钮的 bottom 是多少，top 就得比它大**。 */
+    top: 126px;
+    left: 10px;
+    right: 10px;
+    /* 基础样式靠 translateX(-50%) 居中，这里改用 left/right 定位，必须清掉。
+       顺带换一条**不含水平位移**的动画：原 bossIn 的 from/to 都带 translateX(-50%)，
+       动画期间会覆盖 transform:none。 */
+    transform: none;
+    width: auto;
+    max-width: none;
+    animation: bossInNarrow 0.35s ease-out;
+  }
+
+  /* 窄屏专用的入场动画：只做透明度 + 上下位移，不做水平位移 */
+  @keyframes bossInNarrow {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* 血条本身压到一行高：名字与血量数字并排放在轨道上方，
+     省下一整行（约 20px）。原窄屏规则只改了字号，行高没动。 */
+  .boss-bar .boss-name {
+    font-size: 11px;
+    padding: 1px 8px;
+    letter-spacing: 1px;
+  }
+
+  .boss-bar .boss-hp {
+    font-size: 10px;
+    margin-top: 1px;
+  }
+
+  /* ---------- 调试浮层：窄屏上默认收起 ----------
+     它只在 ?debug=1 下出现，但内容有 5 行，在 390×844 上占掉近 1/5 的屏。
+     玩家（和自动化）大多数时候不需要它 —— 需要时再用下面的开关调出来。 */
+  .hud-debug {
+    font-size: 10px;
+    line-height: 1.5;
+    padding: 5px 7px;
+    max-width: 62vw;
+  }
+
+  /* ---------- 击杀 / 金币：压成一行紧凑徽章 ----------
+     【为什么改】原来这里是两行（击杀一行、金币一行），加上图标 + 数字 + min-width:44px，
+     在 390 宽的竖屏上要吃掉 60~70px 宽、两行高 —— 而手机竖屏的顶部每一px
+     都在挤压下面真正重要的东西（倒计时与波次）。用户实测反馈「占用过大」。
+     改法：两行并成**一行**、去掉图标、字号降一档。
+     ★不删数据：击杀与金币都是玩家要盯着看的数字，只是换个更省地方的摆法。 */
+  .hud-right {
+    flex: 0 0 auto;
+    font-size: 11px;
+    line-height: 1.4;
+  }
+
+  /* 两行并一行：两个 stat 横向排布 */
+  .hud-right {
+    display: flex;
+    align-items: center;
+    /* 6 → 4：这一行塞了三个按钮，把间隙收紧给「不换行」留余量（见上面血条那段说明） */
+    gap: 4px;
+    /* ★行高收到 1.15：数字 14px + 行距1.15 约 16px，
+       原来 line-height 1.5 会把它拉到 21px，一行也占掉两行的高度。
+       这是「压成一行」之后最容易漏掉的一处 —— 行高不会因为并排就自动变紧。 */
+    line-height: 1.15;
+  }
+
+  /* .hr-stats 内部两个 stat 之间的间距也要跟着收：
+     宽屏那边是 16px（有地方），手机上一行本来就只有 ~340px，
+     16px 的间距纯属浪费。 */
+  .hr-stats {
+    gap: 4px;
+  }
+
+  .hud-right .stat {
+    gap: 2px;
+    /* 底色/边框在基础规则里已经清掉了（HUD 上是「文字+数字」不是卡片），
+       这里显式再写一遍：窄屏段是**后加载**的独立规则块，
+       以后有人只改这一段时，不会因为「没看到基础规则」而把方框加回来。 */
+    background: none;
+    border: 0;
+    /* ★必须显式清掉 padding —— `.hud-right .stat` 命中了顶栏那套
+       「上下 11px 内边距」的规则（那是给两行文字的大块设计的）。
+       40px 的高度里有 22px 是这个 padding，内容本身只有 16px。
+       ★这类「继承来的padding」最难查：看样式表里那行完全正常，
+         它的本意是给别的东西用的。 */
+    padding: 0;
+    /* 原来那一列是固定 158px 宽的，右对齐是为了在宽块里贴右。
+       现在整块宽度跟着内容走，右对齐只会让两个数字之间多出一段空隙。 */
+    justify-content: flex-start;
+    white-space: nowrap;
+  }
+
+  /* 图标在窄屏上去掉：它只占宽度不提供新信息（旁边的数字已经说明了是什么） */
+  .hud-right .ico {
+    display: none;
+  }
+
+  /* 数字降一档 + 取消 min-width —— 原来 min-width:44px 是为了数字跳动时不左右抖，
+     但 `b` 已经用等宽数字（tabular-nums，设在 #hud 上），不抖了就不需要占位。 */
+  .hud-right b {
+    font-size: 14px;
+    min-width: 0;
+    padding: 0;
+  }
+
+  /* 标签文字（击杀/金币）：保留但压到 10px，靠颜色区分而不是靠宽度 */
+  .hud-right .stat {
+    font-size: 10px;
+    color: var(--text-mute);
+  }
+
+  /* ---------- 顶栏那个「?」帮助按钮 ----------
+     它也在 .hud-right 里，所以「压击杀/金币」时它跟着一起变矮了。
+     36px 高在手机上其实正好（接近 44px 触摸目标的下限），所以保留高度、
+     只去掉外边距 —— 原来 margin-top:9px 会把整块再撑高 9px。 */
+  /* ---------- 顶栏右侧三个按钮（暂停 / 倍速 / 帮助）----------
+     ★★★ 这一段是把三者**统一声明**在一处的原因：它们原来分散在三个地方
+     （基础 .pause-btn 有 margin-top:9px、窄屏 .hud-right .pause-btn 给 44px、
+     .hud-right .help-btn 又单独收 padding），结果**高度与底边各不相同**：
+     暂停 44×47（底 117.5）、倍速 44×34、帮助 44×27（底都是 113）——
+     底边差 4.5px，肉眼看就是「暂停比另两个高一截」。
+     ★修法不是「再给另两个补一个 margin-top」（那是拿三个数值去凑一个结果，
+       以后改字号又会歪），而是**三者共用同一组值**。
+
+     44×44 是项目硬约定（触摸目标下限），窄屏下三个都取 44×44：
+       · min-width:44px —— 「×1」只有两个字符，宽 34px，点不准；
+       · padding 统一 0 + 用 flex 居中，文字长短不再影响盒子尺寸。
+     底边对齐靠 `.hud-right` 的 `align-items: center`（见下方窄屏段）——
+     ★flex 行里的按钮**必须靠 align-items 对齐**，只给 min-height 是不够的：
+       min-height 只保证「不小于 44」，三者的实际高度仍可能不同。 */
+  .hud-right .pause-btn,
+  .hud-right .speed-btn,
+  .hud-right .help-btn {
+    /* ★margin 归零：pause 基础样式带 margin-top:9px（宽屏时用来跟 stat 拉开距离），
+       窄屏不需要 —— 留着就是那 4.5px 的元凶。 */
+    margin: 0;
+    min-width: 44px;
+    height: 44px;
+    /* ★padding 必须归零：按钮的默认 padding 会让「内容少的按钮盒子更小」
+       （box-sizing 未必是 border-box，这里显式统一）。 */
+    padding: 0 6px;
+    /* ★flex 居中：宽窄由 min-width 兜底，内容在 44×44 里居中，
+       这样三个按钮的文字长短不再影响盒子尺寸。 */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    line-height: 1;
+    align-self: center;   /* ★在 .hud-right 的 flex 行里与同行兄弟对齐 */
+  }
+
+  /* 底部槽位：本轮多了一行组合技，手机竖屏本来就没多少纵向空间，
+     整体缩小一档，并避开底部手势条。 */
+  .hud-slots {
+    left: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    gap: 5px;
+    max-width: calc(100vw - 20px);
+  }
+
+  /* ---------- 折叠角标（第二十轮）----------
+     ★位置必须跟着 .hud-slots 的窄屏偏移走（left 10px / bottom 10px+手势条），
+       否则展开/折叠切换时角标与技能区会「跳一下」—— 玩家会以为点错了。
+       这里复用的正是上面那组值，改一处要记得改两处（已在注释里钉住）。 */
+  .slot-fold {
+    left: 10px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    /* 窄屏再收一档，但**不破 44px**（触摸目标下限是项目约定） */
+    width: 44px;
+    min-height: 44px;
+  }
+
+  /* 展开态的「收起」按钮：窄屏下手势够不到顶部，这个按钮的价值最大。
+     ★只调字号与内边距，**不破 44px**（触摸目标下限是项目约定）。 */
+  .slot-fold-btn {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .slot {
+    font-size: 11px;
+    padding: 3px 7px;
+  }
+
+  /* ★槽位上限提到 10 之后，空槽必须再收窄一档。
+     22px × 10 + 9 个间隙（4px）= 256px，而这一行在 390 屏上只有 54vw ≈ 210px，
+     直接折成两行 —— 底部 HUD 会长高一截盖住战场。
+     16px 时 16×10 + 4×9 = 196px，一行放得下。
+     ★空槽只是「还剩几格」的占位符，不是可点区域，所以不受 44px 触摸目标约定约束
+       （那条约束管的是 .btn / .pause-btn 这类**能点的东西**）。 */
+  .slot.empty {
+    width: 16px;
+  }
+
+  .slot-row {
+    flex-wrap: wrap;
+    gap: 4px;
+    /* 同时把行放宽：父级 .hud-slots 已经限了 100vw - 20px，
+       所以再宽也不会溢出视口（tools/hudsize.js 有一条「槽位整块没溢出视口」守它）。
+       原来写死 54vw 是为了 6 格时代不抢宽度，10 格时代太窄了。 */
+    max-width: calc(100vw - 34px);
+  }
+
+  /* 技能说明卡在手机上：贴左边、占满宽度，并压矮一点 ——
+     手机纵向本来就紧张，46vh 的卡片会把战场压掉一半。
+     技能区在窄屏只占 52px 高（底部 10px 起），所以 bottom 78px 够让开它。 */
+  .slot-card {
+    left: 10px;
+    right: 10px;
+    width: auto;
+    bottom: 78px;
+    max-height: 40vh;
+  }
+
+  /* 升级面板：贴底时占满宽度，方便拇指点 */
+  .panel-dock {
+    max-height: 62vh;
+    width: calc(100% - 16px);
+    left: 8px;
+    right: 8px;
+    transform: none;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .panel-dock .choice-grid {
+    flex-direction: column;
+    max-height: 42vh;
+  }
+
+  .panel-dock .choice {
+    padding: 12px 13px;
+    gap: 10px;
+  }
+
+  .choice .tag {
+    min-width: 40px;
+    font-size: 10px;
+    padding: 3px 7px;
+  }
+
+  .choice .name {
+    font-size: 14px;
+  }
+
+  .choice .desc {
+    font-size: 12px;
+  }
+
+  .choice .hint {
+    font-size: 11px;
+  }
+
+  /* 角色选择：8 个角色在窄屏上排成单列，卡片压扁一点，
+     否则一次只能看到两个角色，滚动会很烦 */
+  .character-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+    /* 单列 8 张卡比两列高得多（实测 3250px），不给上限的话
+       「开始对局」按钮会被推到很下面。68vh 让标题与按钮大致同屏可见。 */
+    max-height: min(68vh, 720px);
+  }
+
+  .char-card {
+    padding: 10px 12px 10px 14px;
+  }
+
+  .char-portrait canvas {
+    width: 64px;
+    height: 64px;
+  }
+
+  /* 观战控制条：窄屏上把文字缩掉，只留按钮，避免换行 */
+  .spec-dock {
+    padding: 6px 10px;
+    gap: 8px;
+    bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .spec-now .spec-sub {
+    display: none;
+  }
+}
+
+/* ---------- 极窄（小手机竖屏） ---------- */
+/* 【为什么断点是 360 而不是 420】390px 是最常见的手机宽度（iPhone 12~15 都是 390），
+   420 会把「主流手机」也划进极窄档 —— 实测下来关卡名在 390 宽的机器上被藏掉了，
+   而关卡名正是玩家感知「我打到哪了」的唯一线索。360 以下才是真的极窄（老机型）。 */
+@media (max-width: 360px) {
+  .hud-timer {
+    font-size: 22px;
+  }
+
+  /* 关卡名在极窄屏上优先让位给波次数字（波次是硬信息） */
+  .hud-wave .stage-tag {
+    display: none;
+  }
+
+  .hud-wave .sep:first-of-type {
+    display: none;
+  }
+}
+
+/* ---------- 横屏手机（高度很矮） ----------
+   横屏时纵向空间比竖屏还紧张，升级面板必须压得更矮，否则会把战场整个盖住。 */
+@media (max-height: 460px) and (orientation: landscape) {
+  .panel-dock {
+    max-height: 78vh;
+  }
+
+  .panel-dock .choice-grid {
+    flex-direction: row;
+    max-height: 52vh;
+  }
+
+  .panel-dock .choice {
+    flex: 1 1 0;
+  }
+
+  .hud-top {
+    padding-top: calc(6px + env(safe-area-inset-top, 0px));
+    padding-bottom: 20px;
+  }
+
+  .hud-slots {
+    left: calc(10px + env(safe-area-inset-left, 0px));
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+/* ============================================================
+   PC 端放大（2026-10-03）
+   ============================================================
+   【需求】PC 上技能选择框太小、字看不清。
+   【为什么用 pointer:fine 而不是 min-width】判的其实是「操作方式」不是
+   屏幕宽度 —— 带触摸屏的笔记本主指针仍是鼠标（要放大），平板是手指
+   （不该放大）。宽窄判断会把这两种情况判反。
+   【为什么单独写一段而不改上面的原值】上面的 .choice / .panel 同时服务
+   手机与联机贴底面板，直接改会把手机一起放大；用同一批选择器在这里
+   覆盖，只作用于鼠标签设备。
+   【为什么要写 .panel-dock .choice】CSS 特异性：`.panel-dock .choice`
+   是两级选择器，单写 `.choice` 压不过它，必须同级别写一遍。
+   ============================================================ */
+
+@media (pointer: fine) {
+
+  /* ---------- 单机全屏面板：整块放大 ---------- */
+  .panel {
+    max-width: 900px;
+    padding: 34px 36px;
+  }
+
+  .panel h2 {
+    font-size: 30px;
+    margin-bottom: 10px;
+    padding-left: 18px;
+  }
+
+  /* 标题左侧那枚方块跟着放大 */
+  .panel h2::before {
+    top: 11px;
+    width: 12px;
+    height: 12px;
+  }
+
+  .panel .sub {
+    /* 16px 也是 12 的 1.33 倍 —— 但副标题是「一句话说明」，字号小一点
+       反而能拉开层级，这里保留 16 并靠颜色（--text-dim）承担次要感。 */
+    font-size: 16px;
+    margin-bottom: 24px;
+  }
+
+  /* ---------- 候选项：三处一起大（框高 / 标签 / 文字） ---------- */
+  .choice-grid {
+    gap: 14px;
+  }
+
+  .choice {
+    gap: 18px;
+    padding: 20px 24px;
+    /* 给一个下限高度：三选一项时视觉上像个「大按钮」，不是一条细行 */
+    min-height: 92px;
+  }
+
+  .choice .tag {
+    min-width: 68px;
+    padding: 6px 12px;
+    font-size: 15px;
+  }
+
+  .choice .name {
+    /* 24px = 12 的整数倍。Zpix 是 12px 网格的点阵字，**整数倍时每个点
+       落到整数像素上**，最锐利；非整数倍（如 23px）会让格子落在半像素上，
+       边缘出现灰度，看起来就是「有点糊」。改 Zpix 字号就按 12 的倍数走。 */
+    font-size: 24px;
+    line-height: 1.35;
+  }
+
+  .choice .desc {
+    margin-top: 6px;
+    font-size: 17px;
+    line-height: 1.6;
+    /* 说明文字原来偏灰（#9ba3af），在深底上小字号读起来吃力，提亮一档 */
+    color: #aeb6c2;
+  }
+
+  /* 组合技配方提示：原来 11.5px，PC 上基本看不清 */
+  .choice .hint {
+    margin-top: 7px;
+    font-size: 16px;
+    line-height: 1.55;
+  }
+
+  /* ---------- 联机贴底面板：放大但留余地 ----------
+     它贴底悬浮、战场还在跑，放大过头会把画面压掉一半 ——
+     所以只放到单机那档的约 85%。 */
+  .panel-dock {
+    padding: 20px 24px;
+  }
+
+  .panel-dock .choice-grid {
+    gap: 12px;
+  }
+
+  .panel-dock .choice {
+    gap: 16px;
+    padding: 16px 20px;
+    min-height: 78px;
+  }
+
+  .panel-dock .choice .tag {
+    min-width: 62px;
+    padding: 5px 11px;
+    font-size: 14px;
+  }
+
+  .panel-dock .choice .name {
+    font-size: 20px;
+  }
+
+  .panel-dock .choice .desc {
+    font-size: 15px;
+    line-height: 1.55;
+  }
+
+  .panel-dock .choice .hint {
+    font-size: 14px;
+  }
+
+  .panel-dock h2 {
+    font-size: 24px;
+  }
+
+  .panel-dock .sub {
+    font-size: 15px;
+  }
+
+  /* ---------- 结算 / 暂停 / 菜单等面板里的按钮也一并放大 ---------- */
+  .panel .btn {
+    font-size: 17px;
+    padding: 13px 26px;
+  }
+
+  /* ---------- 暂停 / 联机菜单：字再放大一档 ----------
+     用户实测反馈「字可以大一些」。这两个面板是纯操作面板（不读长文），
+     按钮上的字就是全部内容 —— 17px 在 PC 上偏小。
+
+     ★写在这里而不是 `.panel-narrow` 那一段：那段在 1784 行的媒体查询**之前**，
+       这里的 `.panel .btn` 权重相同但位置更后，会把它盖掉。
+     ★20/24px 都是 Zpix 12px 网格的整数倍（点阵字落在整数像素上最锐利）。 */
+  .panel-narrow .btn {
+    font-size: 20px;
+    padding: 15px 28px;
+  }
+
+  /* 「继续游戏 / 继续观看」是这一屏唯一的主操作，字再大一档 */
+  .panel-narrow .btn-primary {
+    font-size: 24px;
+    padding: 17px 28px;
+  }
+
+  /* ---------- 暂停面板：商店 + 角色数据 ----------
+     这两块是用户在暂停时**主动要读**的内容，字太小等于功能不存在。
+     放在 PC 放大段里（而不是 .shop 自己的段落），理由同上面的 .panel-narrow：
+     这一段在文件更后面，同权重下能盖住前面写的。 */
+  .panel-wide {
+    max-width: 780px;
+  }
+
+  .shop-title,
+  .dt-title {
+    font-size: 19px;
+  }
+
+  .shop-bal,
+  .dt-char {
+    font-size: 15px;
+  }
+
+  .shop-bal b {
+    font-size: 26px;
+  }
+
+  .si-name {
+    font-size: 17px;
+  }
+
+  .si-desc {
+    font-size: 13px;
+  }
+
+  .si-price {
+    font-size: 15px;
+  }
+
+  .shop-msg {
+    font-size: 15px;
+  }
+
+  .dt-k {
+    font-size: 14px;
+  }
+
+  .dt-v {
+    font-size: 19px;
+  }
+
+  .dt-own-row {
+    font-size: 13px;
+  }
+
+  /* 升级候选的关联说明：这条是决策依据，字太小等于没写 */
+  .choice .link {
+    font-size: 15px;
+  }
+
+  .panel .btn-sm {
+    font-size: 15px;
+    padding: 9px 18px;
+  }
+
+  /* ---------- 技能图鉴：桌面再放大一档 ----------
+     【为什么桌面要比手机更大】桌面屏大、眼睛离得远，同样 px 的观感更小；
+     项目里面板字号早就是这个规矩（见上面 .panel 那几条）。
+     抽屉也要同步加宽 —— 光放大字号不加宽，说明文字会挤成很多行，反而更难读。 */
+  .sb-name { font-size: 19px; }
+  .sb-desc { font-size: 15.5px; line-height: 1.65; }
+  .sb-recipe { font-size: 15px; }
+  .sb-tag, .sb-recipe .lb { font-size: 13px; }
+  .sb-tab { font-size: 15px; }
+  .sb-own { font-size: 14px; }
+  .sb-panel {
+    /* 92vw 是窄窗口下的兜底：窗口比抽屉还窄时不让它溢出屏幕 */
+    width: min(470px, 92vw);
+  }
+}

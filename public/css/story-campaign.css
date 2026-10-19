@@ -1,0 +1,695 @@
+/* ============================================================
+   剧情模式样式（第十五轮）
+   ============================================================
+   设计取法：**Sega 街机像素风的结构**，但**配色全套沿用本项目的暗红 + 琥珀金**。
+
+   ★为什么没有直接用 Sega 那套设计令牌
+   Sega 规范的主色是一支紫蓝（主色）、辅色是一支亮黄。
+   本项目有一条硬约定：**禁紫 / 紫蓝**（见 .workbuddy/memory/MEMORY.md）——
+   而它正是一支典型紫蓝。直接照搬会当场违反项目约定。
+   所以这里只取它的**结构**（这些与配色无关，可以安全借用）：
+     · 硬边零圆角       —— 像素风的基本盘（圆角与「像素质感」天然冲突）
+     · 按钮「压进实心块」 —— 用 border-bottom 的厚度差做物理按压感，
+                            比 scale 变换更像素（缩放会插值出模糊边缘）
+     · 等宽数字         —— 时长/关卡号用 tabular-nums，跳动时不左右抖
+   配色一律走 theme.css 的 --blood / --amber / --panel 系列。
+
+   ★★★ 弹层居中：绝不能写 align-items: center
+   本文件里两个弹层（.story-mask / .panel-prologue）都会装「比视口高的内容」
+   （六张关卡卡片、长度不定的题记）。flex 居中 + overflow 的组合有个经典陷阱：
+   **居中的子元素超出容器时，顶部被推到容器内容区之外，而 overflow-y:auto
+   只能往下滚 —— 上面那一截永远滚不回来。**
+   本项目已经因为这个坑报障过两次（角色选择页 8 张卡在 1600×1000 也裁）。
+   修法是**居中改用 `margin: auto`**：内容矮时仍精确居中，内容高时顶部留在容器内。
+   tools/charoverflow.js 就是为守这条写的。
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   一、大厅：剧情模式入口按钮
+   ------------------------------------------------------------ */
+
+.btn-story {
+  /* 与「单人游戏」并排，但要有区分度 ——
+     它是「带故事的那一局」，比随手开一局更重。 */
+  border-color: var(--amber-lo);
+  color: var(--amber);
+}
+
+.btn-story:hover {
+  border-color: var(--amber);
+  color: var(--amber-hi);
+}
+
+/* ------------------------------------------------------------
+   二、大厅：关卡选择弹层
+   ------------------------------------------------------------ */
+
+.story-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 62;
+  display: flex;
+  /* ★★★ 这里**故意不写 align-items** —— 见文件头说明。
+     居中由 .story-mask > * 的 margin:auto 承担。 */
+  justify-content: center;
+  padding: 20px;
+  background: rgba(8, 10, 12, .78);
+  backdrop-filter: blur(3px);
+  overflow-y: auto;
+  /* ★山海仙境底图（第十九轮 AI 生成，tools/prepsceneimg.js 处理成 1200×800/49 色/345KB）。
+     放在**遮罩层**而不是 .story-box 上：
+       · 放遮罩层 → 图在面板**背后**，面板自己的 --panel 底色照旧压得住文字；
+       · 放面板上 → 面板底色被图盖掉，卡片列表下面全是图，文字可读性直接崩。
+     遮罩原本是半透明黑（.78），加图后再叠一层更暗的渐变 —— 顶部留白处最亮，
+     而标题正好在那儿，所以额外给顶部补一层压暗。 */
+  background-image:
+    linear-gradient(180deg, rgba(8,10,12,.86) 0%, rgba(8,10,12,.74) 45%, rgba(8,10,12,.88) 100%),
+    url('/img/scene-out/story-bg.png');
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+}
+
+/* ★居中靠它，不靠 align-items。改成 center 会在小屏上裁掉第一关。 */
+.story-mask > * {
+  margin: auto;
+}
+
+.story-box {
+  width: 100%;
+  max-width: 620px;
+  background: var(--panel);
+  border: 2px solid var(--border-soft);
+  /* 硬边：像素风不圆角 */
+  border-radius: 0;
+  padding: 22px 24px 18px;
+  /* 右下角实心块 = 「面板是有厚度的」 */
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, .55);
+}
+
+.story-box h2 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  color: var(--text);
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.story-box h2 em {
+  font-style: normal;
+  color: var(--blood-hi);
+}
+
+.story-sub {
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 1px;
+}
+
+.story-tag {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+  line-height: 1.6;
+}
+
+/* ---------- 模组切换 ---------- */
+.story-mods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.story-mod {
+  font-family: inherit;
+  font-size: 13px;
+  padding: 6px 14px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+.story-mod.on {
+  background: var(--amber-lo);
+  color: #12161a;
+  border-color: var(--amber);
+  font-weight: 700;
+}
+
+.story-prog {
+  font-size: 13px;
+  color: var(--text-dim);
+  padding: 8px 0 12px;
+  border-bottom: 2px solid var(--border-soft);
+  margin-bottom: 4px;
+}
+
+.story-prog b {
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+}
+
+/* ---------- 关卡列表 ----------
+   ★长列表自己给滚动上限（治本的第二层）：
+   六张卡片在手机上会超过一屏，若不设上限，玩家要滚过整个弹层才够得到「关闭」，
+   而且标题会一起滚走（滚到一半不知道自己在看什么）。
+   上限按视口算，桌面端给个舒适的绝对值上限。 */
+.story-list {
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  /* 12px 而不是 10px：卡片底部的「需要先通关第 N 关」是补充说明，
+     间距太小它会与下一张卡视觉粘连（用户截图报的就是这个观感）。 */
+  gap: 12px;
+  padding: 14px 4px 14px 0;
+}
+
+.story-card {
+  /* ★★这里是 WebKit（Safari / iPad）专属坑的修法，别改回 flex：
+     `<button>` 在 WebKit 里**自带 overflow:hidden 与原生按钮外观**，
+     当它自己充当 flex 容器且内容有多行时，高度按第一行算 →
+     后面几行被 button 底边**裁掉**（只露上半截，看着像夹在两张卡中间）。
+     ★这个 bug 在 Chromium 下**根本复现不出来**（本地全绿、iPad 上才坏），
+       所以修法必须靠结构而不是靠调数值：
+         · flex 下移到内层 .sc-inner（普通元素，没有 button 的怪癖）
+         · 显式 overflow: visible 让内容绝不被裁
+         · 重置 -webkit-appearance，去掉原生按钮对高度/padding 的干预
+     回归见 tools/storylist.js（源码级断言守这三条）。 */
+  display: block;
+  overflow: visible;
+  -webkit-appearance: none;
+  appearance: none;
+  /* ★★flex-shrink: 0 —— 本轮报障的真凶，删了 iPad 上立刻复发。
+  
+     因果链（已用对照实验逐环验证，见 AI更新历史.md）：
+       ① .story-list 是 flex column（竖排列表），卡片是它的 flex item
+       ② flex item 默认 flex-shrink: 1 —— **内容超出容器时会被压扁**
+          （这里 6 张卡要 552px，而列表 max-height 420px → 必须靠滚动，绝不能靠压缩）
+       ③ 桌面下之所以没事，是靠 `min-height: auto` 这层默认保护：
+          auto 在 flex 里表示「不小于内容高度」，等于禁止压缩
+       ④ 而 pixel-ui.css 的 `@media (pointer: coarse) { button { min-height: 44px } }`
+          把这份保护**换成了显式值 44px** → 保护失效 → 卡片被压到 44px
+          → 内容溢出 20~37px → 最后一行被裁成「半截」夹在两张卡之间
+       ★所以「换掉 button 改成 div」没用（div 一样被压），
+         真正要修的是**禁止这个 item 被压缩**。
+       ★桌面（pointer:fine）没有那条 min-height，所以本地 Chromium 一直全绿 ——
+         必须开触摸模拟才测得到，见 tools/storylist.js 的 TOUCH 开关。 */
+  flex: 0 0 auto;
+  /* min-height: 0 保留：把 coarse 那条 44px 也一并覆盖掉（类 > 元素，与加载顺序无关）。
+     卡片自身内容就有 82px 高，远超 44px 的触摸目标要求。 */
+  min-height: 0;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+  cursor: pointer;
+  /* 按钮「压进实心块」：底边 3px 是厚度，按下时收掉 */
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, .45);
+  transition: transform .06s linear, box-shadow .06s linear;
+}
+
+/* 卡片内层：flex 布局的真正承载者。
+   与 .sc-no / .sc-body 的横向排布、以及它们的对齐方式都放在这里。 */
+.sc-inner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  width: 100%;
+}
+
+.story-card:hover:not(:disabled) {
+  border-color: var(--amber-lo);
+}
+
+.story-card:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, .45);
+}
+
+/* 当前该打的那一关：最显眼 */
+.story-card.cur {
+  border-color: var(--amber);
+  background: var(--panel-3);
+}
+
+/* 已通关：压暗但仍可点（重打） */
+.story-card.done {
+  border-color: #2f3a2f;
+}
+
+/* 未解锁：压暗 + 禁用 */
+.story-card.locked {
+  opacity: .5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.sc-no {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  text-align: center;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  background: var(--blood-lo);
+  color: #f0e0e0;
+  border: 2px solid var(--blood);
+}
+
+.story-card.done .sc-no {
+  background: #24302a;
+  border-color: #3c5a45;
+  color: #9fc4ac;
+}
+
+.story-card.locked .sc-no {
+  background: #23272c;
+  border-color: #33393f;
+  color: #6d757e;
+}
+
+.sc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.sc-name {
+  font-size: 16px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sc-badge {
+  font-size: 11px;
+  padding: 1px 7px;
+  border: 1px solid currentColor;
+  letter-spacing: .5px;
+}
+
+.sc-badge.cur { color: var(--amber); }
+.sc-badge.done { color: #8fc4a4; }
+.sc-badge.locked { color: #7a828b; }
+
+.sc-epi {
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.5;
+}
+
+.sc-meta {
+  font-size: 12px;
+  color: #7e8791;
+}
+
+/* 未解锁的补充说明（「需要先通关第 N 关」）。
+   ★顶部间距从 2px 提到 8px：原来它紧贴上一行、又紧贴卡片底边，
+     在 iPad 上看起来就像「被切了半截夹在两张卡中间」。
+     顺便加一道左侧竖线做视觉锚定 —— 让它是「这张卡的注脚」，
+     而不是一段悬在两卡之间的独立文字。 */
+.sc-lock {
+  font-size: 12px;
+  color: #b08a5a;
+  margin-top: 8px;
+  padding-left: 8px;
+  border-left: 2px solid #6b4f2e;
+}
+
+/* ------------------------------------------------------------
+   三、游戏页：卷首页（替代角色选择页）
+   ------------------------------------------------------------ */
+
+.panel-prologue {
+  /* 宽度用类控制，**不写内联 max-width** ——
+     内联样式会压住 @media 里的 PC 放大规则（项目踩过一次：
+     「重开一局」被裁就是因为模板里写了内联 max-width:420px）。 */
+  max-width: 560px;
+  text-align: left;
+}
+
+/* 章节进度点 */
+.pl-chapters {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.pl-cp {
+  width: 26px;
+  height: 26px;
+  line-height: 22px;
+  text-align: center;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: #6d757e;
+  background: var(--panel-2);
+  border: 2px solid var(--border-soft);
+}
+
+.pl-cp.done {
+  color: #9fc4ac;
+  background: #24302a;
+  border-color: #3c5a45;
+}
+
+.pl-cp.cur {
+  color: #12161a;
+  background: var(--amber);
+  border-color: var(--amber-hi);
+  font-weight: 700;
+}
+
+.panel-prologue h2 {
+  margin: 0 0 10px;
+  text-align: left;
+}
+
+.pl-epi {
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--amber);
+  margin: 0 0 16px;
+  padding-left: 12px;
+  border-left: 3px solid var(--amber-lo);
+}
+
+.pl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.pl-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.pl-k {
+  flex: 0 0 62px;
+  color: var(--text-dim);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.pl-v {
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+.pl-sub {
+  display: block;
+  font-size: 12px;
+  color: #7e8791;
+  line-height: 1.5;
+  margin-top: 2px;
+}
+
+.pl-boss {
+  color: var(--blood-hi);
+  font-weight: 700;
+}
+
+/* ---------- 换角色 ---------- */
+.pl-chars {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.pl-charbox {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.pl-char {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 11px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+  cursor: pointer;
+}
+
+/* 关卡推荐的那个（未主动换时高亮） */
+.pl-char.def {
+  border-color: var(--amber-lo);
+  color: var(--amber);
+}
+
+/* 玩家主动选中的那个 */
+.pl-char.on {
+  background: var(--amber);
+  color: #12161a;
+  border-color: var(--amber-hi);
+  font-weight: 700;
+}
+
+.pl-sub2 {
+  font-size: 12px;
+  color: #7e8791;
+  margin: 0 0 12px 72px;
+  line-height: 1.5;
+}
+
+/* ---------- 难度 ---------- */
+.pl-diff {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+/* 难度 chip。
+   ★为什么不用现成的 `.diff-btn`：那个类在 theme.css 里是**三列网格卡**
+     （grid-template-columns: 64px 56px 1fr + width:100%），给大厅的竖排难度列表用的。
+     塞进 flex 行里会各自占满一整行 → 四个竖排大块（实测）。
+     「同一个类名被两个场景共用」注定会以其中一边的版面被牺牲收场，
+     所以这里另起一个类名，两边互不干扰。 */
+.pl-diffbtn {
+  font-family: inherit;
+  font-size: 12px;
+  padding: 5px 13px;
+  background: var(--panel-2);
+  color: var(--text-dim);
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+  cursor: pointer;
+  /* 硬边零圆角 + 按下时沉进去，与剧情模式其它按钮同一套物理感 */
+  transition: background .1s linear, color .1s linear;
+}
+
+.pl-diffbtn:hover {
+  border-color: var(--amber-lo);
+  color: var(--amber);
+}
+
+.pl-diffbtn.on {
+  background: var(--amber);
+  color: #12161a;
+  border-color: var(--amber-hi);
+  font-weight: 700;
+}
+
+/* 选中态的配色跟随难度自身的色系（与大厅那套 diff-xxx 同名类复用配色） */
+.pl-diffbtn.diff-casual.on { background: #6f8f6f; border-color: #8fb08f; color: #101510; }
+.pl-diffbtn.diff-normal.on { background: var(--amber); border-color: var(--amber-hi); color: #12161a; }
+.pl-diffbtn.diff-nightmare.on { background: #a3492f; border-color: #c96a4a; color: #f5e6e0; }
+.pl-diffbtn.diff-bloodmoon.on { background: var(--blood); border-color: var(--blood-hi); color: #fff0f0; }
+
+.pl-diffdesc {
+  font-size: 12px;
+  color: #7e8791;
+  margin: 0 0 4px 72px;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------
+   四、游戏页：节拍横条
+   ------------------------------------------------------------ */
+
+.story-beat {
+  position: absolute;
+  /* ★top 必须避开 Boss 血条（窄屏下它被顶到 126px，见 game.css）。
+     186px 是「Boss 血条底 + 一段间距」，与它同高会重叠 ——
+     上一轮刚修完「? 按钮与 Boss 血条重叠」，同一个教训。 */
+  top: 186px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: min(620px, 86vw);
+  padding: 8px 18px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #f0e6d8;
+  text-align: center;
+  background: rgba(12, 10, 10, .82);
+  border: 2px solid var(--amber-lo);
+  border-radius: 0;
+  /* ★不吃指针事件：它是纯提示，压在战场上时不能挡住走位/摇杆 */
+  pointer-events: none;
+  /* 淡入由 .show 控制。用 v-if 控制的元素加 class 是「一出现就带动画」，
+     所以入场动画直接写在元素上、出场靠移除元素（不需要淡出）。 */
+  animation: beatIn .32s ease-out;
+}
+
+.story-beat .sb-mark {
+  color: var(--amber);
+  margin-right: 8px;
+}
+
+@keyframes beatIn {
+  from { opacity: 0; transform: translate(-50%, -8px); }
+  to   { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* 窄屏：与 Boss 血条一起下移（血条在窄屏更低，节拍要跟得上） */
+@media (max-width: 720px) {
+  .story-beat {
+    top: 216px;
+    font-size: 13px;
+    padding: 7px 12px;
+    max-width: 92vw;
+  }
+}
+
+/* ------------------------------------------------------------
+   五、游戏页：结算卷尾
+   ------------------------------------------------------------ */
+
+.coda {
+  margin: 16px 0 4px;
+  padding: 12px 14px;
+  background: var(--panel-2);
+  border-left: 3px solid var(--amber-lo);
+}
+
+.coda-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.coda-no {
+  font-size: 13px;
+  color: var(--amber);
+  letter-spacing: 1px;
+}
+
+.coda-res {
+  font-size: 12px;
+  padding: 1px 8px;
+  border: 1px solid currentColor;
+}
+
+.coda-res.win { color: #8fc4a4; }
+.coda-res.lose { color: #c96a6a; }
+
+.coda-text {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text);
+  margin: 0;
+}
+
+.coda-text.dim {
+  color: var(--text-dim);
+}
+
+/* ------------------------------------------------------------
+   六、游戏页：HUD 章节标
+   ------------------------------------------------------------ */
+
+.chapter-tag {
+  color: var(--amber) !important;
+  border-color: var(--amber-lo) !important;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ------------------------------------------------------------
+   七、手机端
+   ------------------------------------------------------------ */
+
+/* 触摸设备显式兜底：`button { min-height: 44px }` 是全局兜底规则，
+   .story-card 必须把自己排除在外（理由见 .story-card 里的 min-height 注释）。
+   两道保险都写上：类规则里一条、这里一条。 */
+@media (pointer: coarse) {
+  .story-card {
+    min-height: 0;
+    /* 触摸设备上这条是命门：默认的 `button { min-height: 44px }` 会
+       让卡片失去「不小于内容」的默认保护而被压扁（详见 .story-card 注释）。 */
+    flex: 0 0 auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .story-box {
+    padding: 16px 14px 12px;
+    /* 手机端几乎占满：620px 的卡片在 390 屏上字会挤成两行 */
+    max-width: none;
+  }
+
+  .story-list {
+    /* 竖屏更高，但也要给关闭按钮留位置 */
+    max-height: 56vh;
+  }
+
+  .story-card {
+    padding: 10px 10px;
+  }
+
+  /* ★gap 现在挂在 .sc-inner 上（卡片是 block 了），
+     这里必须跟着改 —— 写在 .story-card 上会静默失效。 */
+  .sc-inner {
+    gap: 10px;
+  }
+
+  .panel-prologue {
+    max-width: none;
+  }
+
+  /* 标签列在窄屏收窄，否则左列占了 72px 而正文没地方 */
+  .pl-k { flex: 0 0 52px; }
+  .pl-sub2, .pl-diffdesc { margin-left: 62px; }
+}
+
+/* PC 放大：与 game.css 的 pointer:fine 段同一档字号。
+   ★必须写在这个文件**最后**，靠「后来者居上」压住上面的基础规则 ——
+     写成两处（基础段 + 这里）就会出现「改了一处另一处没改」。 */
+@media (pointer: fine) {
+  .panel-prologue { max-width: 720px; }
+  .panel-prologue .panel-actions .btn { font-size: 19px; }
+  .pl-char { font-size: 13px; padding: 6px 13px; }
+  .pl-diffbtn { font-size: 13px; padding: 6px 15px; }
+  .pl-row { font-size: 14px; }
+  .story-box h2 { font-size: 26px; }
+  .sc-name { font-size: 17px; }
+  .story-card { padding: 14px 16px; }
+}

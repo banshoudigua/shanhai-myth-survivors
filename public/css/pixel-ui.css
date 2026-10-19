@@ -1,0 +1,634 @@
+/* public/css/pixel-ui.css —— 像素风「外衣」层（2026-10-03）
+ *
+ * ============================================================
+ * 这个文件是干什么的 / 为什么不直接改原样式
+ * ============================================================
+ * 原来三个样式表（theme / game / character-select）已经把**布局与配色**
+ * 定好了（配色是项目硬约定：暗红 + 琥珀金 + 冷灰，禁紫）。
+ * 这一轮要换的是**观感语言**：圆角 → 硬边、柔和阴影 → 实心偏移块、
+ * 雅黑 → 点阵字体。这类改动**只在「形」不在「位」**，所以单独成一层、
+ * 放在所有样式表最后加载，靠「后来者居上」覆盖外观属性。
+ *
+ * 【为什么不直接改原文件】原样式里同一批观感属性散落在三个文件、
+ * 上百个选择器里（.btn / .card / .choice / .char-card / .panel …），
+ * 逐个改既容易漏、又会在下次调风格时找不到改了哪些。集中一层之后，
+ * 「要调像素风，只动这个文件」。
+ *
+ * ★三条像素风铁律（破了立刻看出是假的）
+ *   ① 圆角一律 0（像素画里没有曲线）
+ *   ② 阴影**无模糊**（实心偏移块 = 街机贴纸；带 blur = 现代卡片）
+ *   ③ 边框要**厚**（1px 看起来还是现代风，3px 才有「画框」的重量感）
+ *
+ * 配色：Sega 那套规范的主色是 #4502FF（紫蓝），**本项目禁紫**，
+ * 所以只沿用它的形式语言（VT323 / 硬边 / 粗胖按钮压进实心块），
+ * 色值全部换成项目自己的暗红 + 琥珀金 + 冷灰。
+ */
+
+/* ============================================================
+   1. 全局：圆角归零 + 点阵纹理
+   ============================================================ */
+
+/* 【为什么这里要再写一遍字体】theme.css 里 body 已经设过了，但
+   **中间层容器自己声明字体**的情况会把继承链打断 —— 对局页的 `#hud`
+   就踩过（它原本硬编码雅黑，把整个 HUD 的像素字体全盖掉了）。
+   这里在本层兜底再声明一次：本文件最后加载，同特异性下必胜。
+   ★以后再加「有自己字体声明」的容器，记得一起改。 */
+html,
+body,
+#app,
+#hud {
+  font-family: var(--font-pixel);
+}
+
+/* 【为什么用 !important 一次性扫平】圆角是遍布全站的（按钮 9px、
+   卡片 11px、头像 50%、徽章 999px…），逐个列选择器必然漏。
+   像素风对「圆角」是零容忍的 —— 漏一个圆角元素就像西装上打了个补丁。
+   这条是全文件唯一用 !important 的地方，理由就是「一次性、无例外」。 */
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+/* 图片与 canvas 一律不做插值平滑 —— 像素图放大时必须保持硬边 */
+canvas,
+img {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+body {
+  /* 在原来的「顶部红晕 + 冷灰底」之上再叠一层**点阵暗纹**：
+     横向每 3px 一道极淡的线，等距铺满 —— 远看是「老屏幕」的通透感，
+     近看是细密的点阵。透明度压到 2.5% 以下，不能影响读数。 */
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255, 255, 255, 0.022) 0px, rgba(255, 255, 255, 0.022) 1px,
+      rgba(255, 255, 255, 0) 1px, rgba(255, 255, 255, 0) 3px),
+    radial-gradient(1200px 600px at 50% -200px, #2a1414 0%, rgba(20, 23, 27, 0) 70%),
+    var(--bg);
+}
+
+/* ============================================================
+   2. 工具类
+   ============================================================ */
+
+/* 街机数字：VT323 的窄体点阵数字，是这套风格最出效果的地方。
+   给倒计时、等级、金币、波次这类「纯数字」用。 */
+.px-num {
+  font-family: var(--font-arcade);
+  letter-spacing: 0.5px;
+}
+
+/* 大标题：点阵字放大后要压紧字距，否则会散 */
+.px-title {
+  font-family: var(--font-arcade);
+  letter-spacing: 2px;
+}
+
+/* ============================================================
+   3. 按钮：粗胖一块，按下去会「陷进」实心影子里
+   ============================================================ */
+
+.btn {
+  position: relative;
+  border: var(--px-border) solid #0b0d10;
+  border-radius: 0;
+  box-shadow: var(--px-shadow);
+  /* 位移要快、要有「啪」的感觉；用 linear 不用 ease，缓动会显得软 */
+  transition: transform 0.06s linear, box-shadow 0.06s linear,
+              background 0.12s linear, color 0.12s linear;
+}
+
+.btn:hover {
+  /* 抬起来 1px：影子同步拉长 1px，读作「离桌面远了一点」 */
+  transform: translate(-1px, -1px);
+  box-shadow: 5px 5px 0 rgba(0, 0, 0, 0.55);
+}
+
+/* ★核心交互：按下时整块**位移到影子的位置**、影子收成 0，
+   视觉上就是「真的被按进去了」。这是 Sega 那套「chunky pill buttons
+   press into solid offset blocks」的落法。 */
+.btn:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.btn:disabled,
+.btn.disabled {
+  /* 禁用态不能用「降低透明度」—— 实心投影还在会显得「只是颜色浅，仍可点」。
+     改成：影子收掉、整体下压 2px，读作「焊死在地上，按不动」。 */
+  opacity: 0.55;
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+  cursor: not-allowed;
+}
+
+.btn:focus-visible {
+  outline: 3px solid var(--amber-hi);
+  outline-offset: 2px;
+}
+
+/* 主按钮：暗红实心（去掉原来的渐变 —— 渐变在像素风里是「假的高光」，
+   平面实色 + 厚边框才是对的语言） */
+.btn-primary,
+.btn-primary:hover {
+  background: var(--blood);
+  border-color: #0b0d10;
+  color: #fff;
+  text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.5);
+}
+
+.btn-primary:hover {
+  background: var(--blood-hi);
+}
+
+/* 金按钮：琥珀实心 + 深字（浅底深字在小字号下更清楚） */
+.btn-gold,
+.btn-gold:hover {
+  background: var(--amber);
+  border-color: #0b0d10;
+  color: #241a03;
+  text-shadow: none;
+}
+
+.btn-gold:hover {
+  background: var(--amber-hi);
+}
+
+/* 小按钮（列表里的「加入 / 观战」）：影子缩一档，否则一排按钮会互相压住 */
+.btn-sm {
+  box-shadow: var(--px-shadow-in);
+}
+
+.btn-sm:active {
+  transform: translate(2px, 2px);
+}
+
+/* ============================================================
+   4. 面板 / 卡片：粗框 + 双线 + 实心投影
+   ============================================================ */
+
+.panel {
+  border: var(--px-border) solid #0b0d10;
+  border-radius: 0;
+  box-shadow: var(--px-shadow-lg);
+  /* 面板底色改实色：原来的纵向渐变在硬边风格里会显得「一块脏」 */
+  background: #191d22;
+  /* 内圈再描一道亮线 —— 双层边框是街机柜面板的典型做法，
+     让「面板」与「压在它上面的卡片」有了层次上的区分 */
+  outline: 1px solid rgba(255, 255, 255, 0.09);
+  outline-offset: -1px;
+}
+
+/* 顶部那条「暗红→琥珀」的装饰线保留（它是这套配色的记忆点），
+   但加厚到 5px 并压成实色分段 —— 渐变的过渡在像素风里看着是糊的 */
+.panel::before {
+  height: 5px;
+  background: linear-gradient(90deg,
+    var(--blood-lo) 0%, var(--blood-lo) 25%,
+    var(--blood-hi) 25%, var(--blood-hi) 50%,
+    var(--amber) 50%, var(--amber) 75%,
+    rgba(0, 0, 0, 0) 75%);
+}
+
+/* 标题左侧那枚血色菱形 → 改成实心方块（菱形是旋转 45° 的方块，
+   在像素风里「斜着的东西」一律换成方的） */
+.panel h2::before {
+  width: 10px;
+  height: 10px;
+  transform: none;
+  box-shadow: none;
+  top: 10px;
+}
+
+.card {
+  border: var(--px-border) solid #0b0d10;
+  border-radius: 0;
+  box-shadow: var(--px-shadow);
+  background: var(--panel);
+}
+
+/* ============================================================
+   5. 升级候选项（.choice）—— 本轮重点关照对象
+   ============================================================ */
+
+.choice {
+  border: var(--px-border) solid #0b0d10;
+  border-radius: 0;
+  box-shadow: var(--px-shadow);
+  background: var(--panel-2);
+  /* hover 的位移方式换成「整块抬起」，与 flex 里 tag/文字的横移区分开 */
+  transition: transform 0.06s linear, box-shadow 0.06s linear,
+              background 0.12s linear;
+}
+
+.choice:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.55);
+  background: var(--panel-3);
+  border-color: #0b0d10;
+}
+
+.choice:active {
+  transform: translate(4px, 4px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.choice .tag {
+  border: 3px solid #0b0d10;
+  border-radius: 0;
+  box-shadow: none;
+  /* 标签换成实色块：原来半透明底 + 细边，在硬边风格里太"飘" */
+  background: #0e1114;
+  color: var(--text-dim);
+}
+
+/* 进化项：琥珀实心标签 */
+.choice.evolve {
+  border-color: #0b0d10;
+  background: repeating-linear-gradient(135deg,
+    rgba(223, 164, 38, 0.16) 0px, rgba(223, 164, 38, 0.16) 8px,
+    rgba(223, 164, 38, 0.07) 8px, rgba(223, 164, 38, 0.07) 16px);
+  box-shadow: var(--px-shadow);
+}
+
+.choice.evolve .tag {
+  background: var(--amber);
+  color: #241a03;
+  border-color: #0b0d10;
+}
+
+/* 组合技项：暗红实心标签（与进化的琥珀金明确区分两个类别） */
+.choice.combo {
+  border-color: #0b0d10;
+  background: repeating-linear-gradient(135deg,
+    rgba(163, 35, 35, 0.22) 0px, rgba(163, 35, 35, 0.22) 8px,
+    rgba(163, 35, 35, 0.09) 8px, rgba(163, 35, 35, 0.09) 16px);
+}
+
+.choice.combo .tag {
+  background: var(--blood);
+  color: #fff2e0;
+  border-color: #0b0d10;
+}
+
+/* 提示行（组合技配方）：左侧竖线保留，改成硬边方块感 */
+.choice .hint {
+  border-left: 4px solid var(--amber);
+  padding-left: 9px;
+}
+
+/* 面板标题与候选项名称：**不加粗、不描边**。
+ *
+ * ★试过并且否掉了「实心描边模拟加粗」：4 向各扩 1px 后，
+ * 点阵字**字内笔画之间的间隙只有 1 格**（24px 字号下 = 2px），
+ * 描边直接把间隙填满 —— 「审判之锤」糊成了一块白斑，比不加粗还难认。
+ * 这是点阵字体与矢量字体的重要差别：矢量字描边安全，点阵字描边会粘连。
+ *
+ * 层级改用**字号 + 颜色**做：名称走 --text 全亮 + 24px，
+ * 说明走降一档的灰 + 17px，靠对比拉开，不靠字重。
+ * 另加 0.5px 字距，让方块字之间有呼吸。 */
+.choice .name,
+.panel h2 {
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   6. 角色卡片（选择页）
+   ============================================================ */
+
+.char-card {
+  border: var(--px-border) solid #0b0d10;
+  border-radius: 0;
+  box-shadow: var(--px-shadow);
+  background: var(--panel-2);
+  transition: transform 0.06s linear, box-shadow 0.06s linear,
+              background 0.12s linear, color 0.12s linear;
+}
+
+.char-card::before {
+  /* 左侧竖条从 3px 加到 6px：像素风里「细线」几乎看不见 */
+  width: 6px;
+  background: #2a3038;
+}
+
+.char-card:hover:not(.locked) {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(0, 0, 0, 0.55);
+  background: var(--panel-3);
+}
+
+.char-card.selected {
+  background: var(--panel-3);
+  box-shadow: var(--px-shadow), 0 0 0 3px var(--amber);
+}
+
+.char-card.selected::before {
+  background: var(--amber);
+}
+
+/* 头像框原来是圆的（半径 80 的圆 + 光晕）→ 换成方块框 */
+.char-portrait {
+  border-radius: 0 !important;
+  border: 3px solid #0b0d10;
+  background: #0e1114;
+}
+
+/* 角色手里的武器徽章：胶囊形 → 方块 */
+.char-card .weapon,
+.char-weapon {
+  border-radius: 0;
+  border: 2px solid var(--amber-lo);
+  background: rgba(223, 164, 38, 0.16);
+}
+
+/* 数值徽章（生命/速度/范围） */
+.stat-badge {
+  border-radius: 0;
+  border: 2px solid #0b0d10;
+  background: #12161a;
+}
+
+/* ============================================================
+   7. 表单 / 小控件
+   ============================================================ */
+
+.input,
+.field input,
+input[type="text"] {
+  border: var(--px-border) solid #0b0d10;
+  border-radius: 0;
+  background: #0d1013;
+  /* 内阴影做成「实心内凹块」，读作一个真的凹槽 */
+  box-shadow: inset 3px 3px 0 rgba(0, 0, 0, 0.6);
+  font-family: var(--font-pixel);
+  color: var(--text);
+}
+
+.input:focus,
+.field input:focus {
+  outline: 3px solid var(--amber);
+  outline-offset: 0;
+}
+
+/* 状态圆点 → 方块（像素风里没有圆） */
+.dot,
+.conn .dot {
+  border-radius: 0 !important;
+}
+
+/* 头像选择按钮 */
+.avatar-btn,
+.avatar-sm {
+  border-radius: 0 !important;
+  border: 2px solid #0b0d10;
+}
+
+.avatar-btn.active,
+.avatar-btn.selected {
+  box-shadow: 0 0 0 3px var(--amber);
+}
+
+/* 标签 / 徽章 */
+.tag,
+.diff-tag,
+.tag.playing,
+.tag.user,
+.diff-btn {
+  border-radius: 0;
+  border: 2px solid #0b0d10;
+}
+
+/* ============================================================
+   8. HUD（对局页）
+   ============================================================ */
+
+/* 血条 / 经验条：外框加厚、内部填充改实色（渐变在硬边风格里像"漏光"） */
+.bar {
+  border: 3px solid #0b0d10;
+  border-radius: 0;
+  box-shadow: var(--px-shadow-in);
+  background: #0c0f12;
+}
+
+.bar > i {
+  border-radius: 0;
+  /* 进度条用 repeating-linear-gradient 做出「刻度格」，
+     一眼能看出还剩多少格，而不是一段平滑的色带 */
+  background-image: repeating-linear-gradient(90deg,
+    rgba(0, 0, 0, 0.22) 0px, rgba(0, 0, 0, 0.22) 2px,
+    rgba(0, 0, 0, 0) 2px, rgba(0, 0, 0, 0) 7px);
+}
+
+/* 技能槽位 */
+.slot {
+  border-radius: 0;
+  border: 2px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+}
+
+.slot .dot {
+  border-radius: 0 !important;
+}
+
+/* HUD 上的框（顶部状态条 / 右上战绩 / 底部提示） */
+.hud-top,
+.hud-left,
+.hud-right,
+.hud-center,
+.kbd-hint,
+.hud-level,
+.stage-tag {
+  border-radius: 0;
+}
+
+/* 倒计时等大数字走街机字体 */
+.hud-timer,
+.hud-level,
+.hud-wave b,
+.stat b,
+.hud-wave .tag b {
+  font-family: var(--font-arcade);
+}
+
+/* ============================================================
+   9. 弹层 / 日志 / 其他
+   ============================================================ */
+
+.connlog,
+.connlog-panel {
+  border-radius: 0;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow);
+}
+
+.connlog-row {
+  border-radius: 0;
+}
+
+.notice {
+  border-radius: 0;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow);
+}
+
+.spec-dock,
+.dead-dock,
+.overlay-dock .panel-dock,
+.panel-dock {
+  border-radius: 0;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow);
+}
+
+.spec-badge {
+  border-radius: 0;
+  border: 3px solid #0b0d10;
+  box-shadow: var(--px-shadow-in);
+}
+
+/* 分隔线做成虚线断点，比实线更像点阵屏 */
+.divider {
+  border-top: 3px dashed var(--border);
+}
+
+/* 房间列表里的小块 */
+.room-item,
+.list .item {
+  border-radius: 0;
+}
+
+/* 滚动条：方块滑块 + 硬轨道 */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0c0f12;
+  border-left: 2px solid #0b0d10;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--panel-3);
+  border: 2px solid #0b0d10;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--amber-lo);
+}
+
+/* ============================================================
+   10. 触摸设备：把可点目标抬到 44px 以上
+   ============================================================
+   （44px 是 iOS HIG 的下限，安卓建议 48dp；这里取 44 作统一底线。）
+
+   ★为什么这段放在 pixel-ui.css 而不是 game.css：**game.css 只在游戏页加载**，
+   而「按钮太小」在大厅同样存在（实测「退出」30px、「连接日志」35px、
+   「创建房间」40px）。原来那套 44px 规则写在 game.css 里，于是只修好了
+   游戏页的 HUD 按钮，大厅一个都没覆盖到 —— 而 agent 的自动化断言恰好
+   只在游戏页量了尺寸，所以一直没发现。
+
+   ★为什么用 `button` 元素选择器兜底：大厅里好几个按钮没挂 `.btn` 类，
+   只写 `.btn` 会漏掉它们，而它们恰恰是最需要好点的入口。
+   ============================================================ */
+
+@media (pointer: coarse) {
+  button,
+  .btn,
+  .connlog-toggle,
+  .diff-btn,
+  .char-btn,
+  .avatar-btn {
+    min-height: 44px;
+  }
+
+  /* 按钮之间的间隔也要够，否则容易点错到隔壁 */
+  .panel-actions,
+  .topbar {
+    gap: 10px;
+  }
+}
+
+/* ============================================================
+   11. 地图选择与地图名（第十一轮）
+   ============================================================ */
+
+/* 候场室里的「对局地图」标题：它与上面的「对局难度」是同一张卡里的第二组，
+   所以要自己补一段上边距把它们分开 —— 否则两组按钮会连成一片，
+   玩家看不出「上面那排是难度、下面那排是地图」。 */
+.map-title {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 3px solid var(--border-soft);
+}
+
+/* HUD 上的地图标签：与「关卡名」区分开。
+   关卡名是**波次进程**（会变，解释「为什么这波怪不一样」）；
+   地图名是**战场**（整局不变，解释「我现在站在哪」）。所以地图名更淡一档，
+   放在角色名后面，不抢倒计时与波次的注意力。 */
+.map-tag {
+  color: var(--text-mute);
+  background: transparent;
+  border: 2px solid var(--border-soft);
+  border-radius: 0;
+}
+
+/* 地图按钮：比难度按钮窄一点（四张图一行放得下），名字更靠左 */
+.map-btn .diff-name {
+  letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   12. 技能图鉴（顶栏 ? 按钮 → 右侧抽屉）
+   ============================================================ */
+
+/* 页签与条目：像素风里「分类」是并排的方块按钮，靠硬边+ 实心块区分选中态 */
+.sb-tab {
+  border: var(--px-border) solid #0b0d10;
+  border-radius: 0;
+  box-shadow: var(--px-shadow-in);
+  transition: background 0.1s linear, color 0.1s linear, transform 0.06s linear;
+}
+
+.sb-tab.on {
+  border-color: #0b0d10;
+  box-shadow: var(--px-shadow-in);
+}
+
+.sb-tab:active {
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+}
+
+.sb-panel {
+  border-radius: 0;
+  box-shadow: -7px 0 0 rgba(0, 0, 0, 0.55);
+}
+
+.sb-item {
+  border-radius: 0;
+  box-shadow: var(--px-shadow-in);
+}
+
+/* 类别标签与「已持有」徽章：方块化 */
+.sb-tag,
+.sb-own,
+.sb-recipe .lb {
+  border-radius: 0;
+}
+
+/* 图鉴里的数字全是「1 级 → 满级」的对照，走街机字体更好读 */
+.sb-nums {
+  font-family: var(--font-arcade);
+  letter-spacing: 0.5px;
+}
+
+/* 顶栏那个「?」按钮：像素风下 15px 的问号偏小，抬到 18px 才像一枚按钮 */
+.help-btn {
+  border-radius: 0;
+  box-shadow: var(--px-shadow-in);
+  font-family: var(--font-arcade);
+  font-size: 18px;
+}

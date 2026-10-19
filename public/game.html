@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#0f1114">
+  <title>对局中 · 山海神话传</title>
+  <!-- 站点图标：与 index.html 完全同一组，由 tools/makeicons.js 一次生成。
+       ★两个页面是各自独立的文档，head 不共享 —— 少写一条就是那一个页面没有图标。 -->
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/game.css">
+  <link rel="stylesheet" href="/css/character-select.css">
+  <!-- 像素风外衣层：必须放在最后 —— 它靠「后来者居上」覆盖上面几个表的观感属性 -->
+  <link rel="stylesheet" href="/css/pixel-ui.css">
+  <!-- 剧情模式样式。单独一个文件：这块是自成一体的功能（卷首页/节拍/卷尾），
+       混进 game.css 会让「剧情相关的规则」散在 2000 行里，改的时候找不全。 -->
+  <link rel="stylesheet" href="/css/story-campaign.css">
+</head>
+
+<body class="game-body">
+  <!-- 游戏画面：全部由原生 JS 直接绘制到 Canvas，Vue 不参与 -->
+  <canvas id="game-canvas"></canvas>
+
+  <!--
+    HUD 层：Vue 3 只管界面。根节点同样必须加 v-cloak，
+    否则挂载瞬间会闪现 {{ }} 原始模板。
+  -->
+  <div id="hud" v-cloak>
+
+    <!-- ==================== 第 2 层：暗角 / 低血警示 ==================== -->
+    <!-- 这两层纯装饰、不吃鼠标，放在最前面让它压在最底下 -->
+    <div class="hud-vignette"></div>
+    <div class="hud-hurt" v-if="lowHp && (screen === 'playing' || screen === 'menu')"></div>
+
+    <!-- 顶部状态条 -->
+    <div class="hud-top">
+      <!--
+        观战者没有血、没有经验、没有等级 —— 这些条画出来只会让人以为「我快死了」。
+        换成一行「观战」标识 + 跟随谁，一眼就知道自己在干什么。
+      -->
+      <div class="hud-left" v-if="spectating">
+        <div class="spec-badge">
+          <b>观战中</b>
+          <span>跟着 {{ followName }}</span>
+        </div>
+      </div>
+      <div class="hud-left" v-else>
+        <div class="bar hp" :class="{ low: lowHp }">
+          <i :style="{ width: hpPct }"></i>
+          <span class="label">{{ hud.hp }} / {{ hud.maxHp }}</span>
+        </div>
+        <div class="bar exp">
+          <i :style="{ width: expPct }"></i>
+        </div>
+        <div class="hud-level">Lv {{ hud.level }}</div>
+      </div>
+
+      <div class="hud-center">
+        <div class="hud-timer" :class="{ urgent: urgent }">{{ timeText }}</div>
+        <div class="hud-wave">
+          <!-- 难度贴在波次前面：它决定了这一局的怪有多硬、打人多疼，
+               玩家随时要能看见自己在打哪一档（尤其多人时可能不是自己选的） -->
+          <span class="tag diff-tag" :class="'diff-' + hud.diffId"
+                v-if="hud.diffId">{{ hud.diffName }}</span>
+          <!-- 关卡名放在最前面：它是「我现在打到哪了」这个问题的答案。
+               只显示「第 17 波」的话，玩家看到的是一个数字；
+               显示「血月祭坛 · 第 17 波」才有推进感，也才能解释
+               「为什么这一波的怪换了一批」。 -->
+          <span class="tag stage-tag" v-if="hud.stageName">{{ hud.stageName }}</span>
+          <span class="sep" v-if="hud.stageName">·</span>
+          第 <b>{{ hud.wave }}</b> 波
+          <span class="sep">·</span>同屏 <b>{{ hud.mobCount }}</b> 只
+          <span class="sep">·</span>{{ spectating ? '观战' : hud.charName }}
+          <!-- 地图名：与「关卡名」是两件事。关卡是波次进程（会变），地图是战场（不变） -->
+          <!-- ★地图名与章节名相同时不重复显示。
+               两者语义不同（章节=发生什么，地图=什么地方），
+               但万一名字撞了，同一行出现两个同词会被当成渲染 bug。 -->
+          <span class="sep" v-if="hud.mapName && hud.mapName !== hud.stageName">·</span>
+          <span class="tag map-tag"
+                v-if="hud.mapName && hud.mapName !== hud.stageName">{{ hud.mapName }}</span>
+          <!-- 剧情模式的章节标「第 N 章 / 共 6 关」。
+               放在最前面而不是塞在后面：剧情模式里玩家最想确认的是
+               「我现在打的是第几关、还剩几关」，那个数应该在第一眼。 -->
+          <template v-if="hud.campaign">
+            <span class="sep">·</span>
+            <span class="tag chapter-tag">第 {{ hud.stageNo }} / {{ campaignTotal }} 关</span>
+          </template>
+          <template v-if="ui.online">
+            <span class="sep">·</span>联机 <b>{{ ui.netPlayers.length }}</b> 人
+            <span class="sep">·</span>房间 <b>{{ ui.roomCode }}</b>
+          </template>
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <!-- 击杀 / 金币包成一组（.hr-stats）。
+             【为什么要加这一层】宽屏与 iPad 走的是「竖排」那套规则：两个 .stat 是
+             block 级的直接子元素，于是**各占一行**，加上继承来的 11px 上下内边距，
+             一个 stat 就是 52px 高 —— 右侧整块实测 158x158，白占一大片。
+             包一层之后它们能并成一行（省掉一整行），窄屏那套「一行徽章」不受影响
+             （窄屏的 .hud-right 是 flex，这层只是一个 flex item）。 -->
+        <div class="hr-stats">
+          <!-- 观战者没有击杀与金币 —— HUD 借的是被跟那个人的，
+               把它显示成自己的战绩会让人以为「他打到了 12 杀」（其实一条都不是他打的）。
+               换成一行「观战者不参与计数」，同样占位、语义正确。 -->
+          <div class="stat" v-if="spectating"><span class="ico">◎</span>观战者不参与计数</div>
+          <template v-else>
+            <div class="stat"><span class="ico">⚔</span>击杀 <b>{{ hud.kills }}</b></div>
+            <div class="stat"><span class="ico">◈</span>金币 <b>{{ hud.gold }}</b></div>
+          </template>
+        </div>
+        <!-- 单机：暂停（真的冻结世界）；联机：菜单（不冻结世界，只是「继续 / 返回大厅」的入口。
+             必须给一个可见入口 —— 手机没有 Esc 键） -->
+        <button class="btn pause-btn" v-if="screen === 'playing' && !ui.online" @click="togglePause">暂停</button>
+        <button class="btn pause-btn" v-if="screen === 'playing' && ui.online" @click="togglePause">菜单</button>
+        <!-- 倍速按钮：**只单机**。联机的世界由服务端按 20Hz 推进，
+             客户端「加速」既推不动世界，也会变成「我快别人不快」的不公平。
+             做成一个循环按钮（1 → 2 → 4 → 1）而不是三档并排：
+             顶栏这一行在手机上只有 ~180px，已经放了暂停与「?」，塞不下三个档位。
+             ×1 时不显示高亮，×2/×4 变琥珀色，一眼知道现在不是正常速度。 -->
+        <button class="btn speed-btn" v-if="screen === 'playing' && !ui.online"
+                :class="{ on: ui.speed > 1 }" @click="cycleSpeed"
+                :title="'点击切换游戏速度（当前 ×' + ui.speed + '）'">×{{ ui.speed }}</button>
+        <!-- 技能图鉴入口。放在顶栏是因为它是「随时想查」的东西：
+             玩家在升级面板上看到「 combo_bloodstorm 」这种 id 时，
+             唯一能立刻查清楚的办法就是点这个按钮。 -->
+        <button class="btn help-btn" v-if="canHelp" @click="toggleHelp"
+                :class="{ on: ui.helpOpen }" title="查看全部技能说明">?</button>
+      </div>
+    </div>
+
+    <!-- ==================== Boss 血条（场上出现血月领主时显示） ==================== -->
+    <div class="boss-bar" v-if="hud.boss && worldLive">
+      <div class="boss-name">{{ hud.boss.name }}</div>
+      <div class="boss-track">
+        <i class="boss-fill" :style="{ width: bossPct }"></i>
+      </div>
+      <div class="boss-hp">{{ hud.boss.hp }} / {{ hud.boss.maxHp }}</div>
+    </div>
+
+    <!-- ==================== 剧情节拍横条 ==================== -->
+    <!--
+      ★★这个位置的选择很关键，三条硬约束：
+      ① **绝不能进 .overlay** —— 升级三选一弹出时如果叠一层节拍横条，
+         就是两层 UI 打架（项目已经踩过「弹层居中溢出」与「dock遮战场」两类坑）。
+      ② **放在 Boss 血条之下** —— 窄屏下 Boss 血条被顶到 top:126px，
+         节拍横条若与它同高就会重叠（上一轮刚修完「? 按钮与 Boss 血条重叠」）。
+         所以用 top:186px 让开，且不写死「血条有多高」—— 用同一条CSS 变量。
+      ③ **不吃指针事件**（pointer-events:none）—— 它是纯提示，
+         压在战场上时不能挡住摇杆/走位。
+    -->
+    <div class="story-beat" v-if="ui.storyLine" :class="{ show: !!ui.storyLine }">
+      <span class="sb-mark">◆</span>{{ ui.storyLine }}
+    </div>
+
+    <!-- ==================== 波次 / Boss 提示 ==================== -->
+    <div class="toast-wrap">
+      <div class="toast" :class="{ boss: t.boss }" v-for="t in toasts" :key="t.id">{{ t.text }}</div>
+    </div>
+
+    <!-- ==================== 掉线重连提示（浮在顶部，不挡战场） ==================== -->
+    <!-- 断线时世界收不到新快照会定住。以前这里什么都不显示，玩家只能对着一动不动的画面
+         猜发生了什么；现在明确告诉他在自愈，以及第几次重试。 -->
+    <div class="net-retry" v-if="ui.netReconnecting && ui.online">
+      <i class="spin"></i>
+      与服务器的连接断开了，正在自动重连（第 {{ ui.netRetry }} 次）…
+    </div>
+
+    <!-- ==================== 观战控制条 ==================== -->
+    <!--
+      贴底一条，不遮战场（理由同上面的 .dead-dock：世界在跑，遮住了就白看）。
+      「切换视角」按座位顺序轮换 —— 观战者最常用的操作就是「看看别人打得怎么样」，
+      给一排按钮不如给一个循环切换：人少时一个按钮就够了，也不占地方。
+    -->
+    <div class="spec-dock" v-if="spectating && screen === 'playing'">
+      <div class="spec-now">
+        正在观战 <b>{{ followName }}</b>
+        <span class="spec-sub">{{ hud.charName }} · 第 {{ hud.wave }} 波</span>
+      </div>
+      <div class="spec-btns">
+        <button class="btn btn-sm" @click="cycleFollow()" :disabled="ui.netPlayers.length < 2">
+          切换视角
+        </button>
+        <button class="btn btn-sm" @click="stopSpectate()">退出观战</button>
+      </div>
+    </div>
+
+    <!-- ==================== 联机阵亡：等待复活 ==================== -->
+    <!-- 【为什么是贴底的一条而不是全屏遮罩】联机下世界照常推进，队友还在打 ——
+         全屏遮罩会把战场盖死，倒在地上什么都看不见，也没法判断什么时候安全。
+         所以只占底部一条，上方战场全程可见。 -->
+    <div class="dead-dock" v-if="deadWaiting">
+      <div class="dead-title">你已阵亡</div>
+      <div class="dead-count">
+        <b>{{ reviveSecText }}</b> 秒后原地复活
+      </div>
+      <div class="dead-hint">复活后有一小段无敌时间，先离开怪堆</div>
+    </div>
+
+    <!-- ==================== 武器与被动槽位 ==================== -->
+    <!-- 观战者不显示：那是「被跟随那个人」的武器，不是观战者的。
+         （HUD 借的是对方的，所以这里不藏的话会看到一屏不属于「我」的装备） -->
+
+    <!-- ---------- 折叠态：一个角标（第二十轮新增） ----------
+         手机竖屏下技能区满配时占屏近三成，而这是**要边跑边躲**的游戏，
+         可视战场面积是命门。所以触摸设备默认折叠，只留这个角标。
+         ★角标不是纯图标：它要显示「已学几件 + 有没有组合技」——
+           折叠是为了省空间，不是为了让人看不出自己学了什么。
+         ★aria-expanded 一起给：读屏软件会念出「已折叠/已展开」，
+           这类纯图标折叠按钮不给它等于对无障碍用户是黑盒。 -->
+    <button class="slot-fold" v-if="hud.weapons.length && !spectating && ui.slotsFolded"
+            @click="toggleSlotsFold"
+            :aria-expanded="ui.slotsFolded ? 'false' : 'true'"
+            title="展开技能栏">
+      <span class="sf-ico" aria-hidden="true">▤</span>
+      <span class="sf-n">{{ hud.weapons.filter(function(w){return !!w;}).length
+        + hud.passives.filter(function(p){return !!p;}).length }}</span>
+      <!-- ★组合技有单独标记：它是这一局最值得炫耀的东西，
+           折叠起来也必须让玩家知道「我已经凑出来了」。 -->
+      <span class="sf-badge" v-if="hud.combos.length" :title="'已凑出 ' + hud.combos.length + ' 组组合技'">技</span>
+    </button>
+
+    <div class="hud-slots" :class="{ lift: dockLevelUp }"
+         v-if="hud.weapons.length && !spectating && !ui.slotsFolded"
+         @click="onSlotsClick">
+      <!-- 武器 / 被动都按**固定格数**画（数目来自 const 的 SLOTS，现为 10 + 10）：
+           已经学到的显示名字与等级，还空着的位置画成淡色空槽。
+           【为什么空位也要画】上限是个硬约束，玩家必须随时知道「还剩几格能学」——
+           只画已学的等于把上限藏起来了，玩家得自己数，还看不出总数。 -->
+      <div class="slot-row">
+        <!-- ★data-skill 是「点这一格看它的说明」的线索（见 game.js 的 onSlotsClick）。
+             技能格本身**不做成 <button>**：格子只有 20~28px 高，而项目约定触摸目标
+             ≥44px，做成按钮会被 pixel-ui.css 强行拉到 44px，10 格的槽位行会变成一堵高墙。
+             所以整块技能区当点击目标，格子只带一个 data 属性。 -->
+        <span class="slot" v-for="(w, i) in weaponSlots" :key="w ? w.id : 'we' + i"
+              :data-skill="w ? w.id : ''"
+              :title="w ? (w.name + ' Lv' + w.level + '　点它看说明') : ''"
+              :class="{ empty: !w, evolved: !!w && w.evolved }">
+          <i class="dot"></i><template v-if="w">{{ w.name }}<span class="lv">Lv{{ w.level }}</span></template>
+        </span>
+      </div>
+      <div class="slot-row">
+        <span class="slot passive" v-for="(p, i) in passiveSlots" :key="p ? p.id : 'pe' + i"
+              :data-skill="p ? p.id : ''"
+              :title="p ? (p.name + ' Lv' + p.level + '　点它看说明') : ''"
+              :class="{ empty: !p }">
+          <i class="dot"></i><template v-if="p">{{ p.name }}<span class="lv">Lv{{ p.level }}</span></template>
+        </span>
+      </div>
+      <!-- 组合技单独一行（金色标签）：它是这一局最值得炫耀的东西，
+           混在武器行里会被当成第 7 把武器 —— 而玩家需要知道自己凑出了什么。 -->
+      <div class="slot-row" v-if="hud.combos.length">
+        <span class="slot combo" v-for="cb in hud.combos" :key="cb.id"
+              :data-skill="cb.id" :title="cb.name + '　点它看说明'">
+          <i class="dot"></i>{{ cb.name }}<span class="lv">Lv{{ cb.level }}</span>
+        </span>
+      </div>
+
+      <!-- ---------- 展开态的「收起」按钮（第二十轮）----------
+           ★它必须在**展开态**里也有一条退路，否则玩家按开之后就回不去了
+             （只能刷新页面）—— 那就不是「开关」而是「单向门」。
+
+           ★★★为什么放在 `.slot-row` **之外**、且是 `position: absolute`：
+             ① 放进任何一行都会**撑破「10 格一行」的硬约束** ——
+                hudsize 断言「被动槽一行放得下（行高 ≤ 单格高+8px）」，
+                而它作为第 11 个子元素在 390px 宽屏上必然被 flex-wrap 折到第二行
+                → 行高翻倍 → 那条断言变红（实测 `已占 1 空 9`）。
+                ★两条断言单看都有道理，撞在一起才暴露问题 —— 这是本轮最花时间的一处。
+             ② 绝对定位到技能区**右上角**：技能区贴底，那块本来是空的，
+                不与任何格子竞争宽度（而宽度正是被折行的原因）。
+             ③ 触屏点它要够得着 —— 右上角比左下角更符合拇指习惯。
+
+           ★@click.stop：整块技能区的 @click 是「打开我的技能列表」，
+             不拦住的话点「收起」会连带弹出列表（折叠了却又弹窗，像是卡住了）。 -->
+      <button class="slot-fold-btn" @click.stop="toggleSlotsFold"
+              title="收起技能栏" aria-label="收起技能栏">▾ 收起</button>
+    </div>
+
+    <!-- ==================== 技能说明卡（点左下角技能格） ====================
+         为什么要有它：玩家最常冒出来的疑问是「我身上这件到底干嘛的、能不能凑出组合技」，
+         而答案原来只在技能图鉴里（要另开抽屉、再翻分类）。技能格就在屏幕上，点它直接给答案。
+         ★说明内容一个字都不手写 —— 全部来自 skillbook.js（它从 const.js 现算），
+           这里只补「我几级 / 是否已进化」。
+         ★触屏点整块技能区走的是「我的技能」列表（每行 44px），鼠标点具体格子才直接给详情，
+           原因见 game.js 的 onSlotsClick。 -->
+    <div class="slot-card" v-if="slotCardOpen">
+      <div class="sc-head">
+        <span class="sc-title">{{ ui.slotInfo ? '技能说明' : '我的技能' }}</span>
+        <button class="sc-close" @click="closeSlotCard" title="关闭">×</button>
+      </div>
+
+      <!-- ---------- 单件详情 ---------- -->
+      <template v-if="ui.slotInfo">
+        <div class="sc-name">
+          <b>{{ ui.slotInfo.name }}</b>
+          <span class="sc-tag">{{ ui.slotInfo.catName }}<template v-if="ui.slotInfo.tag"> · {{ ui.slotInfo.tag }}</template></span>
+          <span class="sc-lv" v-if="ui.slotInfo.lv">Lv{{ ui.slotInfo.lv }}<template v-if="ui.slotInfo.maxLevel"> / {{ ui.slotInfo.maxLevel }}</template></span>
+          <span class="sc-lv none" v-else>未持有</span>
+        </div>
+        <p class="sc-desc">{{ ui.slotInfo.desc }}</p>
+        <div class="sc-nums" v-if="ui.slotInfo.nums.length">
+          <span class="sc-num" v-for="(n, i) in ui.slotInfo.nums" :key="i">{{ n }}</span>
+        </div>
+        <div class="sc-row" v-if="ui.slotInfo.recipe"><span class="lb">配方</span>{{ ui.slotInfo.recipe }}</div>
+        <div class="sc-row" v-if="ui.slotInfo.evolvedTo"><span class="lb">已进化</span>已合成「{{ ui.slotInfo.evolvedTo }}」</div>
+        <div class="sc-row" v-if="ui.slotInfo.evoName"><span class="lb">进化</span>练满后合成「{{ ui.slotInfo.evoName }}」</div>
+        <div class="sc-row" v-if="ui.slotInfo.comboOf"><span class="lb">组合</span>可凑出 {{ ui.slotInfo.comboOf.join('、') }}</div>
+        <div class="sc-row" v-if="ui.slotInfo.evoOf"><span class="lb">进化</span>{{ ui.slotInfo.evoOf.join('、') }}</div>
+        <div class="sc-row" v-if="ui.slotInfo.starters"><span class="lb">起始</span>{{ ui.slotInfo.starters.join('、') }} 的初始武器</div>
+        <p class="sc-flavor" v-if="ui.slotInfo.flavor">{{ ui.slotInfo.flavor }}</p>
+        <div class="sc-actions">
+          <button class="btn" @click="openHelpFor(ui.slotInfo.cat)">在图鉴里看全部</button>
+        </div>
+      </template>
+
+      <!-- ---------- 我的技能列表 ---------- -->
+      <template v-else>
+        <p class="sc-hint" v-if="mySkills.length">点任意一件看它的说明（含组合技与进化的关联）</p>
+        <button class="mc-row" v-for="it in mySkills" :key="it.id" @click="showSkillInfo(it.id)">
+          <span class="mc-name">{{ it.name }}<b v-if="it.lv">Lv{{ it.lv }}</b></span>
+          <span class="mc-tag">{{ it.tagText }}</span>
+        </button>
+        <p class="sc-hint" v-if="!mySkills.length">这一局还没学到别的技能。</p>
+      </template>
+    </div>
+
+    <!-- ==================== 调试浮层（?debug=1） ==================== -->
+    <div class="hud-debug" v-if="showDebug">
+      逻辑 <b>{{ hud.state }}</b> · tick {{ tick }}<br>
+      FPS <b>{{ fps }}</b> · 渲染 <b>{{ drawMs }}</b> ms<br>
+      绘制 {{ drawn }} / {{ total }}
+      <span class="kbd-hint">（视口裁剪后 / 总数）</span><br>
+      <!-- 联机下没有「重开」这回事（世界在服务端，本地重开等于自己单开一局），
+           所以那句提示只在单机显示，免得玩家按 R 之后发现并不是重开 -->
+      <!-- 观战者按 WASD 什么都不会发生（sendInput 直接 return），提示不能还写「移动」 -->
+      <span class="kbd-hint" v-if="spectating">观战中不能操作 · 用底部「切换视角」看别人 <span class="kbd">Esc</span> 菜单</span>
+      <span class="kbd-hint" v-else>移动 WASD / 方向键 · {{ ui.online ? '菜单 / 退出' : '暂停' }} <span class="kbd">Esc</span><template v-if="!ui.online"> · 重开 <span class="kbd">R</span></template></span>
+    </div>
+
+    <!-- ==================== 联机：接入中 / 加入失败 ==================== -->
+    <!-- 联机模式下 screen 从这里起步，跳过角色选择（角色在候场室里就定好了） -->
+    <div class="overlay" v-if="screen === 'connecting'">
+      <div class="panel">
+        <h2>联机<em>对局</em></h2>
+        <p class="sub">
+          房间 <b>{{ ui.roomCode }}</b>
+          <template v-if="ui.netSlot >= 0">· 你的座位 {{ ui.netSlot + 1 }}</template>
+        </p>
+
+        <div class="warn-guest" style="margin: 14px 0;" v-if="ui.netErr">{{ ui.netErr }}</div>
+        <p class="sub" v-else>正在接入服务器上的对局，请稍候…</p>
+
+        <!-- 实时吐出收到的快照量：链路断没断、服务端有没有在推，一眼就能看出来 -->
+        <p class="sub" style="margin-top: 10px;">
+          已收到快照 {{ ui.netSnaps }} 帧 · {{ ui.netKb }} KB
+        </p>
+
+        <div class="panel-actions" style="margin-top: 16px;">
+          <button class="btn" @click="backToLobby">返回大厅</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 角色选择 ==================== -->
+    <!-- ==================== 剧情模式：卷首页 ==================== -->
+    <!--
+      剧情模式**不进角色选择页**。三个理由：
+      ① 初始角色由关卡定（焚天阙必然是祝融），让玩家选等于给一个会被忽略的假选择
+      ② 卷首题记必须在开打前读到 —— 「天裂处无物，只余风声」这句话是这一关的引子，
+         放在选择页之后、打进游戏之后就晚了
+      ③ 关卡选择与卷首是同一个决策的两半，应该在同一屏里做完
+
+      ★弹层用 .overlay（margin:auto 居中，见 game.css）而不是 align-items:center ——
+        这一屏内容不高不矮，但题记长度会变（题记是数据，不是固定文案），
+        居中溢出会把标题裁掉，项目已经踩过两次。
+    -->
+    <div class="overlay" v-if="screen === 'select' && isCampaign">
+      <div class="panel panel-prologue">
+        <!-- 章节进度条：让玩家一眼看到自己在故事的哪个位置 -->
+        <div class="pl-chapters">
+          <span class="pl-cp" v-for="n in campaignTotal" :key="n"
+                :class="{ done: n < stageNo, cur: n === stageNo }">{{ n }}</span>
+        </div>
+
+        <h2>第 {{ stageNo }} 关 ·<em>{{ stageNameOf }}</em></h2>
+        <p class="pl-epi">{{ stageEpigraph }}</p>
+
+        <!-- 本关要素：地图 / 时长 / 初始角色 / Boss。
+             全部从 campaign 的关卡定义现算，改数据这里自动跟着变。 -->
+        <div class="pl-info">
+          <div class="pl-row">
+            <span class="pl-k">战场</span>
+            <span class="pl-v">{{ mapNameOf }}</span>
+          </div>
+          <div class="pl-row">
+            <span class="pl-k">时长</span>
+            <span class="pl-v">{{ stageMinutes }} 分钟</span>
+          </div>
+          <div class="pl-row">
+            <span class="pl-k">初始角色</span>
+            <span class="pl-v">
+              {{ charNameOf }}
+              <span class="pl-sub">{{ charDescOf }}</span>
+            </span>
+          </div>
+          <div class="pl-row" v-if="stageBossName">
+            <span class="pl-k">首领</span>
+            <span class="pl-v pl-boss">{{ stageBossName }}</span>
+          </div>
+        </div>
+
+        <!-- 换角色：需求确认「能进关前换角色」。
+             默认高亮关卡推荐的那个（startChar），点别的就换过去，再点一次取消。
+             ★为什么不做成下拉而是一排小方块：8 个角色要能一眼看全，
+               下拉得展开才知道有什么 —— 而「谁是谁」这件事本身是这一屏的信息。
+             ★只显示名字，不放立绘：卷首页的主角是题记与关卡信息，
+               放 8 张立绘会把它们挤下去（手机端尤其）。 -->
+        <div class="pl-chars">
+          <span class="pl-k">角色</span>
+          <div class="pl-charbox">
+            <button class="pl-char" v-for="c in storyChars" :key="c.id"
+                    :class="{ on: isStoryCharPicked(c), def: !storyCharPicked && c.id === storyCharDefault }"
+                    @click="pickStoryChar(c)"
+                    :title="c.desc">{{ c.name }}</button>
+          </div>
+        </div>
+        <p class="pl-sub2" v-if="storyCharPicked">
+          已换用「{{ storyCharPickedName }}」（{{ storyCharPickedDesc }}）
+        </p>
+        <p class="pl-sub2" v-else>
+          使用本关推荐角色「{{ charNameOf }}」
+        </p>
+
+        <!-- 难度：剧情关每关独立选。第五关想用血月难度挑战是玩家的自由。 -->
+        <div class="pl-diff">
+          <span class="pl-k">难度</span>
+          <!-- ★不能复用大厅那个 .diff-btn：它是**三列网格卡**
+               （名称/时长/说明，width:100%），塞进一行会各自占满一整行，
+               变成四个竖排的大块。这里要的是紧凑 chip。
+               同名的类被两个场景共用时，「改一个坏另一个」是必然的。 -->
+          <button class="pl-diffbtn" v-for="d in diffs" :key="d.id"
+                  :class="{ on: ui.diffId === d.id, ['diff-' + d.id]: true }"
+                  @click="ui.diffId = d.id">{{ d.name }}</button>
+        </div>
+        <p class="pl-diffdesc">{{ diffDescOf }}</p>
+
+        <div class="panel-actions">
+          <button class="btn" @click="backToLobby">返回大厅</button>
+          <button class="btn" @click="toggleHelp">技能图鉴</button>
+          <button class="btn btn-primary" @click="startMatch">进入关卡</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="overlay" v-if="screen === 'select' && !isCampaign">
+      <div class="panel">
+        <h2>选择<em>角色</em></h2>
+        <p class="sub">
+          玩家 <span class="nick">{{ nickname }}</span>
+          <span class="warn-guest" v-if="isGuest">（游客：战绩不保存，只能用猎魔人）</span>
+        </p>
+
+        <div class="character-grid">
+          <button class="char-card"
+                  v-for="c in chars" :key="c.id"
+                  :class="{ selected: charId === c.id, locked: isLocked(c) }"
+                  :disabled="isLocked(c)"
+                  @click="pickChar(c)">
+            <div class="char-badge" :class="{ unlocked: !isLocked(c) }" v-if="isLocked(c)">
+              注册后解锁
+            </div>
+            <div class="char-portrait">
+              <canvas :ref="'portrait_' + c.id" width="160" height="160"></canvas>
+            </div>
+            <div class="char-name">{{ c.name }}</div>
+            <div class="char-weapon">起始武器 · {{ weaponName(c.weapon) }}</div>
+            <div class="char-desc">{{ c.desc }}</div>
+            <!-- 三项数值**从角色定义现算**（charStats），不再写死。
+                 原来这里是硬编码的 100 / 120 / 200：既不随角色变化（8 个角色全都长一样），
+                 也和实际数值对不上（真血是 120）。选角色时看到的差异必须是真差异。 -->
+            <div class="char-stats">
+              <div class="stat-badge">
+                <span class="stat-value">{{ charStats(c).hp }}</span>
+                <span class="stat-label">生命</span>
+              </div>
+              <div class="stat-badge">
+                <span class="stat-value">{{ charStats(c).speed }}</span>
+                <span class="stat-label">移速</span>
+              </div>
+              <div class="stat-badge">
+                <span class="stat-value">{{ charStats(c).dps }}%</span>
+                <span class="stat-label">输出</span>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div class="panel-actions">
+          <button class="btn" @click="backToLobby">返回大厅</button>
+          <button class="btn" @click="toggleHelp">技能图鉴</button>
+          <button class="btn btn-primary" @click="startMatch">开始对局</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 升级三选一 ==================== -->
+    <!-- 单机：升级会冻结世界 → 沿用全屏遮罩，把注意力吸到面板上。
+         联机：世界在服务端照跑，「不能暂停」自然也就「不能盖住战场」——
+         换成贴底悬浮的半透明面板（dockLevelUp 打开 .overlay-dock / .panel-dock），
+         面板之外整片战场透出来，怪从哪边来、自己血还够不够，都看得见。
+         面板不吃走位：WASD / 触屏摇杆照常生效（联机分支每帧都在上行 input）。 -->
+    <div class="overlay" :class="{ 'overlay-dock': dockLevelUp }" v-if="screen === 'levelup'">
+      <div class="panel" :class="{ 'panel-dock': dockLevelUp }">
+        <h2>升到 <em>Lv {{ hud.level }}</em></h2>
+        <p class="sub">
+          选择一项强化（剩余升级次数：{{ pendingLevels }}）
+          <template v-if="ui.online">· <b class="live-tag">世界仍在推进</b>，边打边选，超时由系统代选</template>
+        </p>
+
+        <div class="choice-grid">
+          <!-- combo 类候选单独一个样式：它不提升已有武器，而是解锁一个新东西，
+               视觉上要能一眼看出「这一项和别的不是一个类别」。 -->
+          <button class="choice"
+                  :class="{ evolve: o.type === 'evolve', combo: o.type === 'combo_new' || o.type === 'combo_up' }"
+                  v-for="(o, i) in hud.choices" :key="i"
+                  @click="choose(i)">
+            <span class="tag">{{ o.tag }}</span>
+            <span class="body">
+              <span class="name">{{ o.name }}</span>
+              <span class="desc">{{ o.desc }}</span>
+              <!-- 组合技提示（配方 / 风味文案）。
+                   没有这一行的话，玩家看到「血雾领域」不知道它是怎么来的、也不知道自己凑对了什么
+                   —— 那就变成了一个凭空出现的选项，玩家既不会选、也没有「我凑出来了」的成就感。 -->
+              <span class="hint" v-if="o.hint">{{ o.hint }}</span>
+              <!-- ★关联说明：这件技能能通往哪（组合技 / 进化形态）。
+                   玩家在候选卡上真正在问的是「我为什么该选它」。
+                   只写「伤害 12→14」他不知道有更远的路；而「可凑组合技血雾领域（需要 5 级）」
+                   才是决策依据。state='ready' 的额外标成「配方已齐」——
+                   那是一个「现在就该拿它去升级第二件」的信号，样式上用高亮区分。 -->
+              <span class="link" v-for="(lk, li) in (o.links || [])" :key="li"
+                    :class="'st-' + lk.state">
+                {{ lk.text }}
+                <!-- ★把配方里的「另一件」拎出来，并标出玩家自己有没有、几级。
+                     少了这一行，玩家看到的只是「可凑组合技血雾领域（需要 5 级）」——
+                     他还得自己翻武器栏去确认「另一半在不在手上」。
+                     已有的用琥珀高亮（那就是「你手上这件」），没有的压暗：
+                     一眼就能看出「离凑齐还差几步」，这才叫可执行的下一步。
+                     ready = 这一半也到级了，可以整条标成达标绿。 -->
+                <span class="lk-pair" v-if="lk.pairId"
+                      :class="{ have: lk.pairOwned, ready: lk.pairReady }">
+                  <span class="lk-plus">＋</span>{{ lk.pairName }}
+                  <b v-if="lk.pairOwned">Lv{{ lk.pairLv }}</b>
+                  <span class="lk-tag ok" v-if="lk.pairReady">已达标</span>
+                  <span class="lk-tag" v-else-if="lk.pairOwned">还需 {{ lk.needLevel }} 级</span>
+                  <span class="lk-tag miss" v-else>未持有</span>
+                </span>
+              </span>
+            </span>
+          </button>
+        </div>
+
+        <!-- 技能全练满之后，三选一里只剩「补给」这一个兜底项 ——
+             每次升级都要点一下、还要等面板弹出来再点，纯打断。
+             这里给一个开关：开了以后升级自动领取，面板不再弹。
+             ★只在「真的只剩补给」时出现：平时升级有得选，摆这个开关只会干扰。
+             ★只在单机出现：联机世界停不下来，本机不替服务端做决定（那边有 30 秒代选兜底）。 -->
+        <div class="auto-supply" v-if="supplyOnly && !ui.online">
+          <p class="sub">技能已经全练满了，升级只剩「补给」这一项。</p>
+          <button class="btn" :class="{ 'btn-gold': ui.autoSupply }" @click="toggleAutoSupply">
+            {{ ui.autoSupply ? '已开启：升级自动领补给' : '以后自动领补给（不再弹这个面板）' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 暂停（仅单机） ==================== -->
+    <!-- 联机时 screen 永远不会是 paused（见 game.js 的 togglePause），
+         这里再排除一次做双保险：宁可什么都不显示，也不能在联机打了一半时
+         告诉玩家「对局已停止推进」—— 那是假的，怪还在动。 -->
+    <div class="overlay" v-if="screen === 'paused' && !ui.online">
+      <!-- ★原来这里写的是内联 style="max-width: 420px" ——
+           内联样式的优先级**高于任何样式表里的 @media**，所以
+           `@media (pointer:fine) .panel { max-width: 900px }` 这条PC 放大
+           对这个面板根本不生效（实测面板停在 420px）。
+           而同一段里的 `.panel .btn { font-size:17px; padding:13px 26px }`
+           **照常生效** —— 按钮变大、容器没变大，三个按钮平分 348px 装不下，
+           「重开一局」右缘超出面板，被 `.panel` 的 overflow:hidden 直接切掉。
+           窄屏同样裁（371 > 370），所以这不是「只有 PC 有问题」。
+           现在改成类，宽度交给样式表按视口与操作方式决定。 -->
+      <div class="panel panel-wide">
+        <h2>已暂停</h2>
+        <p class="sub">对局已停止推进，趁现在看看自己，或者花点金币。</p>
+
+        <!-- ---------- 金币商店 ----------
+             金币原来只做一件事：掉在地上、捡起来、在结算页显示一个数字 ——
+             玩家全程看不到它有什么用，掉落也就成了「捡不捡无所谓」。
+             这里是它唯一的用途：暂停时世界真的冻结（screen='paused' 让 loop 不再 step），
+             所以在这���购物是安全的。
+             ★联机世界停不下来 → 商店只在单机出现（canShop），不做「联机也能买」的半吊子。 -->
+        <div class="shop" v-if="canShop">
+          <div class="shop-head">
+            <span class="shop-title">商店</span>
+            <span class="shop-bal">可花金币<b>{{ hud.shopGold }}</b></span>
+          </div>
+          <div class="shop-row">
+            <button class="shop-item" v-for="it in shopItems" :key="it.id"
+                    :class="{ poor: !canBuy(it), maxed: isMaxed(it) }"
+                    :disabled="!canBuy(it)" @click="buy(it.id)">
+              <span class="si-name">{{ it.name }}</span>
+              <span class="si-desc">{{ it.desc }}</span>
+              <span class="si-price" v-if="isMaxed(it)">已满{{ it.maxStacks }}层</span>
+              <span class="si-price" v-else>{{ it.price }} 金</span>
+            </button>
+          </div>
+          <!-- 买不了时要说清原因：只把按钮一禁了之，玩家不知道该再攒多久 -->
+          <div class="shop-msg" v-if="ui.shopMsg">{{ ui.shopMsg }}</div>
+
+          <!-- ---------- 两段式商品的选择器 ----------
+               血脉契约 / 置换契约不知道玩家要哪一件技能，所以点商品**只开这个选择器**，
+               真正扣钱发生在点「确认」那一刻（带着选择再调一次 sim.shopBuy）——
+               钱与效果始终是一次判定、一次结算，不存在「先扣钱再选」的中间态。 -->
+          <div class="shop-pick" v-if="ui.pick.open">
+            <div class="sp-head">
+              <span class="sp-title">{{ pickTitle }}</span>
+              <button class="sp-cancel" @click="closePick">取消</button>
+            </div>
+
+            <!-- 置换模式：先列「已拥有的」（那是要遗忘的） -->
+            <template v-if="ui.pick.mode === 'swap'">
+              <div class="sp-label">① 遗忘哪一件（点一下选中，再点一下取消）</div>
+              <div class="sp-grid">
+                <button class="sp-chip" v-for="it in pickOwnedList" :key="'d-' + it.id"
+                        :data-id="it.id"
+                        :class="{ on: ui.pick.drop === it.id }" @click="pickChoose(it.id)">
+                  {{ it.name }}<b>Lv{{ it.lv }}</b>
+                </button>
+              </div>
+              <p class="sp-empty" v-if="!pickOwnedList.length">还没有学过技能，置换契约用不上。</p>
+              <div class="sp-label">② 换成哪一件</div>
+            </template>
+            <div class="sp-label" v-else>选一件要习得的（共 {{ pickUnownedList.length }} 项可选）</div>
+
+            <div class="sp-grid">
+              <button class="sp-chip" v-for="it in pickUnownedList" :key="it.id"
+                      :data-id="it.id"
+                      :class="{ on: ui.pick.pick === it.id }" @click="pickChoose(it.id)">
+                {{ it.name }}<i>{{ it.catName }}</i>
+              </button>
+            </div>
+
+            <div class="sp-foot">
+              <span class="sp-note">{{ pickNote }}</span>
+              <button class="btn btn-gold" :disabled="!pickReady" @click="confirmPick">
+                {{ pickBtnText }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- 升级自动领补给（技能全练满之后才用得上）----------
+             放在商店下面而不是藏进某个设置页：它和商店一样是「暂停时才操作」的东西，
+             而且玩家正是在「技能全满了」那段时间才会想起来要开它。 -->
+        <div class="opt-row">
+          <span class="opt-name">升级自动领补给<em>技能全练满后，升级只剩补给，开启就不再弹面板</em></span>
+          <button class="btn opt-btn" :class="{ on: ui.autoSupply }" @click="toggleAutoSupply">
+            {{ ui.autoSupply ? '已开启' : '已关闭' }}
+          </button>
+        </div>
+
+        <!-- ---------- 角色详细数据 ----------
+             玩家在战斗中积累了一堆升级，但从来没机会看到「我现在到底有多强」。
+             这里把**战斗真正在用的那组属性**（p.attrs）原样显示 ——
+             界面读的就是战斗读的那份，不存在「面板说 120、实测打出来 90」。 -->
+        <div class="detail">
+          <div class="dt-head">
+            <span class="dt-title">角色数据</span>
+            <span class="dt-char">{{ hud.charName }} · Lv{{ hud.level }}</span>
+          </div>
+          <div class="dt-grid">
+            <div class="dt-cell" v-for="d in charDetail" :key="d.k">
+              <span class="dt-k">{{ d.k }}</span>
+              <span class="dt-v" :class="{ up: d.up }">{{ d.v }}</span>
+            </div>
+          </div>
+          <!-- 持有技能：一眼看到「我在练什么」，不用去翻技能图鉴 -->
+          <div class="dt-own" v-if="hud.weapons.length || hud.combos.length">
+            <span class="dt-own-row" v-for="w in hud.weapons" :key="w.id">
+              {{ w.name }} <b>Lv{{ w.level }}</b><i v-if="w.evolved">进化</i>
+            </span>
+            <span class="dt-own-row combo" v-for="cb in hud.combos" :key="cb.id">
+              {{ cb.name }} <b>Lv{{ cb.level }}</b>
+            </span>
+          </div>
+        </div>
+
+        <div class="panel-actions">
+          <button class="btn" @click="backToLobby">返回大厅</button>
+          <button class="btn" @click="openHelp('weapon')">技能图鉴</button>
+          <button class="btn btn-gold" @click="restart">重开一局</button>
+        </div>
+        <div class="panel-actions">
+          <button class="btn btn-primary btn-block" @click="togglePause">继续游戏</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 联机菜单（不冻结世界） ==================== -->
+    <!-- 多人游戏**无法暂停**：世界在服务端推进，你一个人停不下来。
+         所以这里只是一个菜单 —— 点「继续」或再按一次 Esc 就关掉，队友从头到尾不受影响。 -->
+    <div class="overlay" v-if="screen === 'menu'">
+      <!-- 同一个坑：内联 max-width 会压住 PC 放大段（详见上面暂停面板的注释） -->
+      <div class="panel panel-narrow">
+        <h2 v-if="spectating">观战<em>中</em></h2>
+        <h2 v-else>联机<em>对局</em></h2>
+        <p class="sub" v-if="spectating">
+          正在看 {{ followName }}。观战不影响这一局，你退出他们照常打。
+        </p>
+        <p class="sub" v-else>多人游戏无法暂停 —— 世界由服务器推进，你停下来队友照常打。</p>
+        <div class="panel-actions">
+          <button class="btn btn-primary btn-block" @click="togglePause">
+            {{ spectating ? '继续观看' : '继续游戏' }}
+          </button>
+        </div>
+        <div class="panel-actions">
+          <!-- 菜单里也放一个图鉴入口：观战的人没有武器栏，正需要这个面板
+               才能搞清楚「我看到的这些攻击都是什么」。 -->
+          <button class="btn" v-if="!spectating" @click="openHelp('weapon')">技能图鉴</button>
+          <!-- 中途也能拉人：服务端支持中途加入，扫完直接落到这个世界里。
+               观战者不提供这个入口：他不是这一局的人，没资格往里拉人。 -->
+          <button class="btn btn-gold" v-if="!spectating" @click="openShare">邀请队友（扫码）</button>
+          <button class="btn" v-else @click="openHelp('weapon')">技能图鉴</button>
+        </div>
+        <div class="panel-actions">
+          <button class="btn" @click="backToLobby">
+            {{ spectating ? '返回大厅（退出观战）' : '返回大厅（退出这一局）' }}
+          </button>
+        </div>
+        <p class="sub" style="margin-top: 12px;" v-if="spectating">
+          观战者不占座位、不影响这一局；关掉页面也一样，队友那边看不到「有人掉线」。
+        </p>
+        <p class="sub" style="margin-top: 12px;" v-else>
+          退出后这一局不等你，队友照常打到底；想再玩要重新回到房间里。
+        </p>
+      </div>
+    </div>
+
+    <!-- ==================== 结算 ==================== -->
+    <div class="overlay" v-if="screen === 'result' && spectating">
+      <!--
+        观战者专用结算：这一局他没参与，一个字都不能说成「你」。
+        那些「阵亡 / 撑满了 N 分钟 / 击杀 / 金币」全是参战者的数据，
+        摆在观战者面前只会让人以为自己打了个酱油局还输得很惨。
+        这里只报本局的客观结果 + 全队战绩（看别人打成什么样才是观战的收获）。
+      -->
+      <div class="panel">
+        <div class="result-title">观战结束</div>
+        <p class="sub">
+          <span class="tag diff-tag" :class="'diff-' + hud.diffId" v-if="hud.diffId">{{ hud.diffName }}</span>
+          这一局打到了第 <b>{{ hud.wave }}</b> 波，你全程旁观
+        </p>
+
+        <div class="result-team" v-if="resultList.length">
+          <div class="rt-head">本局战绩</div>
+          <div class="rt-row" v-for="r in resultList" :key="r.slot" :class="{ left: r.left }">
+            <span class="rt-name">
+              {{ r.name || ('座位 ' + (r.slot + 1)) }}
+              <span class="rt-tag" v-if="r.left">已离开</span>
+            </span>
+            <span class="rt-num"><b>{{ r.kills }}</b> 击杀</span>
+            <span class="rt-num"><b>{{ r.gold }}</b> 金币</span>
+            <span class="rt-num">Lv{{ r.level }}</span>
+          </div>
+        </div>
+
+        <div class="panel-actions">
+          <button class="btn btn-primary" @click="backToLobby">返回大厅</button>
+        </div>
+        <p class="sub" style="margin-top: 12px;">
+          想再看一局，可以在大厅的「联机房间」里找进行中的桌子点「观战」。
+        </p>
+      </div>
+    </div>
+
+    <div class="overlay" v-if="screen === 'result' && !spectating">
+      <div class="panel">
+        <!-- 三种结局：通关 / 未通过（时间到但首领没打完）/ 阵亡。
+             ★不能只写两态 —— 剧情关的失败条件有两种，而且原因完全不同：
+               一个是「死了」，一个是「没打完」。混在一起玩家不知道该怎么办。 -->
+        <div class="result-title" :class="hud.state === 'won' ? 'win' : 'lose'">
+          {{ hud.state === 'won' ? '通 关' : (hud.state === 'failed' ? '未 通 过' : '阵 亡') }}
+        </div>
+        <p class="sub">
+          <span class="tag diff-tag" :class="'diff-' + hud.diffId" v-if="hud.diffId">{{ hud.diffName }}</span>
+          {{ hud.charName }} ·
+          <template v-if="hud.state === 'won'">
+            {{ hud.campaign ? ('击败了 ' + (hud.bossName || '首领')) : ('撑满了 ' + matchMinutes + ' 分钟') }}
+          </template>
+          <template v-else-if="hud.state === 'failed'">
+            时间耗尽，{{ hud.bossName || '首领' }} 未被击败
+          </template>
+          <template v-else>
+            倒在第 {{ hud.wave }} 波
+          </template>
+        </p>
+
+        <div class="result-grid">
+          <div class="result-item">
+            <span class="num">{{ result.surviveText }}</span>
+            <span class="lbl">存活时长</span>
+          </div>
+          <div class="result-item">
+            <span class="num">{{ hud.level }}</span>
+            <span class="lbl">等级</span>
+          </div>
+          <div class="result-item">
+            <span class="num">{{ hud.kills }}</span>
+            <span class="lbl">击杀</span>
+          </div>
+          <div class="result-item">
+            <span class="num">{{ hud.gold }}</span>
+            <span class="lbl">金币</span>
+          </div>
+          <div class="result-item">
+            <span class="num">{{ hud.dmgDealt }}</span>
+            <span class="lbl">造成伤害</span>
+          </div>
+          <div class="result-item">
+            <span class="num">{{ hud.weapons.length }}</span>
+            <span class="lbl">持有武器</span>
+          </div>
+        </div>
+
+        <!-- 全队战绩：结算包里本来就带着每个人的数字，以前只显示了「我自己」那一份 -->
+        <div class="result-team" v-if="resultList.length > 1">
+          <div class="rt-head">本局战绩</div>
+          <div class="rt-row" v-for="r in resultList" :key="r.slot"
+               :class="{ me: r.slot === ui.netSlot, left: r.left }">
+            <span class="rt-name">
+              {{ r.name || ('座位 ' + (r.slot + 1)) }}
+              <span class="rt-tag" v-if="r.left">已离开</span>
+            </span>
+            <span class="rt-num"><b>{{ r.kills }}</b> 击杀</span>
+            <span class="rt-num"><b>{{ r.gold }}</b> 金币</span>
+            <span class="rt-num">Lv{{ r.level }}</span>
+          </div>
+        </div>
+
+        <!-- 剧情模式的卷尾：一段推进故事的文字。
+             放在战绩数字**上面**而不是下面 —— 玩家刚打完一关，
+             第一件想知道的是「刚才发生了什么」，不是「我打了多少伤害」。
+             而且它必须显眼：这是「继续玩下去」的唯一动机。 -->
+        <div class="coda" v-if="hud.campaign">
+          <div class="coda-head">
+            <span class="coda-no">第 {{ hud.stageNo }} 关 · {{ hud.stageName }}</span>
+            <span class="coda-res" :class="hud.state === 'won' ? 'win' : 'lose'">
+              {{ hud.state === 'won' ? '已通过' : '未通过' }}
+            </span>
+          </div>
+          <!-- 通关才给卷尾：没打过就讲「结局」是欺骗玩家 -->
+          <p class="coda-text" v-if="hud.state === 'won'">{{ hud.coda }}</p>
+          <!-- 未通过：题记 + 一句「差在哪」。★必须点出首领还没倒 ——
+               否则玩家以为自己「活满时间就赢了」，下一局还是同样的打法。 -->
+          <p class="coda-text dim" v-else-if="hud.state === 'failed'">
+            {{ hud.epigraph }}<br>
+            时间到了，{{ hud.bossName || '首领' }} 还在。这一关要的从来不是撑住。
+          </p>
+          <p class="coda-text dim" v-else>
+            {{ hud.epigraph }} —— 你没能走到这一步。
+          </p>
+        </div>
+
+        <p class="sub" style="margin-top: 14px;" v-if="isGuest">
+          游客对局不写入数据库；注册账号后这里的数据会记入排行榜。
+        </p>
+        <p class="sub" style="margin-top: 14px;" v-else-if="!hud.campaign">
+          本局战绩已记入你的档案与排行榜。
+        </p>
+        <p class="sub" style="margin-top: 14px;" v-else>
+          剧情模式的战绩只存在本机，不写入排行榜。
+        </p>
+
+        <div class="panel-actions">
+          <!-- 剧情模式：三个动作（下一关 / 重打本关 / 选关）——
+               和自由模式的两个（返回大厅 / 再来一局）语义完全不同，
+               所以分开写而不是用v-if 在同一个按钮上换文案：
+               换文案的话玩家会以为「再来一局」是重开本关，实际下一关更难。 -->
+          <template v-if="hud.campaign">
+            <button class="btn" @click="backToLobby">返回大厅</button>
+            <button class="btn" v-if="hud.state === 'won' && hasNextStage" @click="nextStage">下一关</button>
+            <button class="btn" v-else @click="restart">重打本关</button>
+            <button class="btn btn-primary" v-if="hasNextStage && hud.state === 'won'"
+                    @click="backToLobby">选关</button>
+            <button class="btn btn-primary" v-else @click="backToLobby">回到选关</button>
+          </template>
+          <template v-else>
+            <button class="btn" @click="backToLobby">返回大厅</button>
+            <!-- 联机：这一局结束了，但房间还开着、状态回到等待中，回房间等房主再开一局。
+                 注意这里不能走 backToLobby —— 那会给服务端发 game_leave，等于主动退房。 -->
+            <button class="btn btn-gold" v-if="ui.online" @click="backToRoom">回到房间</button>
+            <!-- 单机：没有房间概念，本地直接重开 -->
+            <button class="btn btn-primary" v-if="!ui.online" @click="restart">再来一局</button>
+          </template>
+        </div>
+        <p class="sub" style="margin-top: 12px;" v-if="ui.online">
+          回到房间后由房主点「开始对局」再来一局；想离开这桌就点「返回大厅」。
+        </p>
+      </div>
+    </div>
+
+    <!-- ==================== 邀请队友（扫码） ==================== -->
+    <!-- 两个页面（大厅候场室 / 对局中）共用同一套结构，样式在 theme.css 的 .share-* -->
+    <!-- 【别在这里用 @click.self 关闭】本项目的 vue.global.prod.js 编译产物里
+         没有 `_withModifiers`（只有 `_withKeys`），用非按键类修饰符会在渲染时抛
+         `Cannot read properties of undefined (reading '_withModifiers')`。
+         收起统一走下面的「关闭」按钮。 -->
+    <div class="share-mask" v-if="ui.shareOpen">
+      <div class="share-box">
+        <h2>扫码加入</h2>
+        <canvas id="share-qr" class="share-qr"></canvas>
+        <div class="share-fail" v-if="ui.shareQrFail">{{ ui.shareUrl }}</div>
+        <div class="share-code">房间号 <b>{{ ui.shareCode }}</b></div>
+        <p class="share-hint">
+          让队友用手机相机或微信扫一下，会自动进入大厅并加入这桌；<br>
+          已经在玩的也会被放进当前这一局（中途加入）。
+        </p>
+        <div class="share-link">{{ ui.shareUrl }}</div>
+        <div class="panel-actions" style="display: flex; gap: 8px;">
+          <button class="btn btn-sm" @click="copyShareLink">复制邀请</button>
+          <button class="btn btn-sm" @click="closeShare">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 技能图鉴 ==================== -->
+    <!-- 【为什么它是独立的一层，不是 .overlay 的一种】.overlay 是全屏遮罩 + 模糊，
+         那是「世界真的停住了」才配得上的待遇。而联机世界里根本停不下来 ——
+         开着图鉴的时候怪照样在打人。所以这里用**右侧抽屉**：
+         只占屏幕右边一条，战场左边全程可见，走位照常，整层 pointer-events 关闭、
+         只在面板本体上打开（这样触屏摇杆与「按住左键走位」都不被挡）。
+         单机下也一样不遮战场 —— 保持两种模式手感一致，少一套分支。
+         【别用 @click.self 关闭】见上面 share-mask 的注释（vue.global.prod.js 里
+         没有 _withModifiers，非按键修饰符会每次渲染抛异常）。收起走 Esc 或「关闭」按钮。 -->
+    <div class="skillbook" v-if="ui.helpOpen">
+      <div class="sb-panel">
+        <div class="sb-head">
+          <h2>技能<em>图鉴</em></h2>
+          <!-- 联机时明确告知「世界不会因为你在看图鉴而停下」——
+               本项目的一条硬语义：界面不许装停。 -->
+          <div class="sb-live" v-if="ui.online">世界仍在推进</div>
+          <button class="btn btn-sm" @click="closeHelp">关闭</button>
+        </div>
+
+        <div class="sb-tabs">
+          <button class="sb-tab" :class="{ on: ui.helpTab === g.key }"
+                  v-for="g in helpGroups" :key="g.key" @click="ui.helpTab = g.key">
+            {{ g.name }}<i>{{ g.items.length }}</i>
+          </button>
+        </div>
+
+        <div class="sb-hint" v-if="helpGroup">{{ helpGroup.hint }}</div>
+
+        <div class="sb-list">
+          <div class="sb-item" v-for="it in (helpGroup ? helpGroup.items : [])" :key="it.id"
+               :class="{ owned: it.ownedLv > 0, ready: it.recipeReady }">
+            <div class="sb-row1">
+              <span class="sb-name">{{ it.name }}</span>
+              <span class="sb-tag" :class="'c-' + it.cat">{{ it.tag }}</span>
+              <!-- 已持有的显示当前等级；进化态显示「已进化」而不是「没拿到」 -->
+              <span class="sb-own" v-if="it.ownedLv > 0">Lv{{ it.ownedLv }}</span>
+              <span class="sb-own evo" v-else-if="it.evolvedTo">已进化</span>
+            </div>
+
+            <div class="sb-desc">{{ it.desc }}</div>
+
+            <!-- 交叉信息。★这三条**不是互斥的**，所以不能写成 v-else-if ——
+                 串起来的结果是「一件武器恰好既是某角色的起始武器、
+                 又能凑出组合技、还有进化形态」时，只显示最靠前的那一条，
+                 另外两条信息直接消失（实测铁鞭就是这样：起始与组合都被吃掉了）。
+                 三条各有各的用处：起始回答「我选这个角色开局拿什么」，
+                 组合回答「练它还顺带能凑什么」，进化回答「练满会变成什么」。 -->
+            <div class="sb-recipe" v-if="it.recipe">
+              <span class="lb">配方</span>{{ it.recipe }}
+              <span class="ok" v-if="it.recipeReady">已齐</span>
+              <span class="no" v-else-if="it.needLv">
+                当前 {{ it.needLv[0] }}/{{ it.needLv[1] }} 级
+              </span>
+            </div>
+            <div class="sb-recipe" v-if="it.starters">
+              <span class="lb">起始</span>{{ it.starters.join('、') }} 的初始武器
+            </div>
+            <div class="sb-recipe" v-if="it.comboOf">
+              <span class="lb">组合</span>可凑出 {{ it.comboOf.join('、') }}
+            </div>
+            <div class="sb-recipe" v-if="it.evoName">
+              <span class="lb">进化</span>满级后合成 {{ it.evoName }}
+            </div>
+            <div class="sb-recipe" v-if="it.evoOf">
+              <span class="lb">进化</span>{{ it.evoOf.join('、') }}
+            </div>
+
+            <!-- 数值：1 级 → 满级。进化形态的 nums 已在 skillbook 里去掉「→」 -->
+            <div class="sb-nums">
+              <span v-for="(n, i) in it.nums" :key="i">{{ n }}</span>
+            </div>
+
+            <div class="sb-flavor" v-if="it.flavor">{{ it.flavor }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 依赖顺序不能乱：先数值表，再模拟，最后输入/渲染/主逻辑 -->
+  <script src="/vendor/vue.global.prod.js"></script>
+  <script src="/shared/const.js"></script>
+  <!-- 地图定义：sim.js 的工厂要拿它（VS.MAPS），所以必须排在 sim 之前 -->
+  <script src="/shared/maps.js"></script>
+  <!-- 剧情模组层：显示名覆写 + 关卡编排。sim.js 的工厂要拿它（VS.CAMPAIGN），
+       所以必须排在 sim 之前 —— 顺序错了会拿到 undefined，后面全是崩。 -->
+  <script src="/shared/campaign.js"></script>
+  <script src="/shared/sim.js"></script>
+  <!-- 二进制快照协议：必须排在 game.js 之前（联机靠它把二进制帧解成世界数据） -->
+  <script src="/shared/proto_bin.js"></script>
+  <!-- 头像图标集：队友头顶名牌要画它（与服务端共用同一份定义） -->
+  <script src="/shared/avatars.js"></script>
+  <!-- 二维码：vendor 在本地，不走 CDN（项目硬约定） -->
+  <script src="/vendor/qrcode.js"></script>
+  <script src="/js/share.js"></script>
+  <script src="/js/input.js"></script>
+  <!-- 技能图鉴：把 const.js 的四张技能表整理成可展示的条目。
+       必须在 game.js 之前（它只依赖 const.js，但图鉴要在 Vue 挂载时就算好）。 -->
+  <script src="/js/skillbook.js"></script>
+  <!-- 像素画引擎 + 素材表：必须排在 player-art / render 之前（两者都要用它画），
+       pixel-sprites 又依赖 pixel 里的调色板与自检，所以这个顺序是硬要求 -->
+  <script src="/js/pixel.js"></script>
+  <script src="/js/pixel-sprites.js"></script>
+  <!-- 战场角色形象：必须在 render.js 之前（render 烘焙精灵时会读它） -->
+  <script src="/js/player-art.js"></script>
+  <script src="/js/render.js"></script>
+  <!-- Performance optimizations -->
+  <script src="/js/pool.js"></script>
+  <script src="/js/spatial.js"></script>
+  <script src="/js/optimizations.js"></script>
+  <!-- Character portraits for selection screen -->
+  <script src="/js/character-portraits.js"></script>
+  <!-- 剧情进度与解锁规则：game.js 进关校验与通关记分都要用它。
+       ★必须在 game.js 之前 —— 顺序错了 game.js 拿到 undefined，
+         而表现是「解锁门槛完全失效」（不报错，只是谁都能进最后一关）。 -->
+  <script src="/js/story-progress.js"></script>
+  <!-- 站点导航（History API）：goLobby 与「下一关」的地址拼装都读它。
+       ★必须在 game.js 之前 —— game.js 挂载时就会调 goLobby（观战结束那条消息）。 -->
+  <script src="/js/nav.js"></script>
+  <script src="/js/game.js"></script>
+</body>
+
+</html>

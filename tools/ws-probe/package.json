@@ -1,0 +1,13 @@
+{
+  "name": "vs-ws-probe",
+  "version": "1.0.0",
+  "private": true,
+  "description": "发布沙箱连通性探针：验证 WebSocket 长连接、多连接共享同一进程、服务端持续下行",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.21.3"
+  }
+}

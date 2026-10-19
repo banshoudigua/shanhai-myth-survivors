@@ -1,0 +1,45 @@
+{
+  "name": "vampire-survivors-lan",
+  "version": "0.2.0",
+  "private": true,
+  "description": "多人合作生存网页游戏（局域网离线可玩 + CloudBase 云端双模）",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "vendor": "node tools/fetch-vendor.js",
+    "simtest": "node tools/simtest.js",
+    "mptest": "node tools/mptest.js",
+    "matchtest": "node tools/matchtest.js",
+    "nettest": "node tools/nettest.js",
+    "roomcheck": "node tools/roomcheck.js",
+    "smoke": "node tools/smoke.js",
+    "gamecheck": "node tools/gamecheck.js",
+    "avatartest": "node tools/avatartest.js",
+    "netcheck": "node tools/netcheck.js",
+    "fuzzcheck": "node tools/fuzzcheck.js",
+    "statscheck": "node tools/statscheck.js",
+    "difftest": "node tools/difftest.js",
+    "hellotest": "node tools/hellotest.js",
+    "seatkeeptest": "node tools/seatkeeptest.js",
+    "spectest": "node tools/spectest.js",
+    "specui": "node tools/specui.js",
+    "artshot": "node tools/artshot.js",
+    "mobilecheck": "node tools/mobilecheck.js",
+    "maptest": "node tools/maptest.js",
+    "campaigntest": "node tools/campaigntest.js",
+    "storycheck": "node tools/storycheck.js",
+    "storylist": "node tools/storylist.js",
+    "pausecheck": "node tools/pausecheck.js",
+    "hudsize": "node tools/hudsize.js",
+    "skillbooktest": "node tools/skillbooktest.js",
+    "sbui": "node tools/sbui.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "ws": "^8.21.3"
+  },
+  "_comment_pg": "pg（node-postgres）刻意不写进 dependencies：WorkBuddy「发布为应用」的沙箱预检会把依赖清单里出现 pg / mysql2 / ioredis 这类外部数据库驱动的项目判为「依赖沙箱不提供的外部服务」而拒绝发布。它只在连 CloudBase PostgreSQL 时才需要，由 Dockerfile 在构建时显式注入（见 Dockerfile 的 deps 阶段），运行时代码用按需 require。详见 server/db/driver.js 的说明。"
+}

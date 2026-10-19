@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1114">
+  <title>山海神话传 · 局域网合作生存</title>
+  <!--
+    站点图标：全部由 tools/makeicons.js 从同一份几何定义生成，改形状只要重跑一次。
+    ★为什么要这么多条：内联的 data URI SVG 在 iOS Safari 与部分安卓浏览器里不生效 ——
+    而那恰恰是「添加到主屏幕」的场景（用户装完发现没有图标）。所以必须有真 PNG 与 manifest。
+    顺序也有讲究：ico 放最后当兜底（不认识 svg/png 的老浏览器会去找 /favicon.ico）。
+  -->
+  <link rel="icon" href="/favicon.ico" sizes="any">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <!-- PWA 清单：让「添加到主屏幕」有图标、有独立窗口、启动落在大厅 -->
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="stylesheet" href="/css/theme.css">
+  <link rel="stylesheet" href="/css/character-select.css">
+  <!-- 像素风外衣层：必须放在最后（覆盖观感属性） -->
+  <link rel="stylesheet" href="/css/pixel-ui.css">
+  <!-- 剧情模式样式（关卡选择弹层）。放最后一条，靠「后来者居上」压住上面的基础规则。 -->
+  <link rel="stylesheet" href="/css/story-campaign.css">
+</head>
+
+<body>
+  <!--
+    v-cloak 是硬性要求：Vue 挂载前浏览器会先把原始 HTML 显示出来，
+    没有它就会闪现 {{ nickname }} 这种未渲染的模版文本。
+    对应样式在 theme.css 里的 [v-cloak]{display:none}。
+  -->
+  <div id="app" v-cloak>
+    <div class="wrap">
+
+      <!-- ==================== 主题横幅 ==================== -->
+      <!--
+        第十九轮：AI 生成的山海神话主题横幅（tools/prepsceneimg.js 处理成
+        1440×960 / 49 色 / 276 KB）。
+        ★为什么放顶栏**上方**独立一块，而不是塞进 .topbar 里：
+          顶栏有「左右两侧必须等宽」的硬约束（倒计时/战绩要居中），
+          在那里加图会把等宽打破 —— 而那是每轮都要复查的项（memory 有记）。
+          独立一块横幅不参与顶栏布局，零风险。
+        ★图上方留白是刻意生成的（prompt 里要求 plenty of dark empty space at top），
+          标题「山海神话传」正好落在这块留白上。
+      -->
+      <div class="hero-banner">
+        <img class="hero-img" src="/img/scene-out/lobby-banner.png" alt="山海神话 · 群雄逐鹿"
+             loading="eager" decoding="async">
+        <div class="hero-veil"></div>
+      </div>
+
+      <!-- ==================== 顶栏 ==================== -->
+      <header class="topbar">
+        <div class="brand">
+          <h1>山海<em>神话传</em></h1>
+          <p>局域网合作生存 · 同一网络下一起活到最后</p>
+        </div>
+
+        <!-- 连接状态：实时反映 WebSocket 是否通 -->
+        <span class="conn">
+          <i class="dot" :class="connDotClass"></i>
+          <span>{{ connText }}</span>
+        </span>
+
+        <button class="btn btn-sm" v-if="view === 'lobby' && !self.isGuest" @click="loadLeaderboard" :disabled="loading.lb">刷新排行</button>
+        <button class="btn btn-sm" v-if="view === 'lobby'" @click="doLogout">退出</button>
+      </header>
+
+      <!-- ==================== 全局提示 ==================== -->
+      <div class="msg" :class="notice.type" v-if="notice.text">{{ notice.text }}</div>
+
+      <!-- ==================== 连接日志 ==================== -->
+      <!-- 放在这里（而不是某个视图里面）是有意的：它在登录页、大厅、候场室都能看到，
+           而「连不上」这件事恰恰经常发生在「刚登录完切进大厅」那一刻。
+           默认收起，只在有异常时角标计数 —— 平时不打扰，出问题不用抓瞎。 -->
+      <div class="connlog">
+        <button class="connlog-toggle" :class="{ open: connLogOpen, warn: connBadCount > 0 }"
+                @click="toggleConnLog">
+          <i class="dot" :class="connDotClass"></i>
+          <span class="lbl">{{ connBadgeText }}</span>
+          <span class="now">{{ connText }}</span>
+          <span class="caret">{{ connLogOpen ? '收起 ▲' : '展开 ▼' }}</span>
+        </button>
+
+        <div class="connlog-panel" v-if="connLogOpen">
+          <div class="connlog-head">
+            <span class="cnt">{{ connLog.length ? ('共 ' + connLog.length + ' 条 · 最新在上') : '' }}</span>
+            <button class="btn btn-sm" @click="copyConnLog">复制全部</button>
+            <button class="btn btn-sm" @click="clearConnLog">清空</button>
+          </div>
+
+          <div class="connlog-list" v-if="connLog.length">
+            <div class="connlog-row" :class="l.level" v-for="l in connLog" :key="l.id">
+              <span class="t">{{ l.at }}</span>
+              <span class="x">{{ l.text }}</span>
+            </div>
+          </div>
+          <div class="connlog-empty" v-else>
+            还没有记录。连接一有动静（建立 / 握手 / 断开 / 重连）就会记在这里。
+          </div>
+
+          <div class="connlog-tip">
+            断线时先看这里：若一直停在「将在 N 秒后重连」，多半是网络到不了服务器；
+            若出现「服务端错误：登录状态已失效」，重新登录即可。
+          </div>
+        </div>
+      </div>
+
+      <!-- ==================== 一、登录 / 注册 ==================== -->
+      <section v-if="view === 'auth'">
+        <div style="max-width: 420px; margin: 0 auto;">
+
+          <!-- 扫码进来的：先告诉他「登进去就会自动进这桌」，
+               否则他会以为扫错地方了（登录页看起来跟房间毫无关系） -->
+          <div class="card" v-if="urlRoom"
+               style="border-color: var(--amber-lo); text-align: center;">
+            你正在加入房间 <b style="color: var(--amber-hi); font-size: 18px; letter-spacing: 3px;">{{ urlRoom }}</b><br>
+            <span style="font-size: 12px; color: var(--text-mute);">
+              登录或填个昵称进入后会自动进这桌，不用再输房间号
+            </span>
+          </div>
+
+          <div class="card">
+            <div class="tabs">
+              <button class="tab" :class="{ active: authTab === 'login' }" @click="switchAuthTab('login')">登录</button>
+              <button class="tab" :class="{ active: authTab === 'register' }" @click="switchAuthTab('register')">注册</button>
+            </div>
+
+            <!-- 登录表单 -->
+            <div v-if="authTab === 'login'">
+              <div class="field">
+                <label>用户名</label>
+                <input class="input" v-model.trim="loginForm.username" maxlength="16"
+                       placeholder="请输入用户名" @keyup.enter="doLogin">
+              </div>
+              <div class="field">
+                <label>密码</label>
+                <input class="input" type="password" v-model="loginForm.password" maxlength="64"
+                       placeholder="请输入密码" @keyup.enter="doLogin">
+              </div>
+              <button class="btn btn-primary btn-block" @click="doLogin" :disabled="busy.login">
+                {{ busy.login ? '登录中...' : '登录' }}
+              </button>
+            </div>
+
+            <!-- 注册表单 -->
+            <div v-else>
+              <div class="field">
+                <label>用户名（3-16 位，字母 / 数字 / 下划线 / 中文）</label>
+                <input class="input" v-model.trim="regForm.username" maxlength="16"
+                       placeholder="登录时使用" @keyup.enter="doRegister">
+              </div>
+              <div class="field">
+                <label>游戏昵称（可留空，默认与用户名相同）</label>
+                <input class="input" v-model.trim="regForm.nickname" maxlength="12"
+                       placeholder="队友看到的名字" @keyup.enter="doRegister">
+              </div>
+              <div class="field">
+                <label>密码（至少 6 位）</label>
+                <input class="input" type="password" v-model="regForm.password" maxlength="64"
+                       placeholder="请输入密码" @keyup.enter="doRegister">
+              </div>
+              <div class="field">
+                <label>确认密码</label>
+                <input class="input" type="password" v-model="regForm.password2" maxlength="64"
+                       placeholder="再输一次" @keyup.enter="doRegister">
+              </div>
+              <button class="btn btn-primary btn-block" @click="doRegister" :disabled="busy.register">
+                {{ busy.register ? '注册中...' : '注册并进入' }}
+              </button>
+            </div>
+
+            <div class="divider">或</div>
+
+            <!-- 游客通道 -->
+            <div class="field">
+              <label>不想注册？填个昵称直接开玩（战绩不保存）</label>
+              <input class="input" v-model.trim="guestNickname" maxlength="12"
+                     placeholder="给自己起个名字" @keyup.enter="enterAsGuest">
+            </div>
+            <button class="btn btn-gold btn-block" @click="enterAsGuest" :disabled="busy.guest">
+              {{ busy.guest ? '进入中...' : '以游客身份进入' }}
+            </button>
+          </div>
+
+          <p class="footer">
+            账号数据保存在本机数据库，<b>断网也能登录</b>；队友在同一 WiFi 下访问
+            <code>{{ pageHost }}</code> 即可加入。
+          </p>
+        </div>
+      </section>
+
+      <!-- ==================== 二、候场室（在房间里时显示） ==================== -->
+      <section v-else-if="view === 'room' && room">
+        <!-- 房间信息 -->
+        <div class="card">
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 220px;">
+              <div style="font-size: 12px; color: var(--text-mute);">房间号（念给队友听）</div>
+              <div class="room-code-big">{{ room.code }}</div>
+              <div style="font-size: 12px; color: var(--text-mute);">
+                {{ room.members.length }} / {{ room.maxPlayers }} 人 ·
+                {{ room.state === 'playing'
+                   ? '对局进行中'
+                   : (room.canStart ? '全员就绪，房主可以发车了' : '等队友点「准备」') }}
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <!-- 分享：出一张二维码，扫一下直接落在这一桌（比念 IP 和房间号靠谱得多） -->
+              <button class="btn btn-sm btn-gold" @click="openShare">邀请队友</button>
+              <button class="btn btn-sm" @click="copyInvite">复制邀请</button>
+              <button class="btn btn-sm" @click="leaveRoom">离开房间</button>
+            </div>
+          </div>
+
+          <div class="empty" style="margin-top: 10px;">
+            手机直接扫「邀请队友」里的二维码就能进这桌；
+            队友在同一 WiFi 下打开 <code>http://{{ pageHost }}</code>，
+            在大厅「联机房间」里点这桌的「加入」也行，或者直接报房间号
+            <b>{{ room.code }}</b>。
+          </div>
+        </div>
+
+        <div class="grid-3">
+
+          <!-- 候场成员 -->
+          <div class="card" style="grid-column: span 2;">
+            <h2 class="card-title">
+              候场玩家
+              <span class="sub">{{ room.members.length }} / {{ room.maxPlayers }}</span>
+            </h2>
+
+            <div class="list">
+              <!-- member-row 是候场成员行的专属类名：大厅的在线列表也是 .row，
+                   自动化测试要能精确区分这两者，不能只靠 .row 去数 -->
+              <div class="row member-row" v-for="m in room.members" :key="m.slot" :class="{ me: m.self }">
+                <span class="rank">{{ m.slot + 1 }}</span>
+                <span class="avatar-sm" v-html="avatarSvg(m.avatar, 18)"></span>
+                <span class="name">
+                  {{ m.nickname }}
+                  <span class="tag" :class="m.isGuest ? 'guest' : 'user'">
+                    {{ m.isGuest ? '游客' : '玩家' }}
+                  </span>
+                  <span class="tag playing" v-if="m.host">房主</span>
+                  <!-- 掉线的人还占着席位：显示「N 秒后移出」，
+                       否则队友只能对着一个永远不动的「掉线」猜他还在不在 -->
+                  <span class="tag" v-if="!m.connected">
+                    {{ m.offlineLeftSec > 0 ? ('掉线 · ' + m.offlineLeftSec + 's 后移出') : '掉线' }}
+                  </span>
+                </span>
+                <span class="time">{{ charName(m.charId) }}</span>
+                <span class="tag" :class="m.ready ? 'playing' : 'guest'">
+                  {{ m.ready ? '已准备' : '未准备' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="empty" v-if="room.members.length === 1">
+              就你一个人<br>把房间号 <b>{{ room.code }}</b> 发给队友，或者让他们在大厅列表里点「加入」
+            </div>
+          </div>
+
+          <!-- 我的角色 -->
+          <div class="card">
+            <h2 class="card-title">我的角色<span class="sub">{{ charName(charId) }}</span></h2>
+
+            <div class="char-list">
+              <button class="char-btn" v-for="c in charOptions" :key="c.id"
+                      :class="{ active: c.id === charId }" @click="pickChar(c.id)">
+                <span class="char-name">{{ c.name }}</span>
+                <span class="char-desc">{{ c.desc }}</span>
+              </button>
+            </div>
+
+            <div class="empty" v-if="self.isGuest" style="margin-top: 10px;">
+              游客只能选「猎魔人」<br>注册后可解锁全部角色
+            </div>
+          </div>
+
+        <!-- 对局难度：房主一人可改，其余人只读（服务端也会拦，界面只是别让人白点）。
+             放在候场室里而不是建房前，是因为「几个人商量着定难度」是常态 ——
+             建完桌再改比退出去重建自然得多。
+             【必须留在 .grid-3 内部】它靠 `grid-column: span 2` 与「我的角色」凑成一行；
+             放到网格外面的话 span 无效、会变成独占一整行，旁边还留个空格。 -->
+        <div class="card" style="grid-column: span 2;">
+          <h2 class="card-title">
+            对局难度
+            <span class="sub" v-if="isHost">只有房主能改</span>
+            <span class="sub" v-else>由房主决定</span>
+          </h2>
+
+          <div class="diff-list">
+            <button class="diff-btn" v-for="d in diffList" :key="d.id"
+                    :class="{ active: d.id === room.difficulty, locked: !isHost }"
+                    :disabled="!isHost || room.state !== 'waiting'"
+                    @click="pickDiff(d.id)">
+              <span class="diff-name">{{ d.name }}</span>
+              <span class="diff-len">{{ Math.round(d.matchSec / 60) }} 分钟</span>
+              <span class="diff-desc">{{ d.desc }}</span>
+            </button>
+          </div>
+
+          <!-- 地图：与难度完全同构的交互（房主可改、开局后锁定，服务端也会拦）。
+               放在同一张卡里是因为它和难度是同一类决策 —— 「这局打多难 / 打在哪」，
+               队友商量完一起点「开始」比分两个地方设置自然。 -->
+          <h2 class="card-title map-title">
+            对局地图
+            <span class="sub" v-if="isHost">只有房主能改</span>
+            <span class="sub" v-else>由房主决定</span>
+          </h2>
+
+          <div class="diff-list">
+            <button class="diff-btn map-btn" v-for="m in mapList" :key="m.id"
+                    :class="{ active: m.id === room.mapId, locked: !isHost }"
+                    :disabled="!isHost || room.state !== 'waiting'"
+                    @click="pickMap(m.id)">
+              <span class="diff-name">{{ m.name }}</span>
+              <span class="diff-len">{{ m.w }}×{{ m.h }}</span>
+              <span class="diff-desc">{{ m.desc }}</span>
+            </button>
+          </div>
+        </div>
+
+          <!-- 我的头像：纯界面身份，用来在成员列表和队友头顶把人一眼区分开。
+               选完立即生效（服务端会把三处引用一起更新），账号用户还会记到库里。 -->
+          <div class="card">
+            <h2 class="card-title">我的头像<span class="sub">{{ avatarName }}</span></h2>
+
+            <div class="avatar-list">
+              <button class="avatar-btn" v-for="a in avatarList" :key="a.id"
+                      :class="{ active: a.id === avatar }" :title="a.name"
+                      @click="pickAvatar(a.id)" v-html="avatarSvg(a.id, 24)"></button>
+            </div>
+
+            <div class="empty" style="margin-top: 10px;">
+              头像会显示在大厅、候场室和队友的屏幕上（游戏里在队友头顶）
+            </div>
+          </div>
+
+        </div>
+
+        <!-- 发车操作 -->
+        <div class="card">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px; font-size: 13px; color: var(--text-dim);">
+              <template v-if="isHost">你是房主：等大家都点「准备」，就可以开始对局。</template>
+              <template v-else-if="myReady">你已准备就绪，等房主发车。</template>
+              <template v-else>点「准备」，让房主知道你可以了。</template>
+            </div>
+
+            <button v-if="!isHost" class="btn" :class="{ 'btn-gold': !myReady }" @click="toggleReady">
+              {{ myReady ? '取消准备' : '准备' }}
+            </button>
+            <button v-if="isHost" class="btn btn-primary" :disabled="!room.canStart" @click="startMatch">
+              {{ room.canStart ? '开始对局' : '等待全员准备' }}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ==================== 三、大厅 ==================== -->
+      <section v-else>
+        <!-- 行动条 -->
+        <div class="card">
+          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div style="flex: 1; min-width: 200px;">
+              <div style="font-size: 16px; font-weight: 600;">
+                {{ self.nickname }}
+                <span class="tag" :class="self.isGuest ? 'guest' : 'user'">
+                  {{ self.isGuest ? '游客' : '已注册' }}
+                </span>
+              </div>
+              <div style="font-size: 12px; color: var(--text-mute);">
+                当前在线 {{ online.length }} 人 · 服务器时间偏移 {{ timeOffsetText }}
+              </div>
+            </div>
+            <!-- 没连上时禁用：否则玩家点下去只会收到一句「还没连上服务器」，很莫名其妙 -->
+            <!-- 单人地图选择。
+                 ★以前单人只能靠手改 URL 的 ?map= 换图 —— 等于没有入口：
+                   玩家根本不知道有 6 张图，更不知道每张图的怪不一样。
+                   这里与候场室共用同一份地图表（mapList 来自 shared/maps.js）
+                   和同一个偏好键（MAP_KEY），所以两边选过什么都记得住。 -->
+            <div class="solo-map">
+              <span class="sm-lb">单人地图</span>
+              <div class="sm-list">
+                <button class="sm-chip" v-for="m in mapList" :key="m.id"
+                        :class="{ on: soloMapId === m.id }"
+                        :title="m.name + '：' + (m.desc || '')"
+                        @click="pickSoloMap(m.id)">{{ m.name }}</button>
+              </div>
+            </div>
+            <button class="btn btn-gold" @click="createRoom" :disabled="wsState !== 'on'">创建房间</button>
+            <button class="btn" @click="loadRoomList">刷新房间</button>
+            <button class="btn btn-primary" @click="startGame">单人游戏</button>
+            <!-- 剧情模式入口。放在「单人游戏」右边而不是另起一块：
+                 两者都是「一个人打一局」，区别只在有没有故事——
+                 摆在一起，玩家一眼就知道该选哪个（想随手玩就单人，想看故事就剧情）。 -->
+            <button class="btn btn-story" @click="openStory">剧情模式</button>
+          </div>
+        </div>
+
+        <!-- 联机房间列表：点击直接加入，不用手输房间号 -->
+        <div class="card">
+          <h2 class="card-title">
+            联机房间
+            <span class="sub">{{ rooms.length ? rooms.length + ' 桌开着' : '还没有人开房' }}</span>
+          </h2>
+
+          <div class="list" v-if="rooms.length">
+            <div class="row" v-for="r in rooms" :key="r.code">
+              <span class="room-code">{{ r.code }}</span>
+              <span class="name">
+                房主 {{ r.host }}
+                <!-- 三种状态：playing 真在打；ended 人走光了对局已收尾（还能进，
+                     进去会重新开局那一桌）；waiting 还在候场。
+                     少了 ended 这一支，它会被显示成「等待中」—— 玩家以为能直接加入，
+                     点进去才发现要等房主发车。 -->
+                <span class="tag" :class="r.state === 'waiting' ? 'user' : 'playing'">
+                  {{ r.state === 'playing' ? '对局中' : (r.state === 'ended' ? '已结束' : '等待中') }}
+                </span>
+                <!-- 难度要在大厅就能看见：这是选桌的主要依据之一，
+                     不该先进了候场室才发现这桌是休闲档 -->
+                <span class="tag diff-tag" :class="'diff-' + r.difficulty">
+                  {{ diffName(r.difficulty) }}
+                </span>
+              </span>
+              <span class="time">{{ r.memberCount }} / {{ r.maxPlayers }}</span>
+              <!--
+                人数没满就允许加入。对局中的房间也能进（服务端支持中途加入，
+                进去会直接落到世界里），所以这里不按 state 拦，只按人数拦。
+              -->
+              <button class="btn btn-sm btn-primary" v-if="r.memberCount < r.maxPlayers"
+                      @click="joinRoom(r.code)">
+                {{ r.state === 'playing' ? '加入中局' : '加入' }}
+              </button>
+              <button class="btn btn-sm" v-else disabled>已满</button>
+              <!--
+                观战：只对**进行中**的桌子有意义。
+                等待中的桌子也能看（世界还没开，没什么可看），但那更像是误入 ——
+                所以只在 playing 时给这个按钮。
+                观战不占座位（不占 maxPlayers），满员也能看。
+              -->
+              <button class="btn btn-sm" v-if="r.state === 'playing'" @click="spectateRoom(r.code)">
+                观战
+              </button>
+            </div>
+          </div>
+
+          <div class="empty" v-else>
+            还没有人开房<br>点上面的「创建房间」开一桌，队友在大厅就能看到
+          </div>
+        </div>
+
+        <div class="grid-3">
+
+          <!-- 我的档案 -->
+          <div class="card">
+            <h2 class="card-title">我的档案<span class="sub" v-if="self.userId">ID {{ self.userId }}</span></h2>
+
+            <div class="me-line">
+              <span class="nick">{{ self.nickname }}</span>
+              <span class="tag" :class="self.isGuest ? 'guest' : 'user'">
+                {{ self.isGuest ? '游客' : '账号' }}
+              </span>
+            </div>
+
+            <div v-if="self.isGuest" class="empty">
+              游客模式不记录战绩<br>注册后可查看累计数据与排行榜
+            </div>
+
+            <div v-else>
+              <div v-if="loading.me" class="loading">战绩加载中...</div>
+              <div v-else class="stats">
+                <div class="stat">
+                  <span class="num">{{ stats.total_matches }}</span>
+                  <span class="lbl">总对局</span>
+                </div>
+                <div class="stat">
+                  <span class="num">{{ stats.total_kills }}</span>
+                  <span class="lbl">累计击杀</span>
+                </div>
+                <div class="stat">
+                  <span class="num">{{ stats.best_kills }}</span>
+                  <span class="lbl">单局最高击杀</span>
+                </div>
+                <div class="stat">
+                  <span class="num">{{ formatSec(stats.longest_survive) }}</span>
+                  <span class="lbl">最长存活</span>
+                </div>
+                <div class="stat">
+                  <span class="num">{{ stats.max_level }}</span>
+                  <span class="lbl">最高等级</span>
+                </div>
+                <div class="stat">
+                  <span class="num">{{ formatSec(stats.total_play_sec) }}</span>
+                  <span class="lbl">累计时长</span>
+                </div>
+              </div>
+
+              <!-- 设置新密码：只要还登录着就能重设，**不需要旧密码**。
+                   【为什么需要它】线上跑在「重新发布就把数据回滚」的沙箱里，账号会按浏览器里的
+                   token 自动重建；重建时库里的密码哈希是随机写的、谁都不知道 ——
+                   没有这个入口就等于把账号锁死（能玩，但再也设不了密码）。
+                   详见 server/api/auth.js 的自证式 token 注释。 -->
+              <div class="pwd-block">
+                <button class="btn btn-sm" v-if="!pwdOpen" @click="openPwd">设置新密码</button>
+                <div v-else>
+                  <div class="field">
+                    <label>新密码（至少 6 位）</label>
+                    <input class="input" type="password" v-model="pwd1" maxlength="64"
+                           placeholder="新密码" @keyup.enter="savePassword">
+                  </div>
+                  <div class="field">
+                    <label>确认新密码</label>
+                    <input class="input" type="password" v-model="pwd2" maxlength="64"
+                           placeholder="再输一次" @keyup.enter="savePassword">
+                  </div>
+                  <div class="pwd-actions">
+                    <button class="btn btn-sm" @click="cancelPwd">取消</button>
+                    <button class="btn btn-sm btn-primary" @click="savePassword" :disabled="busy.pwd">
+                      {{ busy.pwd ? '保存中...' : '保存' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 在线玩家 -->
+          <div class="card">
+            <h2 class="card-title">
+              在线玩家
+              <span class="sub">{{ online.length }} / {{ maxPlayers }}</span>
+            </h2>
+
+            <div class="list" v-if="online.length">
+              <div class="row" v-for="p in online" :key="p.connId" :class="{ me: p.connId === self.connId }">
+                <i class="dot on"></i>
+                <span class="avatar-sm" v-html="avatarSvg(p.avatar, 18)"></span>
+                <span class="name">
+                  {{ p.nickname }}
+                  <span class="tag" :class="p.isGuest ? 'guest' : 'user'">{{ p.isGuest ? '游客' : '玩家' }}</span>
+                  <span class="tag playing" v-if="p.status === 'playing'">对局中</span>
+                </span>
+                <span class="time">{{ formatSec(p.onlineSec) }}</span>
+              </div>
+            </div>
+
+            <div class="empty" v-else>
+              还没有其他人在线<br>把地址发给队友就能一起玩
+            </div>
+          </div>
+
+          <!-- 排行榜 -->
+          <div class="card">
+            <h2 class="card-title">
+              排行榜
+              <span class="sub">{{ lbTypeText }}</span>
+            </h2>
+
+            <div class="seg" style="margin-bottom: 12px;">
+              <button :class="{ active: lbType === 'kills' }" @click="switchLbType('kills')">击杀</button>
+              <button :class="{ active: lbType === 'survive' }" @click="switchLbType('survive')">存活</button>
+              <button :class="{ active: lbType === 'level' }" @click="switchLbType('level')">等级</button>
+            </div>
+
+            <div class="list" v-if="loading.lb">
+              <div class="loading">排行加载中...</div>
+            </div>
+
+            <div class="list" v-else-if="leaderboard.length">
+              <div class="row" v-for="(item, i) in leaderboard" :key="item.id">
+                <span class="rank" :class="'r' + (i + 1)">{{ i + 1 }}</span>
+                <span class="name">{{ item.nickname }}</span>
+                <span class="time">{{ item.score }}</span>
+              </div>
+            </div>
+
+            <div class="empty" v-else>
+              榜单还是空的<br>打完第一局就会出现在这里
+            </div>
+          </div>
+
+        </div>
+
+        <p class="footer">
+          当前进度：<b>联机房间已可用</b>（创建 / 加入 / 候场 / 房主发车 → 进入联机对局）。<br>
+          单人玩法：17 武器 / 14 被动 / 10 进化 / 13 组合技 / 8 角色，点「单人游戏」即可开一局。<br>
+          队友访问地址：<code>http://{{ pageHost }}</code> · 接口自检
+          <a href="/api/health" target="_blank">/api/health</a>
+        </p>
+      </section>
+
+    </div>
+
+    <!-- ==================== 剧情模式：关卡选择 ==================== -->
+    <!--
+      ★弹层用 margin:auto 居中（.story-mask 里写的是 align-items 去掉 + > * margin auto），
+        不用 align-items:center —— 六张关卡卡片在小屏上会比视口高，
+        居中溢出会把第一关推到容器外面且滚不回来（项目踩过两次）。
+      ★不用 v-cloak 之外的花招：这个弹层整块由 v-if 控制，未渲染不占位。
+    -->
+    <div class="story-mask" v-if="storyOpen">
+      <div class="story-box">
+        <h2>
+          剧情<em>模式</em>
+          <span class="story-sub">{{ storyModName }}</span>
+        </h2>
+        <p class="story-tag">{{ storyModTagline }}</p>
+
+        <!-- 模组切换：需求里「以后可能有魔法世界模组可切换」的落地入口。
+             只有一个模组时不显示（免得玩家看到一排只有一项的开关）。 -->
+        <div class="story-mods" v-if="storyMods.length > 1">
+          <button class="story-mod" v-for="m in storyMods" :key="m.id"
+                  :class="{ on: m.id === storyModId }"
+                  @click="switchStoryMod(m.id)">{{ m.name }}</button>
+        </div>
+
+        <div class="story-prog">
+          进度 <b>{{ storyCleared }}</b> / {{ storyStages.length }} 关
+          <span v-if="storyCleared">· 已通关的关可以重打</span>
+        </div>
+
+        <div class="story-list">
+          <button class="story-card"
+                  v-for="st in storyStages" :key="st.id"
+                  :class="{ done: st.cleared, cur: st.unlocked && !st.cleared, locked: !st.unlocked }"
+                  :disabled="!st.unlocked"
+                  @click="enterStoryStage(st)">
+            <!-- ★flex 布局必须放在这一层，不能直接放在 <button> 上。
+                 WebKit（Safari / iPad）对「button 自身做 flex 容器 + 多行内容」
+                 的高度计算与 Chromium 不同 —— 实测会把最后一两行吃掉，
+                 表现为「卡片最后一行被切半截、夹在两卡之间」。
+                 内层用一个普通 span 承载 flex 就没有这个问题（button 只当块级盒子）。
+                 这个 bug 在 Chromium 下**完全复现不出来**，本地全绿、iPad 上才坏。 -->
+            <span class="sc-inner">
+            <span class="sc-no">{{ st.no }}</span>
+            <span class="sc-body">
+              <span class="sc-name">
+                {{ st.name }}
+                <!-- 三个状态标：锁定 / 当前该打 / 已通关。
+                     分开写而不是用一个图标换色：形状差异比颜色差异更快被认出来。 -->
+                <span class="sc-badge locked" v-if="!st.unlocked">未解锁</span>
+                <span class="sc-badge cur" v-else-if="!st.cleared">可挑战</span>
+                <span class="sc-badge done" v-else>已通关</span>
+              </span>
+              <span class="sc-epi">{{ st.epigraph }}</span>
+              <span class="sc-meta">
+                {{ st.mapName }} · {{ st.minutes }} 分钟 ·
+                初始 {{ st.startCharName }}<template v-if="st.bossName"> · 首领 {{ st.bossName }}</template>
+              </span>
+              <span class="sc-lock" v-if="!st.unlocked">
+                需要先通关第 {{ st.no - 1 }} 关
+              </span>
+            </span>
+            </span>
+          </button>
+        </div>
+
+        <div class="panel-actions">
+          <button class="btn" @click="closeStory">关闭</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 邀请队友（扫码） ==================== -->
+    <!-- 与对局页共用同一套结构，样式在 theme.css 的 .share-* -->
+    <!-- 【别用 @click.self】本项目的 vue.global.prod.js 里没有 `_withModifiers`
+         （只有 `_withKeys`），非按键类修饰符会直接让渲染抛异常。收起走「关闭」按钮。 -->
+    <div class="share-mask" v-if="shareOpen">
+      <div class="share-box">
+        <h2>扫码加入</h2>
+        <canvas id="share-qr" class="share-qr"></canvas>
+        <div class="share-fail" v-if="shareQrFail">{{ shareUrl }}</div>
+        <div class="share-code">房间号 <b>{{ shareCode }}</b></div>
+        <p class="share-hint">
+          让队友用手机相机或微信扫一下，会自动进入大厅并加入这桌。
+        </p>
+        <div class="share-link">{{ shareUrl }}</div>
+        <div class="panel-actions" style="display: flex; gap: 8px;">
+          <button class="btn btn-sm" @click="copyShareLink">复制邀请</button>
+          <button class="btn btn-sm" @click="closeShare">关闭</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Vue 本地引入，不用 CDN：断网也要能打开页面 -->
+  <script src="/vendor/vue.global.prod.js"></script>
+  <!-- 角色表在前端也有一份（和 shared/sim.js 用的是同一份文件），候场室选角色要用 -->
+  <script src="/shared/const.js"></script>
+  <!-- 地图表：lobby.js 要读它（VS.MAPS）来渲染地图选择器，必须在 lobby.js 之前 -->
+  <script src="/shared/maps.js"></script>
+  <!-- 头像图标集：与服务端共用同一份定义（服务端拿它做白名单校验） -->
+  <script src="/shared/avatars.js"></script>
+  <!-- Character portrait system -->
+  <script src="/js/character-portraits.js"></script>
+  <!-- 二维码库 + 分享封装：vendor 在本地，不走 CDN（项目硬约定） -->
+  <script src="/vendor/qrcode.js"></script>
+  <script src="/js/share.js"></script>
+  <!-- 剧情模组层 + 进度规则：大厅的「剧情模式」入口与关卡选择页要用。
+       顺序：campaign 依赖 const/maps，story 依赖 campaign，nav 独立无依赖。 -->
+  <script src="/shared/campaign.js"></script>
+  <script src="/js/story-progress.js"></script>
+  <!-- 站点导航（History API）：地址 /game 与「返回大厅不新压历史项」都在这里。
+       必须排在 lobby.js 之前 —— lobby.js 的 mounted 一挂载就会读 window.VS.NAV。 -->
+  <script src="/js/nav.js"></script>
+  <script src="/js/lobby.js"></script>
+</body>
+
+</html>

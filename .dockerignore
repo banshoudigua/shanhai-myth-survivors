@@ -1,0 +1,14 @@
+# .dockerignore —— 别把这些打进镜像，否则镜像体积暴涨甚至构建失败
+node_modules
+data
+tools
+.workbuddy
+.git
+.gitignore
+
+# 文档不参与运行
+*.md
+
+# 本地测试脚本与日志
+*.log
+*.bat
