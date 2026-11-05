@@ -140,6 +140,14 @@ const INJECT = `(function () {
   function feed() {
   w.effects.length = 0;
   w.projectiles.length = 0;
+  w.strikes.length = 0;
+  // 抛物线锤：按时间循环它的飞行进度，截图才能看到「出手 → 划弧 → 落点」的残影轨迹
+  // 固定在飞行的中后段（0.6~0.8）：三个残影的时刻 tk = ph - k*0.055 全为正，
+  // 截图才拍得到完整轨迹；用随机相位经常只拍到刚出手、残影还没生成。
+  var ph = 0.6 + 0.2 * ((Date.now() % 700) / 700);
+  w.strikes.push({ id:9201, kind:'parabola', owner:w.player,
+    sx:px-170, sy:py-130, x:px+70, y:py+150, r:56,
+    life:L*(1-ph), delay:L, color:'#ffcf5c' });
   w.effects.push({kind:'arc', x:px-260, y:py-120, r:110, facing:0, arcDeg:110, life:L, maxLife:L, color:'#e8dcc0'});
   w.effects.push({kind:'arc', x:px+260, y:py-120, r:110, facing:Math.PI, arcDeg:110, life:L, maxLife:L, color:'#ff4d4d'});
   w.effects.push({kind:'boom', x:px-300, y:py+170, r:75, life:L, maxLife:L, color:'#ffcf5c'});

@@ -2333,6 +2333,22 @@
           const y = lerp(s.sy, s.y, t);
           const arc = Math.sin(t * Math.PI) * 90;   // 抛物高度
 
+          // ★轨迹残影：沿同一条抛物线回看 3 个时刻，把「出手 → 划弧 → 落点」
+          //   这条路径画清楚。用渐隐小锤影，不额外加载任何素材。
+          for (let k = 3; k >= 1; k--) {
+            const tk = t - k * 0.055;
+            if (tk <= 0) continue;
+            const kx = lerp(s.sx, s.x, tk);
+            const ky = lerp(s.sy, s.y, tk) - Math.sin(tk * Math.PI) * 90;
+            ctx.save();
+            ctx.globalAlpha = 0.34 / k;
+            ctx.translate(kx, ky);
+            ctx.rotate(tk * 6);
+            ctx.fillStyle = COLOR.warn;
+            ctx.fillRect(-6, -9, 12, 11);
+            ctx.restore();
+          }
+
           // 落点预告环
           ctx.strokeStyle = COLOR.warn;
           ctx.lineWidth = 2;

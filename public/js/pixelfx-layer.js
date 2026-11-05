@@ -178,18 +178,30 @@
 
     const prevAlpha = ctx.globalAlpha;
     const sc = o.scale > 0 ? o.scale : 1;
-    const fade = o.alpha === undefined ? Math.min(1, (life / maxLife) * 1.5) : o.alpha;
-    ctx.save();
-    ctx.translate(o.x, o.y);
-    ctx.scale(sc, sc);
-    // ★加法混合是这套战场的老规矩（原来画爆炸/刀光就用 lighter）：
-    //   pixelfx 的 color 缓冲里有乌云、焦痕、烟这类不透明深色像素，
-    //   直接 source-over 贴上去会在暗红地面上压出一坨黑饼；
-    //   改成 lighter 后暗部几乎不显、只有发光轮廓被加上去，才像「技能」而不是贴纸。
-    ctx.globalCompositeOperation = o.blend || 'lighter';
-    ctx.globalAlpha = prevAlpha * Math.max(0, Math.min(1, fade));
-    ctx.drawImage(s.canvas, -s.ox, -s.oy);
-    ctx.restore();
+    const fade = Math.max(0, Math.min(1,
+      o.alpha === undefined ? Math.min(1, (life / maxLife) * 1.5) : o.alpha));
+    const trail = o.trail || 0;
+    const ang = o.angle || 0;
+    const bx = Math.cos(ang), by = Math.sin(ang);
+
+    // ★拖尾复用同一张离屏画布：只多几次 drawImage，**不重新合成像素**，
+    //   所以残影几乎不增加每帧开销，却能清楚交代技能「从哪来、往哪去」。
+    //   位置沿速度反方向后退，尺寸与亮度逐段递减；k=0 就是本体。
+    for (let k = trail; k >= 0; k--) {
+      const back = k * (o.trailGap || 14);
+      const shrink = 1 - k * 0.13;
+      ctx.save();
+      ctx.translate(o.x - bx * back, o.y - by * back);
+      ctx.scale(sc * shrink, sc * shrink);
+      // ★加法混合是这套战场的老规矩（原来画爆炸/刀光就用 lighter）：
+      //   pixelfx 的 color 缓冲里有乌云、焦痕、烟这类不透明深色像素，
+      //   直接 source-over 贴上去会在暗红地面上压出一坨黑饼；
+      //   改成 lighter 后暗部几乎不显、只有发光轮廓被加上去。
+      ctx.globalCompositeOperation = o.blend || 'lighter';
+      ctx.globalAlpha = prevAlpha * fade * (k === 0 ? 1 : 0.4 / k);
+      ctx.drawImage(s.canvas, -s.ox, -s.oy);
+      ctx.restore();
+    }
 
     budget -= 1;
     drawnLast += 1;
@@ -274,6 +286,18 @@
       };
     }
 
+    // 弹丸撞墙：原来只有一个小圆淡出，换成短促火花，
+    // 玩家才看得出「是被地形挡了」而不是子弹凭空消失。
+    if (e.kind === 'hit') {
+      return {
+        name: 'spark', key: key,
+        o: {
+          x: base.x, y: base.y, life: life, maxLife: maxLife, alpha: base.alpha,
+          scale: 0.32, palette: PAL.steel, light: 0.9, warm: 0.02,
+        },
+      };
+    }
+
     // 死亡与受击：短促的命中火花，别抢走主技能的戏
     if (e.kind === 'death' || e.kind === 'hitplayer') {
       return {
@@ -310,6 +334,7 @@
         o: {
           x: x, y: y, angle: angle, life: base.life, maxLife: 0.8, alpha: 1,
           scale: hot ? 0.75 : 0.8, palette: hot ? PAL.fire : PAL.ice, light: 1.25,
+          trail: 2, trailGap: hot ? 18 : 14,
         },
       };
     }
@@ -321,6 +346,7 @@
         o: {
           x: x, y: y, angle: angle, life: base.life, maxLife: 0.8, alpha: 1,
           scale: 0.62, palette: PAL.gold, light: 1.2,
+          trail: 2, trailGap: 12,
         },
       };
     }
@@ -331,6 +357,7 @@
         o: {
           x: x, y: y, angle: angle, life: base.life, maxLife: 0.8, alpha: 1,
           scale: 0.56, palette: PAL.gold, light: 1.2,
+          trail: 3, trailGap: 16,
         },
       };
     }
@@ -341,6 +368,7 @@
         o: {
           x: x, y: y, angle: angle, life: base.life, maxLife: 0.8, alpha: 1,
           scale: 0.8, palette: PAL.fire, light: 1.2,
+          trail: 2, trailGap: 15,
         },
       };
     }
@@ -351,6 +379,7 @@
       o: {
         x: x, y: y, angle: angle, life: base.life, maxLife: 0.8, alpha: 1,
         scale: 0.42, palette: PAL.gold, light: 1.1,
+        trail: 1, trailGap: 10,
       },
     };
   };

@@ -1458,6 +1458,11 @@
       // 直线弹也按最近的敌人瞄，弹道射程有多远就瞄多远
       const base = radial > 0 ? 0 : aimAngle(w, p, range);
 
+      // 轨迹参数：让直线弹带一点「游动感」，幽冥锁链摆得最明显（像甩动的锁链），
+      // 其余只给几像素，判定范围几乎不变。★这几个字段只在本层模拟时用，
+      // 不进二进制快照（协议按白名单取字段），带宽与联机一致性都不受影响。
+      const sway = def.id === 'spirit_chain' ? 9 : (def.id === 'thousand_blades' ? 5 : 2.5);
+
       for (let i = 0; i < n; i++) {
         let ang;
         if (radial > 0) {
@@ -1468,6 +1473,7 @@
           const spread = 0.16;
           ang = base + (i - (n - 1) / 2) * spread;
         }
+        const swayT = i * 0.8;
 
         w.projectiles.push({
           id: w.nextId++,
@@ -1483,7 +1489,9 @@
           hitIds: {},
           color: def.id === 'heavy_ball' || def.id === 'meteor' ? '#ff8c42' : '#dfe6ef',
           explodeRadius: def.explodeRadius || 0,
-          explodeDmg: def.explodeDmg ? def.explodeDmg * a.dmgMul : 0
+          explodeDmg: def.explodeDmg ? def.explodeDmg * a.dmgMul : 0,
+          sway: sway, swayHz: 9, swayT: swayT,
+          swayOff: sway * Math.sin(swayT)
         });
       }
       return;
@@ -1557,6 +1565,7 @@
       const base = aimAngle(w, p, 640);
       for (let i = 0; i < count; i++) {
         const ang = base + (i - (count - 1) / 2) * 0.5;
+        const swayT = i * 1.1;
         w.projectiles.push({
           id: w.nextId++,
           kind: 'homing',
@@ -1573,7 +1582,9 @@
           hitIds: {},
           targetId: 0,
           // 配色遵项目约定：只在暗红 / 琥珀金 / 冷灰范围内取，不用紫色
-          color: def.evolved ? '#f2c14e' : '#e8d9b8'
+          color: def.evolved ? '#f2c14e' : '#e8d9b8',
+          // 追踪弹一边拐弯一边轻微摆尾，走 S 形而不是死板的圆弧
+          sway: 5, swayHz: 6, swayT: swayT, swayOff: 5 * Math.sin(swayT)
         });
       }
       return;
@@ -1585,6 +1596,8 @@
       const base = aimAngle(w, p, range);
       for (let i = 0; i < count; i++) {
         const ang = base + (i - (count - 1) / 2) * 0.45;
+        // 去程的弧线角速度：正负交替，多把回旋刃不会叠成同一条线
+        const curve = (i % 2 === 0 ? 1 : -1) * 1.25;
         w.projectiles.push({
           id: w.nextId++,
           kind: 'boomerang',
@@ -1603,6 +1616,7 @@
           maxTravel: range,
           trips: def.trips || 1,
           tripsDone: 0,
+          curve: curve,
           color: def.evolved ? '#ff5c7a' : '#d9dde3'
         });
       }
@@ -1867,22 +1881,41 @@
       // 下面回旋刃分支里的 const p = w.player 也自动指向主人（它是要飞回主人身边的）。
       setCtx(w, pr.owner || w.self);
 
-      // ---------- 回旋刃：去程到点后折返 ----------
+      // ---------- 回旋刃：甩出弧线 → 绕弧归巢 ----------
       if (pr.kind === 'boomerang') {
         const p = w.player;
+        const curve = pr.curve || 1.25;
         if (pr.phase === 'out') {
           pr.traveled += pr.speed * dt;
+          // ★去程不再是一条直线：速度方向连续小角度旋转，划出一道弧。
+          //   角速度按「飞到 maxTravel 大约转 40 度」标定，不会绕圈飞不回来。
+          const a = Math.atan2(pr.vy, pr.vx) + curve * dt;
+          pr.vx = Math.cos(a) * pr.speed;
+          pr.vy = Math.sin(a) * pr.speed;
           if (pr.traveled >= pr.maxTravel) {
             pr.phase = 'back';
             pr.hitIds = {};      // 折返后可以再次命中同一目标
           }
         } else {
-          // 回程：朝玩家飞
           const dx = p.x - pr.x;
           const dy = p.y - pr.y;
           const d = Math.sqrt(dx * dx + dy * dy) || 1;
-          pr.vx = (dx / d) * pr.speed;
-          pr.vy = (dy / d) * pr.speed;
+          // ★回程是「限速平滑转向主人」而不是瞬间 180° 掉头：留出一段绕行，
+          //   看上去才像真的飞了一圈回来，而不是折线弹回。
+          // ★但快到主人身边（120px）时必须直接对准：只靠限速转向会在玩家
+          //   周围画出一圈圈轨道，回旋刃绕半天收不回来，手感全毁。
+          if (d < 120) {
+            pr.vx = (dx / d) * pr.speed;
+            pr.vy = (dy / d) * pr.speed;
+          } else {
+            let diff = Math.atan2(dy, dx) - Math.atan2(pr.vy, pr.vx);
+            while (diff > Math.PI) diff -= Math.PI * 2;
+            while (diff < -Math.PI) diff += Math.PI * 2;
+            const maxTurn = 6 * dt;
+            const a = Math.atan2(pr.vy, pr.vx) + clamp(diff, -maxTurn, maxTurn);
+            pr.vx = Math.cos(a) * pr.speed;
+            pr.vy = Math.sin(a) * pr.speed;
+          }
           if (d < 22) {
             pr.tripsDone += 1;
             if (pr.tripsDone >= pr.trips) {
@@ -1891,9 +1924,7 @@
             pr.phase = 'out';
             pr.traveled = 0;
             pr.hitIds = {};
-            const ang = Math.atan2(pr.vy, pr.vx);
-            pr.vx = Math.cos(ang) * pr.speed;
-            pr.vy = Math.sin(ang) * pr.speed;
+            // 速度方向保持当前朝向，第二次去程会顺着归巢的惯性再甩出去
           }
         }
       }
@@ -1921,6 +1952,21 @@
 
       pr.x += pr.vx * dt;
       pr.y += pr.vy * dt;
+
+      // ---------- 摆尾：所有飞行弹共用的垂直偏移 ----------
+      // ★只改 x/y（伤害判定也用 x/y，画面与判定完全一致），不动 vx/vy，
+      //   这样特效跟着速度方向画才不会「身子歪着飞」。
+      // ★用「上一帧偏移的差值」做增量而不是直接加 sin 值：换帧率也不会让弹丸
+      //   整条轨迹漂移，且第一帧 swayOff 已按初相位算好，出膛不会跳一下。
+      if (pr.sway) {
+        pr.swayT += dt * pr.swayHz;
+        const off = pr.sway * Math.sin(pr.swayT);
+        const delta = off - pr.swayOff;
+        pr.swayOff = off;
+        const sp = Math.hypot(pr.vx, pr.vy) || 1;
+        pr.x += (-pr.vy / sp) * delta;
+        pr.y += (pr.vx / sp) * delta;
+      }
 
       // 出界即消失
       if (pr.x < -60 || pr.y < -60 || pr.x > w.map.w + 60 || pr.y > w.map.h + 60) continue;
@@ -2053,8 +2099,12 @@
       o.angle += o.speed * dt;
       if (o.angle > Math.PI * 2) o.angle -= Math.PI * 2;
 
-      o.x = p.x + Math.cos(o.angle) * o.r;
-      o.y = p.y + Math.sin(o.angle) * o.r;
+      // ★三瓣花轨迹：半径随转角轻微呼吸，经卷 / 冥火不再绕一个死圆。
+      //   幅度只有 6px，命中判定跟着 x/y 走，清怪效率不变；
+      //   orbits 的快照只传 x/y，所以这个相位不需要同步给客户端。
+      const r = o.r + Math.sin(o.angle * 3 + o.id) * 6;
+      o.x = p.x + Math.cos(o.angle) * r;
+      o.y = p.y + Math.sin(o.angle) * r;
 
       // 命中冷却：每个怪对每本经卷有自己的冷却，避免一帧连打
       const mobs = w.mobs;
