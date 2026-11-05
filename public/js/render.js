@@ -2178,6 +2178,14 @@
         const x = lerp(p.px, p.x, alpha);
         const y = lerp(p.py, p.y, alpha);
 
+        // ★飞行类技能特效：直线弹 / 追踪球 / 回旋刃 / 抛物线各用一种像素特效，
+        // 库不可用时继续走下面原来的矢量绘制。
+        const skillFx = window.VS.PixelFx;
+        if (skillFx && skillFx.ready) {
+          const pick = skillFx.projectileFor(p, x, y);
+          if (pick && skillFx.draw(ctx, pick.name, pick.key, pick.o)) continue;
+        }
+
         if (p.kind === 'boomerang') {
           // 残影：先画两个更早的位置，再画本体 —— 高速旋转才看得出「在转」
           for (let k = 2; k >= 1; k--) {
@@ -2369,6 +2377,14 @@
       for (let i = 0; i < list.length; i++) {
         const e = list[i];
         const t = Math.max(0, e.life) / Math.max(0.001, e.maxLife);   // 1 -> 0
+
+        // ★技能特效：挥砍 / 爆发 / 光环 / 命中先交给 pixelfx 画；
+        // draw 返回 false 说明库没就绪或本帧像素预算用尽，下面的原绘制照常兜底。
+        const skillFx = window.VS.PixelFx;
+        if (skillFx && skillFx.ready) {
+          const pick = skillFx.effectFor(e);
+          if (pick && skillFx.draw(ctx, pick.name, pick.key, pick.o)) continue;
+        }
 
         if (e.kind === 'arc') {
           // 铁鞭扇形（普通 #e8dcc0 奶油白 / 进化 #ff4d4d 血红，见 shared/sim.js）
@@ -2738,6 +2754,9 @@
         R._animDt = 0;
       }
       R._animLast = t0;
+
+      // 技能特效层每帧开头刷新一次时间步与绘制预算（库没加载时是空实现）
+      if (window.VS.PixelFx) window.VS.PixelFx.begin(R._animDt);
 
       const p = w.player;
       const sx = lerp(p.px, p.x, alpha);

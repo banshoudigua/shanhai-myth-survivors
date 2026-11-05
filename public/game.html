@@ -1032,6 +1032,11 @@
   <script src="/shared/avatars.js"></script>
   <!-- 二维码：vendor 在本地，不走 CDN（项目硬约定） -->
   <script src="/vendor/qrcode.js"></script>
+  <!-- 技能特效库 pixelfx（MIT，来源与许可见 /vendor/pixelfx/NOTICE.md）：
+       单文件 IIFE，把 window.PixelFX 挂出来；必须排在 pixelfx-layer.js 和 render.js 之前。
+       库没加载成功时渲染层会自动退回原来的几何特效，不会白屏。 -->
+  <script src="/vendor/pixelfx/pixelfx.js"></script>
+  <script src="/js/pixelfx-layer.js"></script>
   <script src="/js/share.js"></script>
   <script src="/js/input.js"></script>
   <!-- 技能图鉴：把 const.js 的四张技能表整理成可展示的条目。
