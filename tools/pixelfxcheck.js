@@ -74,5 +74,29 @@ for (let n = 0; n < names.length; n++) {
   expect(name + ' 能画出非空像素', best > 0, '最大可见像素数 ' + best);
 }
 
+// ---------------- 角色动作时序（acting）----------------
+// entry.js 必须把 act 数据与 actTiming 一起打进产物，否则渲染层会静默退回兜底节奏：
+// 表现是「角色照样能走，但攻击没有起手和定格」，很容易被当成「效果本来就这样」。
+expect('产物导出了 4 套 act 数据', !!lib.acts && Object.keys(lib.acts).length === 4,
+  lib.acts ? Object.keys(lib.acts).join(',') : '无');
+expect('产物导出了 actTiming API', typeof lib.actTiming === 'function');
+
+if (lib.acts) {
+  for (let a = 0; a < Object.keys(lib.acts).length; a++) {
+    const key = Object.keys(lib.acts)[a];
+    const t = lib.acts[key].timing;
+    const data = lib.acts[key].data;
+    expect(key + ' 时序完整（起手 / 命中定格 / 姿态轨）',
+      !!t && t.windup > 0 && !!t.hits.length && t.hits[0].freeze > 0 && t.poses.length >= 3,
+      JSON.stringify(t && { windup: t.windup, hits: t.hits, poses: t.poses.length }));
+    expect(key + ' 原始 act 数据也在', !!data && Array.isArray(data.poses) && data.poses.length >= 3);
+  }
+  // 入口算好的时序必须和官方 API 现算的一致，防止两边键名配错（配错会静默拿到 null）
+  const official = lib.actTiming(lib.effects.slash);
+  expect('acts.slash.timing 与 actTiming(effects.slash) 一致',
+    !!official && Math.abs(official.windup - lib.acts.slash.timing.windup) < 1e-6 &&
+    Math.abs(official.hits[0].freeze - lib.acts.slash.timing.hits[0].freeze) < 1e-6);
+}
+
 console.log('\n结果：' + pass + ' 通过 / ' + fail + ' 失败');
 if (fail > 0) process.exit(1);

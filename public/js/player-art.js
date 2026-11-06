@@ -275,10 +275,23 @@
     PX.drawCentered(g, art, cx, cy, px, charPalette(pal));
   }
 
+  // 角色动作帧的形变参数（squash & stretch）。
+  // ★唯一数据源：render.js 烘焙帧、tools/fxshot.js 画对照图都读这里，
+  //   两处各写一份数值的话，改了幅度就会出现「截图对不上游戏」的假验证。
+  // 幅度必须够大：16×16 点阵会被最近邻取整吃掉 4% 的缩放，第一版
+  //   1.04 / 0.94 在截图里三帧几乎一模一样，等于没做动作。
+  //   0 站姿 / 1 迈步蓄力（压低） / 2 挥出（更宽更扁、脚下前冲）。
+  const FRAMES = [
+    { sx: 1, sy: 1, dy: 0 },
+    { sx: 1.08, sy: 0.88, dy: 2 },
+    { sx: 1.20, sy: 0.78, dy: 3 }
+  ];
+
   root.VS = root.VS || {};
   root.VS.PLAYER_ART = {
     paint: paint,
     paintScaled: paintScaled,
+    frames: FRAMES,
     // 调色板与素材对外暴露是**为了自检**（artshot.js 拿它跟 const.js 的 accent、
     // 选择页立绘的主色逐角色比对），不是为了运行期取色
     colors: PALETTE,

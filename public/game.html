@@ -1037,6 +1037,10 @@
        库没加载成功时渲染层会自动退回原来的几何特效，不会白屏。 -->
   <script src="/vendor/pixelfx/pixelfx.js"></script>
   <script src="/js/pixelfx-layer.js"></script>
+  <!-- 角色动作状态机：读 pixelfx 的 act 时序，驱动下面的预烘焙动作帧与命中定格。
+       必须在 render.js 之前（渲染层每帧要问它「该画第几帧」）；
+       ★它只碰表现层时钟，不改 sim 时间、不往联机快照加字段。 -->
+  <script src="/js/actor-motion.js"></script>
   <script src="/js/share.js"></script>
   <script src="/js/input.js"></script>
   <!-- 技能图鉴：把 const.js 的四张技能表整理成可展示的条目。

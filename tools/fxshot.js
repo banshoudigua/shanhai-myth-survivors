@@ -19,6 +19,7 @@ const BASE = ONLINE ? ARG.replace(/\/$/, '') : ('http://127.0.0.1:' + ARG);
 const CDP_PORT = 9341;
 const PROFILE = TMP + '/vs_fxshot_profile';
 const SHOT = TMP + '/vs_fxshot.png';
+const SHOT_ACTOR = TMP + '/vs_actor_frames.png';
 
 function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
@@ -105,8 +106,13 @@ function connect() {
               }
               return r && r.result ? r.result.value : null;
             },
-            shot: async function (path) {
-              const r = await send('Page.captureScreenshot', { format: 'png' });
+            shot: async function (path, clip) {
+              const p = { format: 'png' };
+              if (clip) {
+                p.clip = Object.assign({ scale: 1 }, clip);
+                p.captureBeyondViewport = true;
+              }
+              const r = await send('Page.captureScreenshot', p);
               if (r && r.data) fs.writeFileSync(path, Buffer.from(r.data, 'base64'));
             },
             navigate: function (url) { return send('Page.navigate', { url: url }); },
@@ -169,6 +175,46 @@ const INJECT = `(function () {
   return w.effects.length + '|' + w.projectiles.length + '|' + (VS.PixelFx ? VS.PixelFx.ready : 'no-layer');
 })()`;
 
+// 8 个角色 × 3 帧对照图：直接在页面里用 PLAYER_ART.paint 重画一遍同样的变换，
+// 截图能一眼看出「三帧轮廓是不是真的不一样」（战场里角色只有 40px，看不清）。
+const ACTOR_SHEET = `(function () {
+  var C = window.VS && VS.CONST;
+  var PA = window.VS && VS.PLAYER_ART;
+  if (!C || !PA) return null;
+  var ids = C.CHARACTERS.map(function (c) { return c.id; });
+  // ★与渲染层共用同一份帧参数，别在测试脚本里复制数值
+  var V = (PA && PA.frames) || [{sx:1,sy:1,dy:0}];
+  var cw = 112, ch = 96, pad = 24;
+  var w = pad * 2 + cw * V.length, h = pad * 2 + ch * ids.length;
+  var d = document.getElementById('__actor_sheet');
+  if (!d) {
+    d = document.createElement('div');
+    d.id = '__actor_sheet';
+    d.style.cssText = 'position:absolute;top:0;left:0;z-index:99999;background:#f4efe6;';
+    document.body.appendChild(d);
+  }
+  var cv = document.createElement('canvas');
+  cv.width = w; cv.height = h;
+  var g = cv.getContext('2d');
+  g.fillStyle = '#f4efe6'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#33261c'; g.font = '12px sans-serif';
+  for (var i = 0; i < ids.length; i++) {
+    for (var f = 0; f < V.length; f++) {
+      var cx = pad + cw * f + cw / 2, cy = pad + ch * i + ch / 2;
+      g.save();
+      g.translate(cx, cy + V[f].dy);
+      g.scale(V[f].sx, V[f].sy);
+      g.translate(-cx, -cy);
+      PA.paint(g, ids[i], cx, cy, 16);
+      g.restore();
+      g.fillText(ids[i] + '  f' + f, pad + cw * f + 6, pad + ch * i + 14);
+    }
+  }
+  d.innerHTML = '';
+  d.appendChild(cv);
+  return [w, h];
+})()`;
+
 async function main() {
   let fail = 0;
   function expect(name, cond, detail) {
@@ -197,9 +243,69 @@ async function main() {
   await P.shot(SHOT);
   console.log('  截图：' + SHOT);
 
+  // ---- 角色动作帧：对照图 + 状态机真实页面断言 ----
+  const sheetSize = await P.eval(ACTOR_SHEET);
+  if (sheetSize) {
+    await P.shot(SHOT_ACTOR, { x: 0, y: 0, width: sheetSize[0], height: sheetSize[1] });
+    console.log('  角色帧对照图：' + SHOT_ACTOR);
+  }
+  expect('角色三帧对照图已生成', !!sheetSize);
+  // 对照层用完就撤，别让它影响后面的性能对照与后续截图
+  await P.eval("(function(){var d=document.getElementById('__actor_sheet');if(d&&d.parentNode)d.parentNode.removeChild(d);return true;})()");
+
+  const actor = await P.eval(`(function () {
+    var AM = VS.ActorMotion, R = VS_GAME.renderer;
+    var keys = Object.keys(R.playerArtCache || {});
+    var frames = keys.length && R.playerArtCache[keys[0]].frames
+      ? R.playerArtCache[keys[0]].frames.length : 0;
+    AM.reset(); AM.punch('probe', 'slash');
+    for (var i = 0; i < 14; i++) AM.begin(0.016);
+    var s = AM.stats();
+    return JSON.stringify({ready: !!AM, cachedChars: keys.length, frames: frames,
+      freezes: s.freezes, freezeLeft: s.freezeLeft});
+  })()`);
+  console.log('  角色动作：' + actor);
+  const ast = JSON.parse(actor || '{}');
+  expect('渲染层已按角色预烘焙 3 帧', ast.frames === 3, JSON.stringify(ast));
+  expect('★命中定格在真实页面里触发', ast.freezes > 0, JSON.stringify(ast));
+
   const st = JSON.parse(stats || '{}');
   expect('本帧真的画了像素技能特效', !!(st.fx && st.fx.drawnLastFrame > 0), JSON.stringify(st.fx));
   expect('页面没有 JS 异常', P.pageErrors.length === 0, P.pageErrors.join(' ; '));
+
+  // 角色动作层 A/B：把状态机摘掉后渲染层自动走单帧兜底，
+  // 用来确认本轮新增的每帧开销到底是不是它带来的（而不是测量波动）
+  await P.eval('window.__AM_SAVE = VS.ActorMotion; VS.ActorMotion = null;');
+  await sleep(500);
+  const noActor = await P.eval('JSON.stringify({drawMs:VS_GAME.renderer.stat.drawMs, fps:VS_GAME.fps})');
+  console.log('  关掉角色动作层对照：' + noActor);
+  await P.eval('VS.ActorMotion = window.__AM_SAVE;');
+
+  // 角色层 JS 的真实 CPU 耗时：drawMs 是 20 帧滑动平均，在「每 140ms 重建特效」
+  // 的压力场景里噪声很大，单独禁用某一项测出来的数字互相矛盾。直接给方法套计时器，
+  // 采 1 秒，才能说清这层到底吃不吃 CPU。
+  await P.eval(`(function(){
+    var A = VS.ActorMotion, names = ['begin','poseOf','mobWobble','shake'];
+    window.__AM_ORIG = {}; window.__AM_MS = {}; window.__AM_T0 = performance.now();
+    names.forEach(function(n){
+      window.__AM_ORIG[n] = A[n]; window.__AM_MS[n] = 0;
+      A[n] = function(){
+        var s = performance.now();
+        var r = window.__AM_ORIG[n].apply(this, arguments);
+        window.__AM_MS[n] += performance.now() - s;
+        return r;
+      };
+    });
+    return true;
+  })()`);
+  await sleep(1000);
+  const amCost = await P.eval(`(function(){
+    var A = VS.ActorMotion, e = performance.now() - window.__AM_T0;
+    Object.keys(window.__AM_ORIG).forEach(function(n){ A[n] = window.__AM_ORIG[n]; });
+    var ms = {}; Object.keys(window.__AM_MS).forEach(function(n){ ms[n] = Math.round(window.__AM_MS[n] * 100) / 100; });
+    return JSON.stringify({elapsedMs: Math.round(e), methods: ms});
+  })()`);
+  console.log('  角色层 JS 耗时（1 秒采样）：' + amCost);
 
   // 性能对照：同一批数据下把像素层关掉再量一次，才知道掉帧是不是它造成的
   await P.eval('clearInterval(window.__fxTimer)');

@@ -10,6 +10,10 @@
  * src/ 下的文件全部是上游原样拷贝，没有改动。
  */
 import { createFrame, clearFrame, createFx, composite, resolveOptions } from "./src/core/fx.js";
+// 角色动作时序：官方推荐「有自己的角色就读 act 这份纯数据」，见 README 的 acting 一节。
+// ★只借时序，不用它的 24×38 灰色假人渲染（本项目是 16×16 Q 版点阵，尺寸与朝向都不兼容），
+//   所以这里没有导出 createAct —— 免得把整套骨架渲染代码也打进产物。
+import { actTiming, poseAt, lerpPose, STAND } from "./src/core/act.js";
 
 import * as swordSlash from "./src/fx/melee/sword-slash.js";
 import * as heavyCleave from "./src/fx/melee/heavy-cleave.js";
@@ -52,6 +56,16 @@ const effects = {
   water: waterOrb,
 };
 
+// 四种招式的动作数据与已算好的时序。★在入口就把 actTiming 算完挂上，
+// 调用方直接拿 acts.slash.timing 用，不必自己把「效果名」和「动作名」配对
+// （两边键名并不完全一致，配错了会静默拿到 null）。
+const acts = {
+  slash: { data: swordSlash.act, timing: actTiming(swordSlash) },
+  cleave: { data: heavyCleave.act, timing: actTiming(heavyCleave) },
+  lightning: { data: chainLightning.act, timing: actTiming(chainLightning) },
+  frost: { data: frostNova.act, timing: actTiming(frostNova) },
+};
+
 window.PixelFX = {
   version: "0.3.0",
   createFrame,
@@ -60,4 +74,10 @@ window.PixelFX = {
   composite,
   resolveOptions,
   effects,
+  // 官方读取动作时序的 API：actTiming(effects.slash) → { windup, recovery, hits:[{t,freeze,shake}], poses }
+  actTiming,
+  poseAt,
+  lerpPose,
+  STAND,
+  acts,
 };

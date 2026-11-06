@@ -1606,17 +1606,41 @@
 
       const half = rr * 2.3 + 10;
       const size = half * 2;
-      const sp = makeSprite('player_' + id, size, size, function (g, cx, cy) {
-        const PA = window.VS && window.VS.PLAYER_ART;
-        // 兜底：PLAYER_ART 没加载成功时退回老画法，至少不裂图
-        if (PA) PA.paint(g, id, cx, cy, rr);
-        else paintPlayer(g, cx, cy, rr, COLOR.player);
-      });
+
+      // ★三帧动作全部在**烘焙阶段**画好，运行时只按序号 drawImage。
+      //   16×16 里画不出手臂摆动，所以用整块精灵的「压扁 / 前冲」来读动作：
+      //   小尺寸下轮廓变了，比多画两个像素更容易被眼睛捕捉。
+      //   0 站姿 / 1 迈步与蓄力 / 2 挥出。★绝不每帧重画点阵（几百只怪同屏会崩）。
+      // ★帧参数只有 player-art.js 一份；这里读它，不在渲染层复制数值。
+      //   PLAYER_ART 没加载时只留一帧静止（不崩，但也不假装动起来了）。
+      const VARIANTS = (window.VS.PLAYER_ART && window.VS.PLAYER_ART.frames) ||
+        [{ sx: 1, sy: 1, dy: 0 }];
+      const frames = [];
+      for (let f = 0; f < VARIANTS.length; f++) {
+        const V = VARIANTS[f];
+        const sp = makeSprite('player_' + id + '#f' + f, size, size, function (g, cx, cy) {
+          g.save();
+          g.translate(cx, cy + V.dy);
+          g.scale(V.sx, V.sy);
+          g.translate(-cx, -cy);
+          const PA = window.VS && window.VS.PLAYER_ART;
+          // 兜底：PLAYER_ART 没加载成功时退回老画法，至少不裂图
+          if (PA) PA.paint(g, id, cx, cy, rr);
+          else paintPlayer(g, cx, cy, rr, COLOR.player);
+          g.restore();
+        });
+        frames.push({
+          cv: sp.cv, hw: sp.hw, hh: sp.hh,
+          // 每帧各烘一张闪白：受击时姿态不该被强行拉回站姿
+          flash: makeFlashVariant(sp.cv)
+        });
+      }
 
       const entry = {
-        cv: sp.cv, hw: sp.hw, hh: sp.hh,
-        // 受击闪白变体也按角色烘（共用一张的话，闪白会把角色特征抹平）
-        flash: { cv: makeFlashVariant(sp.cv), hw: sp.hw, hh: sp.hh }
+        // 这三个字段保留给旧调用路径，等价于第 0 帧
+        cv: frames[0].cv, hw: frames[0].hw, hh: frames[0].hh,
+        flash: { cv: frames[0].flash, hw: frames[0].hw, hh: frames[0].hh },
+        frames: frames
       };
       R.playerArtCache[key] = entry;
       return entry;
@@ -2090,6 +2114,10 @@
       // ---------- 第二遍：本体 ----------
       const dm = R._dmgMap;
       const frame = R._frame;
+      const AM = window.VS.ActorMotion;
+      // ★整帧只问状态机一次起伏，再用 id 奇偶错开相位：
+      //   几百只怪各调一次函数（还要读 clock、取模）会积成可见的每帧开销。
+      const wob0 = AM ? AM.mobWobble(0) : 0;
       for (let i = 0; i < list.length; i++) {
         const m = list[i];
         if (!m.alive) continue;
@@ -2102,6 +2130,15 @@
         R.stat.drawn += 1;
 
         const flash = m.flash > 0;
+
+        // ★怪物的两帧起伏用**整数像素位移**，不是压扁：
+        //   改目标尺寸会让 drawImage 走缩放采样（源/目标尺寸不等 + 小数宽高），
+        //   几百只怪同屏实测多花 15ms、掉到 40fps；位移则始终是 1:1 快速 blit。
+        //   像素风里形变本来就会破坏网格，整格挪动才是正统做法。
+        //   命中定格时状态机 clock 不推进，整屏怪会一起定住一瞬。
+        const wob = (wob0 + (m.id & 1)) & 1;
+        const dx = wob ? 1 : 0;
+        const dy = wob ? 2 : 0;
 
         if (pack.rot) {
           // 旋转：按速度方向查角度档位
@@ -2116,14 +2153,14 @@
           let k = Math.round(ang / ROT_HALF);
           k = ((k % ROT_STEPS) + ROT_STEPS) % ROT_STEPS;
           const s = flash ? pack.atlasFlash[k] : pack.atlas[k];
-          ctx.drawImage(s.cv, Math.round(x - s.hw), Math.round(y - s.hh), s.hw * 2, s.hh * 2);
+          ctx.drawImage(s.cv, Math.round(x - s.hw + dx), Math.round(y - s.hh + dy), s.hw * 2, s.hh * 2);
         } else {
           // 朝左的怪取镜像版（像素画不能随便转，见 buildMobArt 的说明）。
           // 绘制坐标取整：矩阵左上角只要落在半像素上，格边就会被插值成灰边，
           // 整批怪一起「发糊」—— 这是像素风最容易忽略、也最致命的一处。
           const left = pack.bodyL && (m.vx || 0) < 0;
           const s = flash ? (left ? pack.flashL : pack.flash) : (left ? pack.bodyL : pack.body);
-          ctx.drawImage(s.cv, Math.round(x - s.hw), Math.round(y - s.hh), s.hw * 2, s.hh * 2);
+          ctx.drawImage(s.cv, Math.round(x - s.hw + dx), Math.round(y - s.hh + dy), s.hw * 2, s.hh * 2);
         }
 
         // ---------- 血条 + 伤害采样（只对精英及以上做） ----------
@@ -2555,7 +2592,13 @@
       ctx.stroke();
 
       // 本体（死亡的不画受击闪白，直接压暗）
-      ctx.drawImage(sprite.cv, Math.round(x - sprite.hw), Math.round(y - sprite.hh), sprite.hw * 2, sprite.hh * 2);
+      // ★队友各用一条动画时钟（按 slot 分键），不会四个人整齐地一起迈步；
+      //   移动判定读快照里本来就有 px/py，不加任何协议字段。
+      const AM = window.VS.ActorMotion;
+      const moved = Math.abs(p.x - (p.px || p.x)) + Math.abs(p.y - (p.py || p.y)) > 0.02;
+      const pose = AM ? AM.poseOf('p' + (p.slot || 0), moved) : 0;
+      const frame = (sprite.frames && sprite.frames[pose]) || sprite;
+      ctx.drawImage(frame.cv, Math.round(x - frame.hw), Math.round(y - frame.hh), frame.hw * 2, frame.hh * 2);
 
       // 朝向：比自己的箭头短一截、用队友色，避免和自己的朝向指示混淆
       ctx.save();
@@ -2665,10 +2708,14 @@
       const moved = R._lastPx !== undefined &&
         (Math.abs(p.x - R._lastPx) + Math.abs(p.y - R._lastPy)) > 0.02;
       const bob = moved ? Math.sin(R._animT * 11) * 1.6 : 0;
-      // 受击时用闪白变体（也是按角色烘的，不会把角色特征抹平）
+      // ★按动作状态机选帧：站着呼吸 / 迈步 / 挥砍，都是预烘焙好的整张画布。
+      //   受击时改用**同一帧**的闪白版，姿态不会被强行拉回站姿。
+      const AM = window.VS.ActorMotion;
+      const pose = AM ? AM.poseOf('self', moved) : 0;
+      const frame = (s.frames && s.frames[pose]) || s;
       const hurt = p.invuln > 0 && p.invuln > 0.6;
-      const sprite = hurt ? s.flash : s;
-      ctx.drawImage(sprite.cv, Math.round(x - sprite.hw), Math.round(y - sprite.hh + bob), sprite.hw * 2, sprite.hh * 2);
+      const cv = hurt ? (frame.flash || (s.flash && s.flash.cv) || frame.cv) : frame.cv;
+      ctx.drawImage(cv, Math.round(x - frame.hw), Math.round(y - frame.hh + bob), frame.hw * 2, frame.hh * 2);
 
       // 面向指示：琥珀金箭头 + 一段淡金射线，朝哪打一目了然
       ctx.save();
@@ -2774,6 +2821,35 @@
       // 技能特效层每帧开头刷新一次时间步与绘制预算（库没加载时是空实现）
       if (window.VS.PixelFx) window.VS.PixelFx.begin(R._animDt);
 
+      // 角色动作：推进表现层动画时钟，并用「新的挥砍特效」当起手信号。
+      // ★自动开火的游戏没有攻击键；只认以自己为圆心的那道弧，
+      //   队友在远处挥砍不会让自己跟着摆姿势。read 的都是快照里已有的字段。
+      const AM = window.VS.ActorMotion;
+      if (AM) {
+        AM.begin(R._animDt);
+        // ★挥砍检测降到每 3 帧一次：逻辑 20Hz、一次挥砍活 0.18 秒，
+        //   仍能采到 2~3 次，不必每帧遍历 effects（联机快照每帧重建这个数组）。
+        if (R._frame % 3 === 0) {
+          const own = w.player;
+          const fxList = w.effects || [];
+          let arcKey = '';
+          let arcBlood = false;
+          for (let i = 0; i < fxList.length; i++) {
+            const e = fxList[i];
+            if (e.kind !== 'arc') continue;
+            if (Math.abs(e.x - own.x) > 30 || Math.abs(e.y - own.y) > 30) continue;
+            arcKey = Math.round(e.x / 8) + '|' + Math.round(e.y / 8) + '|' + Math.round((e.maxLife || 0) * 100);
+            arcBlood = e.color === '#ff4d4d';
+            break;
+          }
+          // 一次挥砍只触发一次：effects 每帧会被联机快照重建，不能靠对象引用去重
+          if (arcKey && arcKey !== R._arcSeen) {
+            R._arcSeen = arcKey;
+            AM.punch('self', arcBlood ? 'cleave' : 'slash');
+          }
+        }
+      }
+
       const p = w.player;
       const sx = lerp(p.px, p.x, alpha);
       const sy = lerp(p.py, p.y, alpha);
@@ -2802,6 +2878,11 @@
 
       ctx.save();
       ctx.translate(-R.cam.x, -R.cam.y);
+      // 命中瞬间的镜头微抖：只作用在世界层；屏幕空间 HUD 在 restore 之后画，不受影响
+      if (AM) {
+        const sh = AM.shake();
+        if (sh[0] || sh[1]) ctx.translate(sh[0], sh[1]);
+      }
 
       // 绘制顺序：障碍 -> 地面物 -> 特效 -> 怪 -> 敌弹 -> 玩家 -> 玩家弹幕 -> 飘字
       // ★障碍在最底：怪撞不过它，画在怪之上就成了「怪躲在墙后」（假的）
