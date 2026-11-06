@@ -8,12 +8,27 @@
 
 ## 本项目做了什么
 
-1. `src/core/` 是上游核心模块的原样拷贝，`src/fx/` 只挑了游戏用得到的 18 个特效
-   （连同它们各自目录下的 `_lib.js`），均未改动。
-2. `entry.js` 是我们写的浏览器入口：把核心 API 与这 18 个特效导出为 `window.PixelFX`。
+1. `src/core/` 是上游核心模块的原样拷贝，`src/fx/` 只挑了游戏用得到的 30 个特效
+   （连同它们各自目录下的 `_lib.js`），均未改动，全部文件逐字节与上游一致：
+   - **18 个技能特效**：sword-slash / heavy-cleave / fireball / meteor / ice-lance /
+     frost-nova / lightning-strike / chain-lightning / arcane-orb / rune-circle /
+     hit-spark / small-explosion / smite / earth-spike / poison-cloud / energy-disc /
+     shadow-flames / water-orb
+   - **12 个场景物件**（第二十八轮新增，用作地图装饰）：brazier / campfire / candle /
+     torch / spirit-flame / fountain / waterfall / ripples / toxic-puddle / portal /
+     plasma-ball / tesla-coil
+2. `entry.js` 是我们写的浏览器入口：把核心 API 与这 30 个特效导出为 `window.PixelFX`
+   （技能特效的键名见 `effects`，场景物件是后 12 个键）。
 3. `pixelfx.js` 是 `entry.js` 经 `bun build --format=iife --minify` 生成的单文件产物，
    `public/game.html` 只引用它，不引用 `src/`；`src/` 保留是为了可追溯、可重新构建。
 4. 上游 Gallery 使用的 Patch Pixel 字体**不在 MIT 授权内**，本项目没有引入任何字体文件。
+
+## 我们改了什么（只有渲染参数，没有改库）
+
+- `public/js/pixelfx-layer.js`：技能特效的合成层，调色板换成项目约定的暗红/琥珀金/冷灰。
+- `public/js/prop-layer.js`：场景物件层，另起一套合成参数（`source-over` / 1 倍速 / alpha 恒为 1），
+  因为物件里有铁架、石池、木柴这些**不发光**的像素，用加法混合会被地面吃掉。
+  这两处都只影响「怎么把库画出来的像素贴到我们的画布上」，`src/` 一行没改。
 
 ## 重新构建
 

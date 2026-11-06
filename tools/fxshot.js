@@ -308,6 +308,15 @@ async function main() {
   })()`);
   console.log('  角色层 JS 耗时（1 秒采样）：' + amCost);
 
+  // 场景物件层 A/B（第二十八轮）：物件每帧要重新合成自己的像素画布，
+  // 这层到底吃掉多少毫秒必须量出来 —— 不然「掉帧了」只能靠猜。
+  const withProps = await P.eval('JSON.stringify({drawMs:VS_GAME.renderer.stat.drawMs, fps:VS_GAME.fps, decals: VS.PropLayer ? VS.PropLayer.decalCount() : -1, props: VS.PropLayer ? VS.PropLayer.list().length : -1})');
+  await P.eval('if (VS.PropLayer) VS.PropLayer.enabled = false;');
+  await sleep(600);
+  const noProps = await P.eval('JSON.stringify({drawMs:VS_GAME.renderer.stat.drawMs, fps:VS_GAME.fps})');
+  await P.eval('if (VS.PropLayer) VS.PropLayer.enabled = true;');
+  console.log('  关掉物件层对照：' + noProps + '（开启时 ' + withProps + '）');
+
   // 性能对照：同一批数据下把像素层关掉再量一次，才知道掉帧是不是它造成的
   await P.eval('clearInterval(window.__fxTimer)');
   await P.eval('VS.PixelFx.ready = false');

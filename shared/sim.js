@@ -488,6 +488,11 @@
       maxHp: C.PLAYER.hp,
       r: C.PLAYER.radius,
       invuln: 0,
+      // 传送门冷却（第二十八轮）：踩上去瞬移之后短暂失效，
+      // 避免落在另一端门口时被立刻传回来变成「来回弹」。
+      // ★只在本机世界对象上存在，**不进快照**（FIELDS.players 没这个字段），
+      //   客户端也从不用它做任何判断 —— 传送判定永远只有服务端/单机模拟一处。
+      portalCd: 0,
       alive: true,
       swept: false,            // 阵亡遗留物是否已清理（见 step 第 6 步），防止重复扫
 
@@ -761,6 +766,19 @@
     // 障碍的空间索引：碰撞查询靠它把「每帧遍历 36 个障碍」降到「只看一两格」。
     // 建一次用一局 —— 障碍是静态的，不需要增量维护。
     w.obsGrid = MAPS_MOD.buildGrid(w.map, w.obstacles);
+    // 传送门（第二十八轮）：静态地形的一部分，双端各自用纯函数算，不进快照。
+    // ★只在地图开局生成一次；玩家踩上去的判定在 tryPortal 里（movePlayer 的最后一步调用）。
+    w.portals = MAPS_MOD.buildPortals ? MAPS_MOD.buildPortals(w.map) : [];
+
+    // 地图宝箱（第二十八轮）：每张图固定点位放 3 个，开出的是「等级 + 一小笔金币」
+    // —— 与 Boss 掉的那个宝箱走**同一条**拾取分支（sim 的 it.kind === 'chest'），
+    // 所以「开箱给技能三选一」这件事不需要第二套实现。
+    // ★寿命传 9999 秒：它是地图物件，不该像掉落物那样 60 秒后自己消失。
+    //   这个数字纯属「一局打不到那么久」，不是精确值。
+    const chestSpots = MAPS_MOD.buildChests ? MAPS_MOD.buildChests(w.map) : [];
+    for (let i = 0; i < chestSpots.length; i++) {
+      spawnPickup(w, 'chest', chestSpots[i].x, chestSpots[i].y, 1, 9999);
+    }
     // 刷怪环半径：客户端按视口算的值优先；没给就用这张图自己的设定
     // （大图的怪从 700 格外走过来要太久，小图用 700 又显得太挤）。
     w.spawnRadius = opts.spawnRadius || (w.map.spawn && w.map.spawn.radius) || 700;
@@ -3203,8 +3221,80 @@
     // 无敌帧递减
     if (p.invuln > 0) p.invuln -= dt;
 
+    // 传送门判定（第二十八轮）：放在移动的最后一步 ——
+    // 位置已经过碰撞与边界裁剪，这时候再判「站在门上吗」最准
+    tryPortal(w, p, dt);
+
     // 基础回血（当前为 0，预留）
     if (C.PLAYER.regenPerSec > 0) healPlayer(w, C.PLAYER.regenPerSec * dt);
+  }
+
+  // 传送门：踩上去瞬移到配对的那一端。
+  //
+  // 【为什么做成「踩上去就传」而不是「按 E 交互」】
+  // 这是个自动战斗的割草游戏，没有交互键 —— 多一个按键就多一处要教玩家的事。
+  // 站上去就传，规则一眼能懂，而且在被围住时它天然是一条逃生路线。
+  //
+  // 【为什么两端都要判】
+  // 只判一端的话，从 B 门走进去就传不走（单向门），玩家会以为坏了。
+  //
+  // 【落点为什么偏 18px】
+  // 正好落在对端圆心等于「一进去又被传回来」，两帧之内就能无限弹。
+  // 偏移 + 冷却 1.4 秒，双保险。
+  const PORTAL_TRIGGER_R = 30;
+  const PORTAL_CD = 1.4;
+
+  function portalBlocked(w, p, x, y) {
+    const ox = p.x;
+    const oy = p.y;
+    p.x = x;
+    p.y = y;
+    const hit = hitsObstacle(w, p);
+    p.x = ox;
+    p.y = oy;
+    return !!hit;
+  }
+
+  function tryPortal(w, p, dt) {
+    if (p.portalCd > 0) {
+      p.portalCd -= dt;
+      return;
+    }
+    const list = w.portals;
+    if (!list || !list.length) return;
+    for (let i = 0; i < list.length; i++) {
+      const g = list[i];
+      const dx = p.x - g.x;
+      const dy = p.y - g.y;
+      if (dx * dx + dy * dy > PORTAL_TRIGGER_R * PORTAL_TRIGGER_R) continue;
+      const to = list[g.pair];
+      if (!to || to === g) continue;
+      // 落点：对端圆心往下偏 18px（避开圆心），撞墙就沿四个方向试，全撞就放弃这次传送
+      const offsets = [[0, 18], [18, 0], [-18, 0], [0, -18]];
+      let tx = to.x;
+      let ty = to.y;
+      let ok = false;
+      for (let k = 0; k < offsets.length; k++) {
+        const cx = clamp(to.x + offsets[k][0], p.r, w.map.w - p.r);
+        const cy = clamp(to.y + offsets[k][1], p.r, w.map.h - p.r);
+        if (portalBlocked(w, p, cx, cy)) continue;
+        tx = cx;
+        ty = cy;
+        ok = true;
+        break;
+      }
+      if (!ok) continue;
+      p.x = tx;
+      p.y = ty;
+      p.portalCd = PORTAL_CD;
+      // 表现：一圈冷灰扩散环，告诉玩家「这是传送，不是掉帧」
+      w.effects.push({
+        kind: 'ring', x: tx, y: ty, r: 46,
+        life: 0.32, maxLife: 0.32, color: '#c8d2dc'
+      });
+      w.events.push({ type: 'portal', slot: p.slot, name: p.name, x: Math.round(tx), y: Math.round(ty) });
+      return;
+    }
   }
 
   // 单个玩家一帧的开火部分：冷却递减到点就放一次

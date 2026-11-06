@@ -34,6 +34,22 @@ import * as energyDisc from "./src/fx/projectiles/energy-disc.js";
 import * as shadowFlames from "./src/fx/shadow/shadow-flames.js";
 import * as waterOrb from "./src/fx/water/water-orb.js";
 
+// —— 场景物件（第二十八轮）：这些是「原位常驻」的效果，形态本身就是摆在地图上的东西。
+//    ★它们和技能特效的用法不同：不能用加法混合（铁架/石池/木柴不发光，会被吃掉）、
+//      不能压时长、不能随寿命淡出 —— 见 public/js/pixelfx-layer.js 的 drawProp。
+import * as brazier from "./src/fx/fire/brazier.js";
+import * as campfire from "./src/fx/fire/campfire.js";
+import * as candle from "./src/fx/fire/candle.js";
+import * as torch from "./src/fx/fire/torch.js";
+import * as spiritFlame from "./src/fx/fire/spirit-flame.js";
+import * as fountain from "./src/fx/water/fountain.js";
+import * as waterfall from "./src/fx/water/waterfall.js";
+import * as ripples from "./src/fx/water/ripples.js";
+import * as toxicPuddle from "./src/fx/nature/toxic-puddle.js";
+import * as portal from "./src/fx/arcane/portal.js";
+import * as plasmaBall from "./src/fx/lightning/plasma-ball.js";
+import * as teslaCoil from "./src/fx/lightning/tesla-coil.js";
+
 // 键名就是游戏侧引用的技能特效名，改动这里要同步改 public/js/pixelfx-layer.js 的调用
 const effects = {
   slash: swordSlash,
@@ -54,6 +70,19 @@ const effects = {
   disc: energyDisc,
   shadow: shadowFlames,
   water: waterOrb,
+  // 场景物件（常驻 loop，见上方注释）
+  brazier: brazier,
+  campfire: campfire,
+  candle: candle,
+  torch: torch,
+  spirit: spiritFlame,
+  fountain: fountain,
+  waterfall: waterfall,
+  ripples: ripples,
+  puddle: toxicPuddle,
+  rift: portal,
+  lamp: plasmaBall,
+  coil: teslaCoil,
 };
 
 // 四种招式的动作数据与已算好的时序。★在入口就把 actTiming 算完挂上，

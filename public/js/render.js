@@ -1801,6 +1801,26 @@
         const fade = Math.min(1, z.life / Math.max(0.001, z.maxLife));
         const pulse = 1 + Math.sin(t * 4 + i * 1.7) * 0.035;
 
+        // 贴花（第二十八轮）：把 pixelfx 的水面效果按区域颜色重上色铺在圈里。
+        // ★用「涟漪」而不是「毒潭」：毒潭是**侧视的浅水洼**（库里内容宽度只有 42px，
+        //   画出来是一条薄片），铺进俯视的圆形区域里只剩底边一道水痕 —— 截图当场发现。
+        //   涟漪是俯视的水面环纹，正好盖住整个圆，语义也对（水做的区域）。
+        // ★净瓶甘露 = 冷灰 → 偏青白的水面；进化后的甘露 = 琥珀金 → 发光金水。
+        //   效果只是表现，区域的伤害/范围/寿命一概没变。
+        //   库没加载或没就绪时这里返回 false，下面那套三同心圆照常画，等于自动降级。
+        const PR = window.VS.PropLayer;
+        if (PR && PR.drawDecal) {
+          PR.drawDecal(ctx, {
+            key: 'zone' + z.id,
+            kind: 'ripples',
+            pal: evolved ? 'gold' : 'water',
+            x: z.x, y: z.y,
+            radius: z.r * pulse,
+            alpha: 0.34 + 0.42 * fade,
+            dt: R._animDt
+          });
+        }
+
         ctx.globalAlpha = 0.42 + 0.5 * fade;
         ctx.fillStyle = evolved ? COLOR.zoneFillEvolved : COLOR.zoneFill;
         ctx.beginPath();
@@ -2820,6 +2840,13 @@
 
       // 技能特效层每帧开头刷新一次时间步与绘制预算（库没加载时是空实现）
       if (window.VS.PixelFx) window.VS.PixelFx.begin(R._animDt);
+      // 场景物件层：按当前地图准备物件实例，并推进物件自己的动画时钟。
+      // ★物件是纯表现，不参与碰撞、不进快照；库没加载时这里全是空实现。
+      const PR = window.VS.PropLayer;
+      if (PR) {
+        PR.ensure(curMap().id);
+        PR.begin(R._animDt, R);
+      }
 
       // 角色动作：推进表现层动画时钟，并用「新的挥砍特效」当起手信号。
       // ★自动开火的游戏没有攻击键；只认以自己为圆心的那道弧，
@@ -2886,9 +2913,15 @@
         if (sh[0] || sh[1]) ctx.translate(sh[0], sh[1]);
       }
 
-      // 绘制顺序：障碍 -> 地面物 -> 特效 -> 怪 -> 敌弹 -> 玩家 -> 玩家弹幕 -> 飘字
+      // 绘制顺序：贴地物件 -> 障碍 -> 立牌物件 -> 地面物 -> 特效 -> 怪 -> 敌弹 -> 玩家 -> 弹幕 -> 飘字
       // ★障碍在最底：怪撞不过它，画在怪之上就成了「怪躲在墙后」（假的）
+      if (PR) PR.drawGround(ctx, w, R);
       drawObstacles(w);
+      // 立牌物件（火盆/喷泉/瀑布…）画在障碍之上、怪之下：
+      // 它们是「场景里的东西」，不该盖住怪和玩家
+      if (PR) PR.draw(ctx, R);
+      // 传送裂隙：坐标由 mapId 纯函数推出来（不占快照），画在物件之后、区域之前
+      if (PR) PR.drawPortals(ctx, curMap().id, R);
       drawZones(w, alpha);
       drawPickups(w, alpha);
       drawStrikes(w, alpha);

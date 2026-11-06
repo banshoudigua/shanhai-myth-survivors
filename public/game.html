@@ -1062,6 +1062,10 @@
        库没加载成功时渲染层会自动退回原来的几何特效，不会白屏。 -->
   <script src="/vendor/pixelfx/pixelfx.js"></script>
   <script src="/js/pixelfx-layer.js"></script>
+  <!-- 场景物件层（第二十八轮）：把 pixelfx 里「原位常驻」的效果当地图物件画出来
+       （火盆 / 营火 / 蜡烛 / 壁炬 / 鬼火 / 石砌喷泉 / 瀑布 / 涟漪 / 毒潭 / 传送裂隙）。
+       ★纯表现：不进快照、不参与碰撞；库没加载时整层自动降级为空实现。 -->
+  <script src="/js/prop-layer.js"></script>
   <!-- 角色动作状态机：读 pixelfx 的 act 时序，驱动下面的预烘焙动作帧与命中定格。
        必须在 render.js 之前（渲染层每帧要问它「该画第几帧」）；
        ★它只碰表现层时钟，不改 sim 时间、不往联机快照加字段。 -->

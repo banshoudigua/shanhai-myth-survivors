@@ -99,6 +99,27 @@ async function main() {
   ok('障碍是纯函数算出来的（双端各自算也一致）',
     JSON.stringify(ob) === JSON.stringify(MAPS.buildObstacles(m)), ob.length + ' 个');
 
+  // 7.5) 第二十八轮：场景物件 / 固定宝箱 / 传送门也必须是纯函数。
+  //   ★这三样都**不进快照**（客户端自己按 mapId 算），所以「两端算得一样」
+  //     是它们唯一的一致性保障 —— 一旦混进 Math.random 或时间戳，
+  //     表现就是「队友看到的火盆在我这儿是另一堆」，而且永远不会报错。
+  ok('场景物件是纯函数（两次算完全一致）',
+    JSON.stringify(MAPS.buildProps(m)) === JSON.stringify(MAPS.buildProps(m)),
+    MAPS.buildProps(m).length + ' 个');
+  ok('固定宝箱点位是纯函数',
+    JSON.stringify(MAPS.buildChests(m)) === JSON.stringify(MAPS.buildChests(m)),
+    MAPS.buildChests(m).length + ' 个');
+  ok('传送门点位是纯函数且成对',
+    JSON.stringify(MAPS.buildPortals(m)) === JSON.stringify(MAPS.buildPortals(m)) &&
+    MAPS.buildPortals(m).length % 2 === 0,
+    MAPS.buildPortals(m).length + ' 个');
+
+  // 7.6) 一张图不该只有一种建筑外观（第二十八轮的产品要求：别太单调）
+  const kindSet = {};
+  ob.forEach(function (o) { kindSet[o.kind] = 1; });
+  ok('该图的建筑外观至少 2 种（不再全场只有一种）',
+    Object.keys(kindSet).length >= 2, Object.keys(kindSet).join('/'));
+
   // 8) 大厅房间列表里也带 mapId —— 由 roomcheck 覆盖（room_list 是 welcome 时推的，
   //    本脚本的连接模型等不到它，硬等只会假超时）
 

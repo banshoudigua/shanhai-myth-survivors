@@ -32,7 +32,9 @@
     "pausecheck": "node tools/pausecheck.js",
     "hudsize": "node tools/hudsize.js",
     "skillbooktest": "node tools/skillbooktest.js",
-    "sbui": "node tools/sbui.js"
+    "sbui": "node tools/sbui.js",
+    "portaltest": "node tools/portaltest.js",
+    "propshot": "node tools/propshot.js"
   },
   "engines": {
     "node": ">=22"

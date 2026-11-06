@@ -51,7 +51,14 @@
     pillar: { label: '石柱',  solid: '#5a6068', edge: '#181b20', hi: '#828b96' },
     wall:   { label: '断墙',  solid: '#6b7078', edge: '#1e2024', hi: '#8f959e' },
     altar:  { label: '祭坛石', solid: '#6b4048', edge: '#1e1013', hi: '#8f5c65' },
-    boulder:{ label: '巨石',  solid: '#5a6066', edge: '#1a1c20', hi: '#7f868f' }
+    boulder:{ label: '巨石',  solid: '#5a6066', edge: '#1a1c20', hi: '#7f868f' },
+    // 第二十八轮新增的四种建筑外观（点阵见 public/js/pixel-sprites.js）。
+    // ★它们和上面五种一样**只是画法标签**，碰撞仍然一律按圆处理 ——
+    //   加外观不等于加规则，这一点别在后续改动里破掉。
+    lantern:{ label: '石灯笼', solid: '#5d646d', edge: '#1a1e23', hi: '#88919b' },
+    tower:  { label: '残塔',  solid: '#5f6570', edge: '#181b21', hi: '#8a939f' },
+    shrine: { label: '神龛',  solid: '#6a6055', edge: '#1d1913', hi: '#93887a' },
+    cairn:  { label: '石冢',  solid: '#5b6159', edge: '#1a1e1a', hi: '#7f8579' }
   };
 
   // ============================================================
@@ -79,7 +86,16 @@
         deco: 'grave'           // 地面装饰画法
       },
       obTheme: { solid: '#55606b', edge: '#1a1e24', hi: '#7d8a97' },
-      obstaclePlan: { type: 'scatter', kind: 'grave', count: 26, rMin: 26, rMax: 36, margin: 240, minGap: 130 },
+      // kinds 是「外观池」：坟场以墓碑为主，掺石冢与半截断墙（见 buildObstacles 的 kindOf）
+      obstaclePlan: { type: 'scatter', kind: 'grave', kinds: ['grave', 'grave', 'grave', 'cairn', 'wall'], count: 26, rMin: 26, rMax: 36, margin: 240, minGap: 130 },
+      // 场景物件（第二十八轮）：坟场的火盆/蜡烛/鬼火 —— 有人来上过香
+      props: [
+        { kind: 'brazier', n: 2, scale: 0.62 },
+        { kind: 'candle', n: 4, scale: 1.15 },
+        { kind: 'spirit', n: 3, scale: 0.85 }
+      ],
+      chests: { n: 3 },
+      portals: { n: 1 },
       spawn: { radius: 700, countMul: 1.0 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
       // ★是**倍数**不是替换 —— 与 STAGES 按波次推进的权重相乘：
@@ -106,7 +122,14 @@
       // 规则柱阵：柱子的存在让「绕柱拉怪」成为主要走位手段，
       // 也让直线武器（剑气/骨刺）经常打在柱子上 —— 这是这张图的性格
       obTheme: { solid: '#5f6670', edge: '#181b20', hi: '#868f9a' },
-      obstaclePlan: { type: 'grid', kind: 'pillar', cols: 5, rows: 4, r: 30, margin: 320 },
+      obstaclePlan: { type: 'grid', kind: 'pillar', kinds: ['pillar', 'pillar', 'pillar', 'lantern'], cols: 5, rows: 4, r: 30, margin: 320 },
+      // 长廊两侧的壁炬 + 石灯笼，把「一条能跑的路」照出来
+      props: [
+        { kind: 'torch', n: 4, scale: 0.72 },
+        { kind: 'brazier', n: 2, scale: 0.62 }
+      ],
+      chests: { n: 3 },
+      portals: { n: 1 },
       spawn: { radius: 620, countMul: 0.85 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
       // ★是**倍数**不是替换 —— 与 STAGES 按波次推进的权重相乘：
@@ -135,6 +158,14 @@
       obTheme: { solid: '#6b7078', edge: '#1e2024', hi: '#8f959e' },
       // cells 3x3 分区放置（中心格留空）—— 理由见 buildObstacles 的 walls 分支
       obstaclePlan: { type: 'walls', kind: 'wall', cells: 4, lenMin: 3, lenMax: 7, r: 26, margin: 300 },
+      // 大广场：一座石砌喷泉 + 火盆/蜡烛围着它
+      props: [
+        { kind: 'fountain', n: 1, scale: 0.85, at: 'center' },
+        { kind: 'brazier', n: 3, scale: 0.62 },
+        { kind: 'candle', n: 2, scale: 1.1 }
+      ],
+      chests: { n: 3 },
+      portals: { n: 1 },
       spawn: { radius: 820, countMul: 1.15 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
       // ★是**倍数**不是替换 —— 与 STAGES 按波次推进的权重相乘：
@@ -162,7 +193,15 @@
       // 这是唯一一张「地形本身给你一个战术选择」的图 ——
       // 躲进去安全但要放弃机动，留在外面危险但随时能跑
       obTheme: { solid: '#6b4048', edge: '#1e1013', hi: '#8f5c65' },
-      obstaclePlan: { type: 'ring', kind: 'altar', count: 14, radius: 420, r: 34, gapEvery: 4, margin: 300 },
+      obstaclePlan: { type: 'ring', kind: 'altar', kinds: ['altar', 'altar', 'altar', 'tower', 'lantern'], count: 14, radius: 420, r: 34, gapEvery: 4, margin: 300 },
+      // 血月祭坛：正中是空的，围着环形摆营火与鬼火；两侧再放传送裂隙
+      props: [
+        { kind: 'campfire', n: 2, scale: 0.72 },
+        { kind: 'spirit', n: 2, scale: 0.85 },
+        { kind: 'brazier', n: 2, scale: 0.62 }
+      ],
+      chests: { n: 3 },
+      portals: { n: 1 },
       spawn: { radius: 700, countMul: 1.0 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
       // ★是**倍数**不是替换 —— 与 STAGES 按波次推进的权重相乘：
@@ -198,9 +237,16 @@
       // 这是四张老图都给不了的「角度」，对直线武器尤其友好（斜着打能一次穿两排）
       obTheme: { solid: '#5f6874', edge: '#181b21', hi: '#8794a1' },
       obstaclePlan: {
-        type: 'lattice', kind: 'pillar', lines: 7,
+        type: 'lattice', kind: 'pillar', kinds: ['pillar', 'pillar', 'lantern'], lines: 7,
         lenMin: 3, lenMax: 6, r: 27, margin: 300
       },
+      // 镇妖塔：雷柱（特斯拉线圈）与灯球 —— 这张图的「镇的」到底是妖怪还是雷
+      props: [
+        { kind: 'coil', n: 2, scale: 0.8 },
+        { kind: 'lamp', n: 3, scale: 0.65 }
+      ],
+      chests: { n: 3 },
+      portals: { n: 1 },
       spawn: { radius: 760, countMul: 1.05 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
       // ★是**倍数**不是替换 —— 与 STAGES 按波次推进的权重相乘：
@@ -230,8 +276,17 @@
       // 一张图有取舍，比六张图都平庸有价值。
       obTheme: { solid: '#55604f', edge: '#171c17', hi: '#77836d' },
       obstaclePlan: {
-        type: 'islands', kind: 'boulder', clusters: 9, r: 32, margin: 320
+        type: 'islands', kind: 'boulder', kinds: ['boulder', 'cairn', 'cairn'], clusters: 9, r: 32, margin: 320
       },
+      // 毒泽：瀑布（岩壁）+ 毒潭（贴地）+ 涟漪（贴地水面）
+      // ★贴地件（puddle / ripples）走 ground 层，画在障碍之下，不参与 y 排序
+      props: [
+        { kind: 'waterfall', n: 1, scale: 0.75 },
+        { kind: 'puddle', n: 3, scale: 0.85, layer: 'ground', pal: 'toxic' },
+        { kind: 'ripples', n: 5, scale: 1.0, layer: 'ground', pal: 'water' }
+      ],
+      chests: { n: 3 },
+      portals: { n: 1 },
       // 这张图怪偏少但更密（countMul 最低、radius 最大）——
       // 孤岛之间空旷，靠「更远但更多」制造被围的压迫感
       spawn: { radius: 900, countMul: 1.2 },
@@ -302,10 +357,24 @@
     // 颜色跟着地图走：渲染层优先读 o.color，没有才回退到 kind 的默认色。
     // （服务端不画障碍，所以这一项纯属给客户端省一次查表，代价可忽略。）
     const ob = m.obTheme || null;
-    function push(x, y, r) {
+    // 【第二十八轮】一张图不再只有一种建筑。
+    //   plan.kinds 是「外观池」——每放一个障碍就按 rnd 从池里抽一个画法标签。
+    //   ★碰撞半径、位置、纯函数性质全部不变：变的只是**长什么样**。
+    //   ★抽取用 rnd()（同一个 LCG）而不是 Math.random，两端算出来才一致。
+    const kinds = plan.kinds && plan.kinds.length ? plan.kinds : null;
+    // ★外观抽取用**独立的一条 LCG**，不能跟位置共用一条：
+    //   共用的话每多抽一次「长什么样」，后面的坐标就整体偏移一格，
+    //   六张图的地形会全部变样（第一次改就撞上了：孤岛图的开阔度断言当场变红）。
+    //   分开之后，加外观对地形是零影响 —— 位置序列完全不变。
+    const kindRnd = makeRnd(seedOf(m.id + '#kind'));
+    function kindOf() {
+      if (!kinds) return plan.kind;
+      return kinds[Math.floor(kindRnd() * kinds.length) % kinds.length];
+    }
+    function push(x, y, r, forceKind) {
       out.push({
         x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, r: r,
-        kind: plan.kind,
+        kind: forceKind || kindOf(),
         color: ob ? ob.solid : '', edge: ob ? ob.edge : '', hi: ob ? ob.hi : ''
       });
     }
@@ -372,7 +441,12 @@
             if (qx < plan.margin || qx > m.w - plan.margin) break;
             if (qy < plan.margin || qy > m.h - plan.margin) break;
             if (!farFromSpawn(plan, qx, qy, cx, cy)) continue;
-            push(qx, qy, plan.r);
+            // ★墙段必须**整段同一种外观**：混进「神龛」这种中间镂空的画法，
+            //   会出现「看着能穿过去、撞上去是墙」的隐形墙（碰撞是按圆算的）。
+            //   所以只在**两端**换成实心的石灯笼当门柱，中段一律断墙 ——
+            //   既不会变成隐形墙，又让一段墙看起来有「起头」和「收尾」。
+            const endPost = (s === 0 || s === len - 1);
+            push(qx, qy, plan.r, endPost ? 'lantern' : plan.kind);
           }
         }
       }
@@ -468,6 +542,192 @@
   }
 
   // ============================================================
+  // 场景物件 / 宝箱 / 传送门（第二十八轮）
+  // ============================================================
+  // 【三条硬约定】
+  //   ① 全部是**纯函数**：同一个 mapId、同一台机器、两次调用结果逐字节相同。
+  //      物件不进快照也不参与碰撞，但两端必须画出同一个世界，否则队友看到的地图不一样。
+  //   ② 只用「地图 id 派生的 LCG」，不许读时钟、不许 Math.random。
+  //   ③ 出生点周围必须留空 —— 物件虽然不挡路，但开局糊一屏火盆很吵。
+  //
+  // 物件（props）是**纯表现**：服务端不读它、不进快照、不参与碰撞。
+  // 宝箱（chests）是玩法：服务端开局按这份坐标生成真正的掉落物。
+  // 传送门（portals）是玩法：服务端按这份坐标做「踩上去瞬移」，客户端只负责画。
+  const PROP_SPAWN_CLEAR = 210;
+  const PROP_MARGIN = 150;
+
+  function round1(v) { return Math.round(v * 10) / 10; }
+
+  function buildProps(map) {
+    const m = map || MAP_MAP[DEFAULT_MAP_ID];
+    const specs = m.props || [];
+    if (!specs.length) return [];
+    const rnd = makeRnd(seedOf(m.id + ':props'));
+    const obs = buildObstacles(m);
+    const cx = m.w / 2;
+    const cy = m.h / 2;
+    const TAU = Math.PI * 2;
+    const out = [];
+
+    function freeAt(x, y) {
+      if (x < PROP_MARGIN || y < PROP_MARGIN) return false;
+      if (x > m.w - PROP_MARGIN || y > m.h - PROP_MARGIN) return false;
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy < PROP_SPAWN_CLEAR * PROP_SPAWN_CLEAR) return false;
+      for (let i = 0; i < obs.length; i++) {
+        const ox = obs[i].x - x, oy = obs[i].y - y;
+        const rr = obs[i].r + 16;
+        if (ox * ox + oy * oy < rr * rr) return false;
+      }
+      for (let i = 0; i < out.length; i++) {
+        const px = out[i].x - x, py = out[i].y - y;
+        if (px * px + py * py < 88 * 88) return false;
+      }
+      return true;
+    }
+
+    for (let s = 0; s < specs.length; s++) {
+      const spec = specs[s];
+      let placed = 0;
+      let guard = 0;
+      const cap = Math.max(40, spec.n * 160);
+      while (placed < spec.n && guard < cap) {
+        guard += 1;
+        let x, y;
+        if (spec.at === 'center') {
+          // 「广场中心」不等于出生点：从中心往外错开一圈，别糊在玩家脸上
+          const a = rnd() * TAU;
+          const r = 430 + rnd() * 170;
+          x = cx + Math.cos(a) * r;
+          y = cy + Math.sin(a) * r;
+        } else if (obs.length) {
+          // 贴着某个障碍摆：物件要么靠墙、要么靠石头，凭空立在旷野上最难看
+          const o = obs[Math.floor(rnd() * obs.length) % obs.length];
+          const a = rnd() * TAU;
+          const r = o.r + 26 + rnd() * 44;
+          x = o.x + Math.cos(a) * r;
+          y = o.y + Math.sin(a) * r;
+        } else {
+          x = PROP_MARGIN + rnd() * (m.w - PROP_MARGIN * 2);
+          y = PROP_MARGIN + rnd() * (m.h - PROP_MARGIN * 2);
+        }
+        if (!freeAt(x, y)) continue;
+        out.push({
+          kind: spec.kind,
+          x: round1(x),
+          y: round1(y),
+          scale: spec.scale || 0.6,
+          layer: spec.layer || 'prop',
+          pal: spec.pal || '',
+          seed: 1 + Math.floor(rnd() * 999)
+        });
+        placed += 1;
+      }
+    }
+    return out;
+  }
+
+  // 宝箱点位：绕中心一圈平均分布 + 抖动，避开障碍与出生点。
+  // ★刻意不贴着出生点：宝箱是「要跑过去拿」的，开局就送到手上没有意义。
+  function buildChests(map) {
+    const m = map || MAP_MAP[DEFAULT_MAP_ID];
+    const n = (m.chests && m.chests.n) || 0;
+    if (!n) return [];
+    const rnd = makeRnd(seedOf(m.id + ':chests'));
+    const obs = buildObstacles(m);
+    const cx = m.w / 2;
+    const cy = m.h / 2;
+    const base = Math.min(m.w, m.h) * 0.3;
+    const out = [];
+
+    function freeAt(x, y) {
+      if (x < PROP_MARGIN + 60 || y < PROP_MARGIN + 60) return false;
+      if (x > m.w - PROP_MARGIN - 60 || y > m.h - PROP_MARGIN - 60) return false;
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy < 520 * 520) return false;   // 离出生点至少 520
+      for (let i = 0; i < obs.length; i++) {
+        const ox = obs[i].x - x, oy = obs[i].y - y;
+        const rr = obs[i].r + 30;
+        if (ox * ox + oy * oy < rr * rr) return false;
+      }
+      for (let i = 0; i < out.length; i++) {
+        const px = out[i].x - x, py = out[i].y - y;
+        if (px * px + py * py < 460 * 460) return false;  // 宝箱之间拉开距离
+      }
+      return true;
+    }
+
+    for (let i = 0; i < n; i++) {
+      let placed = false;
+      let guard = 0;
+      while (!placed && guard < 120) {
+        guard += 1;
+        const a = (Math.PI * 2 / n) * i + rnd() * 0.7;
+        const r = base * (0.85 + rnd() * 0.5);
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (!freeAt(x, y)) continue;
+        out.push({ x: round1(x), y: round1(y) });
+        placed = true;
+      }
+    }
+    return out;
+  }
+
+  // 传送门：按对生成。portal[i].pair 指向另一端在数组里的下标。
+  // ★两端都参与「踩上去就传」的判定，所以必须成对；奇数个会有一个永远传不走。
+  function buildPortals(map) {
+    const m = map || MAP_MAP[DEFAULT_MAP_ID];
+    const n = (m.portals && m.portals.n) || 0;
+    if (!n) return [];
+    const rnd = makeRnd(seedOf(m.id + ':portals'));
+    const obs = buildObstacles(m);
+    const cx = m.w / 2;
+    const cy = m.h / 2;
+    const out = [];
+
+    function ok(x, y) {
+      if (x < PROP_MARGIN + 40 || y < PROP_MARGIN + 40) return false;
+      if (x > m.w - PROP_MARGIN - 40 || y > m.h - PROP_MARGIN - 40) return false;
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy < 300 * 300) return false;   // 别堵在出生点
+      for (let i = 0; i < obs.length; i++) {
+        const ox = obs[i].x - x, oy = obs[i].y - y;
+        const rr = obs[i].r + 46;
+        if (ox * ox + oy * oy < rr * rr) return false;
+      }
+      for (let i = 0; i < out.length; i++) {
+        const px = out[i].x - x, py = out[i].y - y;
+        if (px * px + py * py < 300 * 300) return false;
+      }
+      return true;
+    }
+
+    for (let i = 0; i < n; i++) {
+      // ★必须重试：只掷一次的话，只要落点碰到一块石头，这一对传送门就整个消失
+      //   （第一版就是这样，乱葬岗 26 个障碍一挡，n=1 却一个都没生成出来）。
+      let placed = false;
+      let guard = 0;
+      while (!placed && guard < 80) {
+        guard += 1;
+        const a = (Math.PI * 2 / (n * 2)) * (i * 2) + rnd() * 0.9;
+        const r = Math.min(m.w, m.h) * (0.24 + rnd() * 0.1);
+        const ax = cx + Math.cos(a) * r;
+        const ay = cy + Math.sin(a) * r;
+        // 另一端隔着中心对称放：走进去就被甩到地图另一边，这才是「传送」
+        const bx = cx - Math.cos(a) * r * (1.05 + rnd() * 0.2);
+        const by = cy - Math.sin(a) * r * (1.05 + rnd() * 0.2);
+        if (!ok(ax, ay) || !ok(bx, by)) continue;
+        const i0 = out.length;
+        out.push({ x: round1(ax), y: round1(ay), pair: i0 + 1 });
+        out.push({ x: round1(bx), y: round1(by), pair: i0 });
+        placed = true;
+      }
+    }
+    return out;
+  }
+
+  // ============================================================
   // 空间网格：查询「附近有哪些障碍」
   // ============================================================
   // 为什么必须有它（这是实测出来的，不是预防性设计）：
@@ -543,6 +803,9 @@
     GRID_CELL: GRID_CELL,
     mapById: mapById,
     buildObstacles: buildObstacles,
+    buildProps: buildProps,
+    buildChests: buildChests,
+    buildPortals: buildPortals,
     buildGrid: buildGrid,
     collectNear: collectNear,
     seedOf: seedOf

@@ -35,7 +35,22 @@ if (!lib) {
 }
 
 const names = Object.keys(lib.effects);
-expect('技能特效数量=18', names.length === 18, '实际 ' + names.length);
+// 18 个技能特效 + 12 个场景物件（第二十八轮）= 30。
+// ★这个数字是刻意钉死的：bundle 里少一个，线上就是「某个技能突然没特效」，
+//   而那种缺失不会报错，只会静静地退回几何绘制。
+expect('特效总数=30（18 技能 + 12 场景物件）', names.length === 30, '实际 ' + names.length);
+
+// 场景物件单独的契约：必须是 loop（物件是常驻的，不是一次性），
+// 且必须带 meta.size/origin（渲染层按它算离屏画布与脚底锚点）。
+const PROP_NAMES = ['brazier', 'campfire', 'candle', 'torch', 'spirit',
+  'fountain', 'waterfall', 'ripples', 'puddle', 'rift', 'lamp', 'coil'];
+const missingProps = PROP_NAMES.filter(function (n) { return !lib.effects[n]; });
+expect('12 个场景物件都在 bundle 里', missingProps.length === 0, missingProps.join(','));
+const badLoop = PROP_NAMES.filter(function (n) {
+  const m = lib.effects[n] && lib.effects[n].meta;
+  return !m || m.loop !== true || !m.size || !m.origin;
+});
+expect('场景物件都是 loop 且带 size/origin', badLoop.length === 0, badLoop.join(','));
 
 // 项目配色：琥珀金由暗到亮，库会按各特效默认色阶长度自动重采样
 const GOLD = ['#241206', '#4a2a0c', '#7d4a12', '#b37418', '#e0a327', '#ffc94a', '#ffe89a', '#fff8dc'];

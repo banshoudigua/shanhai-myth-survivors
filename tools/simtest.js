@@ -1115,19 +1115,33 @@ function testChest() {
   const w = SIM.createWorld({ seed: 21, pauseAllOnLevelUp: false });
   SIM.setSelf(w, null);
   const p = w.players[0];
+  // ★第二十八轮：地图开局自带**固定宝箱**（每张图 3 个，见 maps.js 的 buildChests）。
+  //   这一段测的是「普通怪不掉宝箱」，所以先把地图自带的那些按基线记下来，
+  //   再断言「杀掉一只小怪之后数量没有增加」——用相对值，不用绝对值。
+  const MAP = require('../shared/maps.js');
+  const mapChests = w.pickups.filter(function (it) { return it.kind === 'chest'; });
+  expect('地图开局自带固定宝箱（点位来自纯函数 buildChests）',
+    mapChests.length === MAP.buildChests(w.map).length && mapChests.length > 0,
+    '宝箱数=' + mapChests.length);
+  expect('固定宝箱的寿命够一局（不会被当成 60 秒掉落物）',
+    mapChests.every(function (it) { return it.life > 600; }),
+    mapChests.map(function (it) { return Math.round(it.life); }).join(','));
   SIM.step(w, { mx: 0, my: 0 });                 // 来一波小怪
   SIM.takeEvents(w, 0);                          // 清掉波次事件
   const first = w.mobs[0];
   SIM.damageMob(w, first, 99999, 0, 0);
   SIM.step(w, { mx: 0, my: 0 });                 // 让 compactMobs 把死怪清掉
   const chests0 = w.pickups.filter(function (it) { return it.kind === 'chest'; });
-  expect('普通怪不掉宝箱', chests0.length === 0, '宝箱数=' + chests0.length);
+  expect('普通怪不掉宝箱（数量与地图固定宝箱一致）', chests0.length === mapChests.length,
+    '宝箱数=' + chests0.length + ' 基线=' + mapChests.length);
 
   // ---- Boss 必掉宝箱 ----
   // 直接把波次推到第 9 波，下一帧就是第 10 波（Boss 波）——
   // 比真跑 5 分钟快得多，而且用的是真实的 Boss 波逻辑。
   const b = SIM.createWorld({ seed: 21, pauseAllOnLevelUp: false });
   SIM.setSelf(b, null);
+  // 同上：把地图自带的固定宝箱先摘掉，这一段只看 Boss 掉落
+  b.pickups = b.pickups.filter(function (it) { return it.kind !== 'chest'; });
   b.wave = 9;
   SIM.step(b, { mx: 0, my: 0 });
   const boss = b.mobs.filter(function (m) { return m.defId === 'blood_lord'; })[0];
