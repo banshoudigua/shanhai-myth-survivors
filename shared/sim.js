@@ -153,6 +153,142 @@
     }
   }
 
+  // ============================================================
+  // 全局导航流场（第二十五轮 · ③）
+  // ============================================================
+  // 【为什么不是每只怪跑一次 A*】地图最大 3800×2800，40px 一格是 95×70=6650 格；
+  //   同屏几百只怪各算一次寻路，一帧就是百万级操作，服务端 20Hz 直接塌。
+  //   rot.js 的 Dijkstra 正好说明了这一点：它是「单目标 → 全图距离场」，
+  //   算一次全怪共享，才是这个量级的正确解法（tools/pathfindtest.js 拿它做对照基准）。
+  // 【为什么只在卡住时查】下面已有的切向绕行在单个圆形障碍上又快又稳；
+  //   全局流场只在「成片障碍 / 夹缝把切向带进死胡同」时接管，
+  //   这样绝大多数帧零额外开销，也不改变原有平衡（simtest 的位移断言会守）。
+  // 【确定性】纯整数 BFS、不吃随机数、不读 wall-clock；两端同一份代码同一 tick
+  //   必然得到同一个流场。字段只挂在 w.nav 上，是模拟层内部状态，
+  //   ★不进二进制快照白名单，带宽与协议一个字节都不变。
+  const NAV_CELL = 40;
+  const NAV_REFRESH = 0.5;                 // 秒；玩家跑得再快，半秒重算一次也够了
+  const NAV_DX = [1, 0, -1, 0];
+  const NAV_DY = [0, 1, 0, -1];
+  const NAV_REV = [2, 3, 0, 1];           // 从邻格指回当前格的方向索引
+  const _navVec = { x: 0, y: 0 };         // 复用，别在热路径里 new 对象
+
+  function ensureNavGrid(w) {
+    const gw = Math.ceil(w.map.w / NAV_CELL);
+    const gh = Math.ceil(w.map.h / NAV_CELL);
+    let nav = w.nav;
+    if (nav && nav.gw === gw && nav.gh === gh && nav.mapId === w.map.id) return nav;
+    // 换图才重建：障碍是静态的，格子是否可走算一次就够
+    const size = gw * gh;
+    const blocked = new Uint8Array(size);
+    const list = w.obstacles || [];
+    for (let cy = 0; cy < gh; cy++) {
+      for (let cx = 0; cx < gw; cx++) {
+        const x = (cx + 0.5) * NAV_CELL;
+        const y = (cy + 0.5) * NAV_CELL;
+        for (let i = 0; i < list.length; i++) {
+          const o = list[i];
+          const dx = x - o.x, dy = y - o.y;
+          const rr = o.r + 12;            // 12px 保守余量：怪不是质点
+          if (dx * dx + dy * dy < rr * rr) { blocked[cy * gw + cx] = 1; break; }
+        }
+      }
+    }
+    nav = {
+      mapId: w.map.id, gw: gw, gh: gh, blocked: blocked,
+      dist: new Int32Array(size), dir: new Int8Array(size), queue: new Int32Array(size),
+      at: -1, tx: -1, ty: -1, ready: false, builds: 0
+    };
+    w.nav = nav;
+    return nav;
+  }
+
+  function updateNav(w) {
+    if (!w.obstacles || !w.obstacles.length) return;
+    const players = w.players || [];
+    let target = null;
+    for (let i = 0; i < players.length; i++) {
+      if (players[i].alive) { target = players[i]; break; }
+    }
+    if (!target) return;
+    const nav = ensureNavGrid(w);
+    const tx = clamp(Math.floor(target.x / NAV_CELL), 0, nav.gw - 1);
+    const ty = clamp(Math.floor(target.y / NAV_CELL), 0, nav.gh - 1);
+    // 半个目标格的小移动不重算，跨格或超时才重算
+    if (nav.ready && nav.at >= 0 && w.time - nav.at < NAV_REFRESH && nav.tx === tx && nav.ty === ty) return;
+    nav.at = w.time;
+    nav.tx = tx;
+    nav.ty = ty;
+
+    const gw = nav.gw, gh = nav.gh, blocked = nav.blocked;
+    const dist = nav.dist, dir = nav.dir, q = nav.queue;
+    dist.fill(-1);
+    dir.fill(-1);
+    let head = 0, tail = 0;
+    let start = ty * gw + tx;
+    // 玩家贴着障碍时目标格可能被标成不可走：就近找一个可走格当源点
+    if (blocked[start]) {
+      let best = -1, bestD = Infinity;
+      for (let cy = Math.max(0, ty - 3); cy <= Math.min(gh - 1, ty + 3); cy++) {
+        for (let cx = Math.max(0, tx - 3); cx <= Math.min(gw - 1, tx + 3); cx++) {
+          const k = cy * gw + cx;
+          if (blocked[k]) continue;
+          const d = (cx - tx) * (cx - tx) + (cy - ty) * (cy - ty);
+          if (d < bestD) { bestD = d; best = k; }
+        }
+      }
+      if (best < 0) { nav.ready = false; return; }
+      start = best;
+    }
+    dist[start] = 0;
+    q[tail++] = start;
+    while (head < tail) {
+      const cur = q[head++];
+      const cx = cur % gw;
+      const cy = (cur - cx) / gw;
+      const nd = dist[cur] + 1;
+      for (let k = 0; k < 4; k++) {
+        const nx = cx + NAV_DX[k], ny = cy + NAV_DY[k];
+        if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+        const ni = ny * gw + nx;
+        if (blocked[ni] || dist[ni] >= 0) continue;
+        dist[ni] = nd;
+        dir[ni] = NAV_REV[k];       // 从 ni 走回 cur，就是朝玩家的方向
+        q[tail++] = ni;
+      }
+    }
+    nav.ready = true;
+    nav.builds++;
+  }
+
+  // 取「这一步该往哪走」；返回复用对象，调用方只读 x/y。
+  function navDirAt(w, x, y) {
+    const nav = w.nav;
+    if (!nav || !nav.ready) return null;
+    const cx = clamp(Math.floor(x / NAV_CELL), 0, nav.gw - 1);
+    const cy = clamp(Math.floor(y / NAV_CELL), 0, nav.gh - 1);
+    let i = cy * nav.gw + cx;
+    // 怪正压在障碍边缘（格子被标 blocked）：先找旁边最近的可走格
+    if (nav.dist[i] < 0) {
+      let best = -1, bestD = Infinity;
+      for (let k = 0; k < 4; k++) {
+        const nx = cx + NAV_DX[k], ny = cy + NAV_DY[k];
+        if (nx < 0 || ny < 0 || nx >= nav.gw || ny >= nav.gh) continue;
+        const ni = ny * nav.gw + nx;
+        if (nav.dist[ni] >= 0 && nav.dist[ni] < bestD) { bestD = nav.dist[ni]; best = ni; }
+      }
+      if (best < 0) return null;
+      _navVec.x = (best % nav.gw) - cx;
+      _navVec.y = Math.floor(best / nav.gw) - cy;
+      return _navVec;
+    }
+    const k = nav.dir[i];
+    if (k < 0) return null;
+    _navVec.x = NAV_DX[k];
+    _navVec.y = NAV_DY[k];
+    return _navVec;
+  }
+
   // 带地形碰撞的位移：分轴滑动（+ 可选的地形绕行）
   //
   // autoSteer 只给**怪物**开：玩家是自己控制方向的，帮他自动绕障会让人觉得
@@ -241,6 +377,15 @@
     ty /= tl;
     // 取与前进方向同侧的那一边：取反的话怪会往回绕，看起来像在原地犹豫
     if (tx * ux + ty * uy < 0) { tx = -tx; ty = -ty; }
+
+    // ★全局流场兜底：局部切向只看最近那一块障碍，遇到「两块夹缝 / 成片障碍」
+    //   会把怪带进死胡同，然后反复顶墙。流场给的是全场最短距离场的下一步，
+    //   只在与前进方向不相反时采纳 —— 不会让怪突然掉头（保持原有追击手感）。
+    const nd = navDirAt(w, ent.x, ent.y);
+    if (nd && (nd.x || nd.y) && (nd.x * ux + nd.y * uy > -0.35)) {
+      tx = nd.x;
+      ty = nd.y;
+    }
 
     ent.x += tx * wantLen;
     ent.y += ty * wantLen;
@@ -1680,6 +1825,10 @@
 
   function updateMobs(w, dt) {
     const list = w.mobs;
+
+    // 全局导航流场：整帧只算一次（内部还有 0.5 秒 / 跨格节流），所有怪共享。
+    // ★放在怪循环之外，别挪进循环 —— 挪进去就变成每只怪一次 BFS。
+    updateNav(w);
 
     // 先算一遍指挥光环（血祭司给周围加速），只对活着的执行
     for (let i = 0; i < list.length; i++) {

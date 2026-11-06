@@ -15,6 +15,11 @@
 
   const C = window.VS.CONST;
   const SIM = window.VS.SIM;
+  // 音效是纯表现层：声明放在 ui 之前（const 暂时性死区，ui 初值要读它）。
+  // 库没加载时是 undefined，下面每个调用点都判空，绝不白屏。
+  const SFX = window.VS.Sfx;
+  const UIFX = window.VS.UiFx;
+  const STORYLINES = window.VS.Storylines;
   // 二进制快照协议（P2-5）。单机模式完全不会用到它 —— 只有联机收快照时才会走。
   const PB = window.VS.PROTO_BIN;
   const createInput = window.VS.createInput;
@@ -343,6 +348,12 @@
     // （按钮显示 ×2 / ×4），放 ui 才是响应式的正确位置。
     // 联机恒为 1：世界由服务端推进，客户端加速既没意义也不公平。
     speed: 1,
+    // 技能音效开关。初值直接读音效层（它在脚本加载时就读了 localStorage），
+    // 别在这里再读一次存储 —— 两处默认值不一致会出现「按钮显示开、实际静音」。
+    sfxOn: SFX ? SFX.enabled : false,
+    // 剧情回顾（Ink 运行时逐句读本章题记）。默认收起，别把卷首页面板撑高。
+    recapOpen: false,
+    recapReady: false,
     // 本局难度（剧情卷首页可改）。空 = 交给 sim 回落「普通」。
     // 【为什么是 ui 而不是 hud】hud.diffId 是**服务端/世界告诉我们的结果**
     // （联机时由房间决定），而这个是**玩家的选择**（输入）。
@@ -1389,6 +1400,7 @@ function goLobby(why) {
     if (r.added) msg += '：习得 ' + skillName(r.added);
     if (r.dropped) msg += '，遗忘 ' + skillName(r.dropped);
     ui.shopMsg = msg;
+    if (SFX) SFX.play('buy');
     closePick();
     afterShopChange();
   }
@@ -1476,6 +1488,8 @@ function goLobby(why) {
     if (!d) return;
     ui.slotInfo = d;
     ui.mySkillsOpen = false;
+    // 卡片由 v-if 新建，等 DOM 真出来再让 Floating UI 量位置
+    if (UIFX) Vue.nextTick(function () { UIFX.layoutSlotCard(); });
   }
 
   // 再点同一件 = 收起（省得玩家为了关它去戳那个小 ×）
@@ -1490,11 +1504,14 @@ function goLobby(why) {
   function openMySkills() {
     ui.slotInfo = null;
     ui.mySkillsOpen = true;
+    if (UIFX) Vue.nextTick(function () { UIFX.layoutSlotCard(); });
   }
 
   function closeSlotCard() {
     ui.slotInfo = null;
     ui.mySkillsOpen = false;
+    // ★必须撤掉 autoUpdate：不撤的话每开关一次卡片就多挂一组滚动/resize 监听
+    if (UIFX) UIFX.clearSlotCard();
   }
 
   // 说明卡里「在图鉴里看全部」：先收卡片再开抽屉，否则两张面板叠在一起。
@@ -1566,6 +1583,24 @@ function goLobby(why) {
     }
     console.log('[game] 升级自动领补给 = ' + ui.autoSupply + (saved ? '' : '（本机存不下，仅本次有效）'));
     pushToast(ui.autoSupply ? '已开启：升级自动领补给' : '已关闭：升级自动领补给', false);
+  }
+
+  // ---------------- 剧情回顾（Ink 运行时）----------------
+  // 只在剧情模式的卷首页出现；战斗里的 story 事件仍由 sim 推，互不影响。
+  function toggleRecap() {
+    ui.recapOpen = !ui.recapOpen;
+    if (!ui.recapOpen || !STORYLINES || STORYLINES.ready) return;
+    STORYLINES.load().then(function (ok) { ui.recapReady = !!ok; });
+  }
+
+  // ---------------- 技能音效开关 ----------------
+  // 只调音效层，不碰世界、不碰快照；联机时同样只影响本机听到的声音。
+  function toggleSfx() {
+    if (!SFX) { ui.sfxOn = false; return; }
+    const saved = SFX.setEnabled(!ui.sfxOn);
+    ui.sfxOn = SFX.enabled;
+    pushToast(ui.sfxOn ? '已开启：技能音效' : '已关闭：技能音效', false);
+    if (!saved) console.log('[game] 本机存不下音效偏好，仅本次有效');
   }
 
   // 已经自动领过的那个「候选数组」。
@@ -1719,9 +1754,17 @@ function goLobby(why) {
   function showStoryLine(line) {
     if (!line) return;
     ui.storyLine = line;
+    // 剧情节拍逐字显现。★挂在 showStoryLine 而不是事件入口：
+    //   联机的 story 事件由 WS 直接回调这里，不走 applyEvent，挂事件上会漏。
+    //   nextTick 之后才接管 .sb-text，免得被 Vue 紧接着的 text patch 抹掉。
+    if (UIFX) {
+      UIFX.clearStory();
+      Vue.nextTick(function () { UIFX.typeStory(line); });
+    }
     if (storyLineTimer) clearTimeout(storyLineTimer);
     storyLineTimer = setTimeout(function () {
       ui.storyLine = '';
+      if (UIFX) UIFX.clearStory();
       storyLineTimer = 0;
     }, STORY_LINE_MS);
   }
@@ -1738,6 +1781,10 @@ function goLobby(why) {
   }
 
   function applyEvent(e) {
+    // 音效与界面补间都挂在事件入口：单机从 sim 队列取、联机从服务端推，
+    // 两条路都会经过这里，所以只写一次就两边都有。
+    if (SFX) SFX.onEvent(e);
+    if (UIFX) UIFX.onEvent(e);
     if (e.type === 'wave') {
       // 每 5 波报一次，免得刷屏
       if (e.wave % 5 === 0) pushToast('第 ' + e.wave + ' 波来袭', false);
@@ -2071,6 +2118,10 @@ function goLobby(why) {
 
     syncHud();
 
+    // 音效按「刚同步完的 hud」做差分：击杀 / 掉血 / 升级 / 捡钱。
+    // ★只在真正在打的时候算，暂停与结算界面不建立基线，回来才不会误播一串。
+    if (SFX) SFX.onFrame(hud, ui.screen === 'playing' && !ui.spectating);
+
     // 技能全练满后自动领补给。
     // ★必须放在 syncHud() **之后**：它读的是刚同步过来的 hud.choices，
     //   放前面会永远慢一帧 —— 表现是「面板先闪一下再消失」，看起来像 bug。
@@ -2384,6 +2435,13 @@ function goLobby(why) {
         isCampaign: function () { return isCampaign; },
         campaignTotal: function () { return campaignTotal; },
         stageNo: function () { return storyStage ? (storyStage.no || 0) : 0; },
+        // 剧情回顾：句子从 Ink 运行时逐章现读，不从 campaign.js 再抄一份。
+        // ★ui.recapReady 是 Vue 的依赖信号 —— fetch 是异步的，不读它的话
+        //   数据回来时 computed 不会重算，面板会一直停在「正在载入」。
+        recapLines: function () {
+          if (!ui.recapReady || !STORYLINES || !storyStage) return [];
+          return STORYLINES.linesOf(storyStage.no || 1);
+        },
         stageNameOf: function () { return storyStage ? storyStage.name : ''; },
         stageEpigraph: function () { return storyStage ? (storyStage.epigraph || '') : ''; },
         // 地图名走开局解析的名字表（剧情名，不是「血色回廊」而是「血霞回廊」）
@@ -2662,9 +2720,23 @@ function goLobby(why) {
         closeSlotCard: closeSlotCard,
         openHelpFor: openHelpFor,
         // 升级自动领补给
-        toggleAutoSupply: toggleAutoSupply
+        toggleAutoSupply: toggleAutoSupply,
+        // 技能音效
+        toggleSfx: toggleSfx,
+        // 剧情回顾
+        toggleRecap: toggleRecap
       }
     }).mount('#hud');
+
+    // 剧情模式才去取 Ink 数据：自由模式 / 联机根本用不到，不发这次请求。
+    if (isCampaign && STORYLINES) {
+      STORYLINES.load().then(function (ok) { ui.recapReady = !!ok; });
+    }
+    // 音效要在第一次用户交互前把 Howl 实例建好（首次触摸解锁在 sfx.js 里）。
+    if (SFX) SFX.init();
+    // 界面增强层：脚本已加载但还没接线（浮层定位、面板补间、剧情打字机）。
+    // 放在 mount 之后，此时模板里的 .panel / 剧情横条已经真实存在于 DOM。
+    if (UIFX) UIFX.init();
 
     // 起渲染循环。先在角色选择阶段建一个世界铺背景，
     // 因为此时 screen 不是 playing，sim 不会推进，画面是静止的地图预览。

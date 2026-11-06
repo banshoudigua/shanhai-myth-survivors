@@ -20,6 +20,7 @@ const CDP_PORT = 9341;
 const PROFILE = TMP + '/vs_fxshot_profile';
 const SHOT = TMP + '/vs_fxshot.png';
 const SHOT_ACTOR = TMP + '/vs_actor_frames.png';
+const SHOT_FEATURE = TMP + '/vs_features.png';
 
 function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
 
@@ -314,6 +315,125 @@ async function main() {
   const plain = await P.eval('JSON.stringify({drawMs:VS_GAME.renderer.stat.drawMs, fps:VS_GAME.fps})');
   console.log('  关掉像素层对照：' + plain + '（开启时 ' + stats + '）');
   await P.eval('VS.PixelFx.ready = true');
+
+  // ============================================================
+  // 第二十五轮：① 音效 · ② 界面库 · ③ Ink 剧情 —— 真浏览器验收
+  // ============================================================
+  const libState = await P.eval(`(function(){
+    return JSON.stringify({
+      howler: !!window.Howl, floating: !!window.FloatingUIDOM,
+      anime: !!(window.anime && window.anime.animate),
+      ink: !!(window.inkjs && window.inkjs.Story),
+      sfx: VS.Sfx ? VS.Sfx.stats() : null,
+      ui: VS.UiFx ? VS.UiFx.stats() : null
+    });
+  })()`);
+  const lib = JSON.parse(libState || '{}');
+  expect('Howler / Floating UI / anime.js / inkjs 四个 UMD 都挂载',
+    !!(lib.howler && lib.floating && lib.anime && lib.ink), libState);
+  expect('音效层建好 15 个 Howl 实例', !!(lib.sfx && lib.sfx.ready && lib.sfx.count === 15), JSON.stringify(lib.sfx));
+  expect('界面层报告浮层与补间可用', !!(lib.ui && lib.ui.floating && lib.ui.anime && lib.ui.typewriter), JSON.stringify(lib.ui));
+
+  const sfxBefore = await P.eval('VS.Sfx.stats().played');
+  await P.eval("VS.Sfx.play('select', { gap: 0, vary: false })");
+  const sfxAfter = await P.eval('VS.Sfx.stats().played');
+  expect('★真浏览器里 play() 确实发出了一次播放', sfxAfter === sfxBefore + 1,
+    sfxBefore + ' → ' + sfxAfter);
+
+  // 音效开关：先暂停（暂停面板才有这个 opt-row），再按 DOM 精确找按钮
+  await P.eval('VS_GAME.pause()');
+  await waitFor(function () { return P.eval('VS_GAME.screen === "paused"'); }, 5000, '进入暂停面板');
+  const sfxBtn = JSON.parse(await P.eval(`(function(){
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.opt-row'));
+    var row = rows.filter(function(r){ return r.textContent.indexOf('技能音效') >= 0; })[0];
+    if (!row) return JSON.stringify({found:false});
+    var b = row.querySelector('button');
+    if (!b) return JSON.stringify({found:false, reason:'行里没有按钮'});
+    var r = b.getBoundingClientRect();
+    var hit = document.elementFromPoint(r.left + r.width/2, r.top + r.height/2);
+    return JSON.stringify({found:true, text:b.textContent.trim(),
+      h: Math.round(r.height), hit: !!(hit && (hit === b || b.contains(hit)))});
+  })()`));
+  expect('暂停面板里能找到技能音效开关', !!sfxBtn.found, JSON.stringify(sfxBtn));
+  expect('★开关点得到（elementFromPoint 命中，不是被别层盖住）', !!sfxBtn.hit, JSON.stringify(sfxBtn));
+  expect('触摸目标 ≥44px', (sfxBtn.h || 0) >= 44, '高度 ' + sfxBtn.h);
+  await P.eval(`(function(){
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.opt-row'));
+    var row = rows.filter(function(r){ return r.textContent.indexOf('技能音效') >= 0; })[0];
+    row.querySelector('button').click(); return true;
+  })()`);
+  await sleep(120);
+  // ★VS_GAME 是自定义调试句柄，不暴露 ui.sfxOn；用按钮文案验证 Vue 那边也同步了
+  const sfxLabel = await P.eval(`(function(){
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.opt-row'));
+    var row = rows.filter(function(r){ return r.textContent.indexOf('技能音效') >= 0; })[0];
+    return row.querySelector('button').textContent.trim();
+  })()`);
+  expect('★点一下真的关掉音效（音效层与 Vue 文案同步）',
+    await P.eval('VS.Sfx.enabled === false') && sfxLabel === '已关闭',
+    '按钮=' + sfxLabel);
+  await P.eval(`(function(){
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.opt-row'));
+    var row = rows.filter(function(r){ return r.textContent.indexOf('技能音效') >= 0; })[0];
+    row.querySelector('button').click(); return true;
+  })()`);
+  await sleep(120);
+  expect('再点一下恢复开启', await P.eval('VS.Sfx.enabled === true'));
+
+  // Floating UI：真浏览器里量一次定位（Node stub 证明不了 computePosition 能跑）
+  await P.eval(`(function(){
+    var d = document.createElement('div');
+    d.className = 'slot-card';
+    d.style.width = '300px'; d.style.height = '120px';
+    document.getElementById('hud').appendChild(d);
+    VS.UiFx.layoutSlotCard();
+    return true;
+  })()`);
+  await sleep(260);
+  const pos = JSON.parse(await P.eval(`(function(){
+    var d = document.querySelector('.slot-card');
+    var st = VS.UiFx.stats();
+    var out = { left: d.style.left, top: d.style.top, bottom: d.style.bottom, positioned: st.positioned };
+    if (d.parentNode) d.parentNode.removeChild(d);
+    VS.UiFx.clearSlotCard();
+    return JSON.stringify(out);
+  })()`));
+  expect('★Floating UI 真的写回了 left/top', !!pos.left && !!pos.top, JSON.stringify(pos));
+  expect('★切到 JS 定位时清掉了 CSS 的 bottom', pos.bottom === 'auto', JSON.stringify(pos));
+
+  // 剧情卷首页：Ink 数据 + 回顾列表
+  await P.navigate(BASE + '/game.html?debug=1&mod=myth&stage=ch1');
+  await waitFor(function () {
+    return P.eval('!!(window.VS_GAME && window.VS && VS.Storylines && document.querySelector(".pl-recap-btn"))');
+  }, 10000, '剧情卷首页挂载');
+  await waitFor(function () { return P.eval('!!(VS.Storylines && VS.Storylines.ready)'); }, 10000, 'Ink 数据加载');
+  expect('★Ink 运行时在浏览器里就绪', await P.eval('VS.Storylines.ready === true'));
+
+  const recapBtn = JSON.parse(await P.eval(`(function(){
+    var b = document.querySelector('.pl-recap-btn');
+    var r = b.getBoundingClientRect();
+    var hit = document.elementFromPoint(r.left + r.width/2, r.top + r.height/2);
+    return JSON.stringify({text:b.textContent.trim(), h:Math.round(r.height),
+      hit: !!(hit && (hit === b || b.contains(hit)))});
+  })()`));
+  expect('★剧情回顾按钮点得到（elementFromPoint 命中）', !!recapBtn.hit, JSON.stringify(recapBtn));
+  expect('触摸目标 ≥44px', (recapBtn.h || 0) >= 44, '高度 ' + recapBtn.h);
+  await P.eval("document.querySelector('.pl-recap-btn').click()");
+  await waitFor(function () {
+    return P.eval("document.querySelectorAll('.pl-recap-list p').length === 3");
+  }, 6000, '回顾列表出现三句');
+  const recap = JSON.parse(await P.eval(`JSON.stringify({
+    lines: Array.prototype.map.call(document.querySelectorAll('.pl-recap-list p'), function(p){return p.textContent.trim();}),
+    ink: VS.Storylines.linesOf(1),
+    panelTop: Math.round(document.querySelector('.panel-prologue').getBoundingClientRect().top)
+  })`));
+  expect('★回顾列表三句与 Ink 运行时逐句一致',
+    recap.lines.length === 3 && recap.lines[0].indexOf(recap.ink[0]) >= 0,
+    JSON.stringify(recap));
+  expect('★卷首页面板没被新增内容顶出视口', recap.panelTop >= 0, 'top=' + recap.panelTop);
+  await P.shot(SHOT_FEATURE);
+  console.log('  剧情卷首截图：' + SHOT_FEATURE);
+  expect('★全程没有 JS 异常', P.pageErrors.length === 0, P.pageErrors.join(' ; '));
 
   P.close();
   chrome.kill();

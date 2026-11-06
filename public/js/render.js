@@ -2846,6 +2846,8 @@
           if (arcKey && arcKey !== R._arcSeen) {
             R._arcSeen = arcKey;
             AM.punch('self', arcBlood ? 'cleave' : 'slash');
+            // 与 act 起手同帧发声：比按 hud 差分晚一帧更跟手
+            if (window.VS.Sfx) window.VS.Sfx.punch(arcBlood ? 'cleave' : 'slash');
           }
         }
       }

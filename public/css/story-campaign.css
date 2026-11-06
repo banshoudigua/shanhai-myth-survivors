@@ -680,6 +680,39 @@
   .pl-sub2, .pl-diffdesc { margin-left: 62px; }
 }
 
+/* ------------------------------------------------------------
+   剧情回顾（Ink 运行时逐句读本章题记）
+   ★列表自带 max-height + overflow-y：卷首页面板已经装了章节条 / 题记 /
+     要素 / 8 个角色 / 难度，再让三句题记自由撑高就会撞上 .overlay 的
+     居中溢出老坑（工具 charoverflow 守着）。不写 @media，避免打断末尾
+     pointer:fine 段「必须最后」的顺序。
+   ------------------------------------------------------------ */
+.pl-recap { margin: 12px 0 4px; }
+.pl-recap-btn { font-size: 12px; padding: 6px 12px; }
+.pl-recap-list {
+  margin-top: 8px;
+  max-height: 124px;
+  overflow-y: auto;
+  padding: 8px 10px;
+  background: rgba(10, 12, 15, .72);
+  border: 1px solid #3a2a22;
+}
+.pl-recap-list p {
+  flex: 0 0 auto;
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #d9cbb8;
+}
+.pl-recap-list p:last-child { margin-bottom: 0; }
+.pl-recap-list em {
+  display: inline-block;
+  min-width: 18px;
+  margin-right: 6px;
+  color: #c9964a;
+  font-style: normal;
+}
+
 /* PC 放大：与 game.css 的 pointer:fine 段同一档字号。
    ★必须写在这个文件**最后**，靠「后来者居上」压住上面的基础规则 ——
      写成两处（基础段 + 这里）就会出现「改了一处另一处没改」。 */

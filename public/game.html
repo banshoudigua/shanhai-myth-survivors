@@ -156,7 +156,9 @@
          压在战场上时不能挡住摇杆/走位。
     -->
     <div class="story-beat" v-if="ui.storyLine" :class="{ show: !!ui.storyLine }">
-      <span class="sb-mark">◆</span>{{ ui.storyLine }}
+      <!-- 文案仍由 Vue 原样渲染：Typed.js 没加载 / 被打断时只是没有逐字动画，
+           绝不会把剧情文字弄丢。ui-fx.js 只接管 .sb-text 的显现过程。 -->
+      <span class="sb-mark">◆</span><span class="sb-text">{{ ui.storyLine }}</span>
     </div>
 
     <!-- ==================== 波次 / Boss 提示 ==================== -->
@@ -450,6 +452,20 @@
         </div>
         <p class="pl-diffdesc">{{ diffDescOf }}</p>
 
+        <!-- 剧情回顾：句子由 Ink 运行时按章逐句读出（public/story/butian.ink.json）。
+             ★默认收起 + 列表自带 max-height/overflow，不给卷首页面板增高；
+               这个面板已经装了章节条 / 题记 / 要素 / 8 个角色 / 难度，
+               再加一块展开内容会顶到 .overlay 的居中溢出那条老坑。 -->
+        <div class="pl-recap">
+          <button class="btn pl-recap-btn" @click="toggleRecap">
+            {{ ui.recapOpen ? '收起剧情回顾' : '剧情回顾 · 本章题记' }}
+          </button>
+          <div class="pl-recap-list" v-if="ui.recapOpen">
+            <p v-if="!recapLines.length">题记载入中…</p>
+            <p v-for="(l, i) in recapLines" :key="i"><em>{{ i + 1 }}</em>{{ l }}</p>
+          </div>
+        </div>
+
         <div class="panel-actions">
           <button class="btn" @click="backToLobby">返回大厅</button>
           <button class="btn" @click="toggleHelp">技能图鉴</button>
@@ -670,6 +686,15 @@
           <span class="opt-name">升级自动领补给<em>技能全练满后，升级只剩补给，开启就不再弹面板</em></span>
           <button class="btn opt-btn" :class="{ on: ui.autoSupply }" @click="toggleAutoSupply">
             {{ ui.autoSupply ? '已开启' : '已关闭' }}
+          </button>
+        </div>
+
+        <!-- 音效开关放在暂停面板而不是顶栏：顶栏在 390px 屏上已经塞了暂停 / 倍速 / ?，
+             再加一个按钮会折行压住 Boss 血条（见顶栏布局那条硬约束）。 -->
+        <div class="opt-row">
+          <span class="opt-name">技能音效<em>8-bit 音色，随出招、命中、拾取与局势触发</em></span>
+          <button class="btn opt-btn" :class="{ on: ui.sfxOn }" @click="toggleSfx">
+            {{ ui.sfxOn ? '已开启' : '已关闭' }}
           </button>
         </div>
 
@@ -1041,6 +1066,18 @@
        必须在 render.js 之前（渲染层每帧要问它「该画第几帧」）；
        ★它只碰表现层时钟，不改 sim 时间、不往联机快照加字段。 -->
   <script src="/js/actor-motion.js"></script>
+  <!-- 程序化 8-bit 音效：Howler 只管播放，wav 由 tools/gen-sfx.js 用 jsfxr 生成。
+       两个库都在本地 vendor，不走 CDN。放 game.js 之前，ui 初值要读音效开关。 -->
+  <script src="/vendor/audio/howler.min.js"></script>
+  <script src="/js/sfx.js"></script>
+  <!-- 界面呈现：浮层定位 / 补间 / 剧情运行时。全是本地 UMD，无 CDN。
+       ★打字机是自写的 30 行（在 ui-fx.js 里）：Typed.js 2026 年起改为
+         GPL v3 + 商业双许可，不能进公开仓库。其余库缺失时 ui-fx.js 静默降级。 -->
+  <script src="/vendor/ui/floating-ui.js"></script>
+  <script src="/vendor/ui/anime.umd.min.js"></script>
+  <script src="/vendor/story/ink.js"></script>
+  <script src="/js/storylines.js"></script>
+  <script src="/js/ui-fx.js"></script>
   <script src="/js/share.js"></script>
   <script src="/js/input.js"></script>
   <!-- 技能图鉴：把 const.js 的四张技能表整理成可展示的条目。
