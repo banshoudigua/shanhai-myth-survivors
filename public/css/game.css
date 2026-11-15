@@ -100,6 +100,44 @@ body.game-body {
   50%      { opacity: 0.95; }
 }
 
+/* 赤月天象（第三十九轮）：整张图进入赤月时的一层暗红天幕。
+   【与 .hud-hurt 必须能区分开】低血警示是「你快死了」——贴边、亮红、1.1 秒急促脉冲；
+   赤月是「天色变了」——整体铺开、暗红、2.6 秒缓慢呼吸。两者可能同时出现，
+   所以赤月**刻意不用 inset box-shadow 描边**，否则一圈亮红会和低血警示糊成同一件事。
+   ★pointer-events:none 是硬要求：它是全屏层，吃掉点击等于所有按钮失效
+     （这个项目里「加了控件却点不到」的坑踩过好几次）。 */
+.hud-moon {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* ★浓度是试出来的，不是拍出来的。
+     第一版（边缘 0.46）整屏糊成一块红，墓地灰砖与怪的剪影全被染掉；
+     第二版（边缘 0.26）又太淡 —— 这张图的**地面底色本来就是暗红棕**，
+     只压一层同色系几乎看不出差别（截图对比才发现的）。
+     现在改成「上面压一层血色天光 + 四边再收一圈」：两层方向不同，
+     与常驻的 .hud-vignette（纯黑四角）能区分开，画面本身仍然清楚。 */
+  background:
+    linear-gradient(180deg,
+      rgba(128, 12, 20, 0.16) 0%,
+      rgba(128, 12, 20, 0.02) 44%,
+      rgba(56, 4, 10, 0.16) 100%),
+    radial-gradient(125% 100% at 50% 45%,
+      rgba(140, 16, 22, 0.04) 0%,
+      rgba(110, 12, 18, 0.16) 60%,
+      rgba(52, 4, 9, 0.34) 100%);
+  animation: moonBreathe 2.6s ease-in-out infinite;
+}
+
+@keyframes moonBreathe {
+  0%, 100% { opacity: 0.72; }
+  50%      { opacity: 1; }
+}
+
+/* 系统里开了「减少动态效果」的人不该被满屏呼吸的红光晃到 —— 直接给一个静态天幕。 */
+@media (prefers-reduced-motion: reduce) {
+  .hud-moon { animation: none; opacity: 0.9; }
+}
+
 /* ============================================================
    第 3 层：顶部状态条
    ============================================================ */
@@ -3129,4 +3167,129 @@ body.game-body {
     /* 92vw 是窄窗口下的兜底：窗口比抽屉还窄时不让它溢出屏幕 */
     width: min(470px, 92vw);
   }
+}
+
+/* ---------- 结算：伤害构成 / 灵玉与成就（第三十六轮） ----------
+   为什么单独占一块而不是塞进 .result-grid：
+   六格战绩是「一眼扫过的数字」，伤害构成是「要对照着看的条形表」，
+   两者放一个网格里会让条形被压成很窄的一条，反而读不出来。 */
+.dmg-review {
+  margin: 14px 0 6px;
+  padding: 11px 13px;
+  border-radius: 10px;
+  background: #1d2126;
+  border: 1px solid #313842;
+}
+
+.dr-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: #8d97a3;
+  margin-bottom: 9px;
+}
+
+.dr-sum {
+  color: #f4c455;
+  font-variant-numeric: tabular-nums;
+}
+
+.dr-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+}
+
+/* 名字列定宽：不定宽的话每次开一局名字长短不同，条形起点会跳 */
+.dr-name {
+  flex: 0 0 78px;
+  font-size: 12.5px;
+  color: #d7dde4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dr-bar {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 4px;
+  background: #2a3037;
+  overflow: hidden;
+}
+
+/* 条形只改宽度：用 transform: scaleX 会连带把圆角压扁 */
+.dr-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #9c3129 0%, #f4c455 100%);
+}
+
+.dr-num {
+  flex: 0 0 auto;
+  min-width: 76px;
+  text-align: right;
+  font-size: 11.5px;
+  color: #8d97a3;
+  font-variant-numeric: tabular-nums;
+}
+
+.dr-num em {
+  font-style: normal;
+  margin-left: 7px;
+  color: #f4c455;
+}
+
+.run-reward {
+  margin: 10px 0 2px;
+}
+
+.rr-jade {
+  font-size: 13px;
+  color: #d7dde4;
+  margin-bottom: 6px;
+}
+
+.rr-jade b {
+  color: #f4c455;
+  font-size: 15px;
+}
+
+.rr-hint {
+  font-size: 11px;
+  color: #7d8792;
+}
+
+.rr-ach {
+  font-size: 12px;
+  color: #e6dcc8;
+  padding: 3px 0;
+}
+
+.rr-ach b {
+  color: #f4c455;
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.rr-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  line-height: 16px;
+  color: #1a1410;
+  background: #f4c455;
+}
+
+/* 窄屏：名字列收窄、数字列压缩，保证「名字 + 条形 + 数字」三列还在一行里 */
+@media (max-width: 520px) {
+  .dr-name { flex: 0 0 62px; font-size: 12px; }
+  .dr-num { min-width: 66px; font-size: 11px; }
+  .dr-num em { margin-left: 5px; }
 }

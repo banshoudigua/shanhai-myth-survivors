@@ -82,4 +82,27 @@ if (!CHROME) {
   console.warn('[env]   或指定：VS_CHROME=<可执行文件绝对路径>');
 }
 
-module.exports = { TMP: TMP, CHROME: CHROME };
+// ===== 分享码（平台已改成「带分享码」的访问链接） =====
+// 【背景】在线应用的访问链接现在是 https://xxx.app.workbuddy.host/?sharecode=XXXX
+//   不带码直接请求任何路径都返回 403「链接不完整」（响应体 3KB 的 HTML），
+//   于是浏览器脚本会把「被拦」误读成「前端崩了」。
+// 【机制】只要**第一次导航**带上 ?sharecode=，平台会写一个 __wb_rsc cookie，
+//   之后同源的所有子资源请求（js/css/接口）自动放行 —— 所以只需要改首跳 URL。
+// 【用法】两种都支持：
+//   ① 直接把整条分享链接当参数传：node tools/fxshot.js "https://xxx/?sharecode=XXXX"
+//   ② 用环境变量：VS_SHARECODE=XXXX node tools/fxshot.js https://xxx
+function splitShare(input) {
+  const s = String(input || '');
+  const m = /[?&]sharecode=([^&]+)/.exec(s);
+  const code = m ? m[1] : String(process.env.VS_SHARECODE || '');
+  // 拆掉码之后的干净基址（脚本自己会再拼 /game.html 之类的路径）
+  const url = s.replace(/[?&]sharecode=[^&]+/, '');
+  return { url: url, code: code };
+}
+
+// 拼到已经带有 "?xxx=" 的 URL 后面；没有码时返回空串（本地跑不受影响）
+function shareSuffix(code) {
+  return code ? ('&sharecode=' + code) : '';
+}
+
+module.exports = { TMP: TMP, CHROME: CHROME, splitShare: splitShare, shareSuffix: shareSuffix };

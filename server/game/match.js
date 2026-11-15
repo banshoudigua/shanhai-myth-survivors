@@ -176,7 +176,12 @@ function packPlayers(list) {
       level: p.level,
       invuln: r2(p.invuln),
       // 渲染层要画拾取范围提示圈。attrs 整包太大不发，只拎出这一个值。
-      pickupRadius: p.attrs ? Math.round(p.attrs.pickupRadius) : 0
+      pickupRadius: p.attrs ? Math.round(p.attrs.pickupRadius) : 0,
+      // 血怒（第三十八轮）：剩余秒数向上取整（0.3 秒也发 1，光环不会提前 1 秒消失），
+      // 以及连杀进度 —— 两者都只影响渲染，但**必须发**：
+      // 球/光环这类「同一个机制在两个人屏幕上长得不一样」的问题最难被当成 bug。
+      rage: Math.ceil(p.rage || 0),
+      rageStreak: p.rageStreak || 0
     });
   }
   return out;

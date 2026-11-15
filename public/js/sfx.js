@@ -129,12 +129,56 @@
     const t = e.type;
     if (t === 'boss') play('boss');
     else if (t === 'chest_open') play('chest');
+    // 领神龛与开箱同一个音：两者都是「拿到了一份奖励」，语气一致；
+    // 不为它单独做一条音效（音效资源越少越不容易在手机上加载失败）。
+    else if (t === 'shrine') play('chest');
     else if (t === 'chest_drop') play('story');
     else if (t === 'levelup') play('levelup');
     else if (t === 'dead' || t === 'timeout') play('lose');
     else if (t === 'won') play('win');
     else if (t === 'revive') play('levelup');
     else if (t === 'story') play('story');
+    // 挑战者现身用同一段提示音：它是「注意，有东西来找你了」，
+    // 和剧情节拍那种「读一句话」的语气不同，但都是**提醒玩家抬头看**的场景音，
+    // 不值得为它单独做一条（音效资源越少越不容易在手机上加载失败）。
+    else if (t === 'challenger') play('story');
+    // 血怒（第三十八轮）：一次「爆发」，用 boom 的低频冲击感，不再单独做一条音效
+    // （音效资源越少越不容易在手机上加载失败）。限流收紧一点：它可能连着触发。
+    else if (t === 'rage') play('boom', { gap: 400, vary: false });
+    // 赤月天象（第三十九轮）：开始用低频冲击（天色压下来），结束**刻意不出声**——
+    // 「危险过去了」不需要再吓玩家一跳，提示条已经说清楚了。
+    // 限流放宽到 900ms：它 100 秒才来一次，但开/关两条事件挨得很近时别叠成一记闷响。
+    else if (t === 'moon') {
+      if (e.on) play('boom', { gap: 900, vary: false });
+    }
+    // 陨星（第四十轮）：预警用提示音（和挑战者/剧情节拍同一段，都是「抬头注意」），
+    // 落地用低频冲击。★落地单独一条事件（meteor_hit），因为预警与落地隔了 1.8 秒，
+    // 挂在同一条事件上会让「石头砸下来」和「提示条弹出」同时响，听起来像一声空响。
+    else if (t === 'meteor') play('story', { gap: 400 });
+    else if (t === 'meteor_hit') play('boom', { gap: 600, vary: false });
+    // 山魈（第四十一轮）：现身用提示音（与挑战者/剧情节拍同一段，都是「抬头注意」），
+    // 击杀用开箱音（它掉的是金币与经验，是一份「拿到了」的语气）。
+    // ★召唤动作**刻意不出声**：它每 5.5 秒召一次，出声就是一段持续的噪音。
+    else if (t === 'summoner') play('story');
+    else if (t === 'summoner_down') play('chest');
+    // 地脉灵泉（第四十二轮）：涌出用提示音（「抬头看地上」），
+    // 唤醒用开箱音 —— 它是这一局里少数几个「你赚到了」的时刻。
+    else if (t === 'ley') play('story', { gap: 400 });
+    else if (t === 'ley_burst') play('chest', { gap: 400 });
+    // 血祭坛（第四十三轮）：浮现用提示音（「地上有东西，抬头看」）；
+    // 成交用**低频冲击**（boom）—— 它是「你付出了一样不会再回来的东西」，
+    // 拿开箱音那种「赚到了」的语气去配，会让人以为这是白拿的。
+    // 拒绝**刻意不出声**：提示条已经说明白了，再响一下就成了「你失败了」的额外惩罚。
+    else if (t === 'pact') play('story', { gap: 400 });
+    else if (t === 'pact_taken') play('boom', { gap: 600, vary: false });
+    // 双生妖（第四十五轮）：现身用提示音（抬头注意）；
+    // 倒下一只用**低频冲击**（「它倒下了」这件事发生了，但还没结束）；
+    // 全灭用开箱音（这一对终于解决了）；
+    // ★复生**刻意不出声**：它已经是失败分支，再给一记重音就变成「你被罚了两次」。
+    //   而且它和「倒下一只」只隔 6 秒，两声连着响会糊成一段噪音。
+    else if (t === 'twins') play('story', { gap: 400 });
+    else if (t === 'twin_half') play('boom', { gap: 600, vary: false });
+    else if (t === 'twin_slain') play('chest', { gap: 400 });
     else if (t === 'evolve' || t === 'combo_new' || t === 'combo') play('chest');
     else if (t === 'weapon_new' || t === 'passive_new' ||
              t === 'weapon_up' || t === 'passive_up' || t === 'fallback') play('buy');

@@ -31,6 +31,9 @@
     fire:  ['#1f0b10', '#4a1118', '#8c1d1c', '#cc3a1a', '#f2701f', '#ffae35', '#ffe27a', '#fff8d6'],
     // 血红走纯暖橙红：只要掺一点蓝，在暗红地面 + lighter 叠加下就会泛出粉紫
     blood: ['#1a0806', '#3d0e08', '#6b130c', '#9c2412', '#cc3a18', '#f26a24', '#ffb04a', '#ffe6a0'],
+    // 玉青（第四十二轮）：地脉灵泉专用。★这是我方「灵气」色 —— 偏绿而不是偏蓝，
+    // 与 PAL.ice 的冷蓝分得开，也不违反「禁紫禁紫蓝」的约定。
+    jade:  ['#06170f', '#0c2a1c', '#12452c', '#1a6b42', '#2a9459', '#4fbf7d', '#8fe8b4', '#e8fff4'],
   };
   PIX.PAL = PAL;
 
@@ -237,11 +240,16 @@
     if (e.kind === 'arc') {
       // 刑天干戚 / 血鞭：普通是冷钢色刀光，进化成血红就是大开大合的重斩
       const blood = e.color === '#ff4d4d';
+      // ★★上限从 2.1 放到 4.6（第四十四轮）：同一个元凶的另一半。
+      //   2.1 对应半径 122，而刑天干戚满配（武器满级 + 千里镜）判定半径是 260 ——
+      //   也就是说旧版玩家练满之后，刀光**画得比实际打得小一半**，
+      //   于是「我明明没碰到它，它却死了」和「范围怎么没变」会同时出现。
+      //   4.6 对应 r≈267，正好覆盖当前所有扇形的上限。
       return {
         name: blood ? 'cleave' : 'slash', key: key,
         o: {
           x: base.x, y: base.y, life: life, maxLife: maxLife, alpha: base.alpha,
-          angle: e.facing || 0, scale: clamp((e.r || 60) / 58, 0.9, 2.1),
+          angle: e.facing || 0, scale: clamp((e.r || 60) / 58, 0.9, 4.6),
           palette: blood ? PAL.blood : PAL.steel, light: 1.15,
           warm: blood ? 0.3 : 0.06,
           extra: blood ? { stone: '#5a5148' } : null,
@@ -250,6 +258,24 @@
     }
 
     if (e.kind === 'boom') {
+      // ★第四十二轮：地脉灵泉的冲击单独一支 —— 玉青符文阵。
+      //   【为什么必须在这里分支】原来这一段只有「金 / 橙 / 其它」三档，
+      //   灵泉的 #5fe0b0 落到「其它」→ 画成一根金色圣裁光柱（smite），
+      //   语义完全是反的（地底灵气涌出 vs 天上的圣光）。
+      //   【为什么用 rune 而不是 frostNova】符文阵是**贴地的法阵**，
+      //   与「站进圈里唤醒」这件事说的是同一句话；冰环是冷蓝，与项目配色也不合。
+      const jade = e.color === '#5fe0b0';
+      if (jade) {
+        return {
+          name: 'rune', key: key,
+          o: {
+            x: base.x, y: base.y, life: life, maxLife: maxLife, alpha: base.alpha,
+            scale: clamp((e.r || 60) / 90, 1.2, 2.6),
+            palette: PAL.jade, light: 1.05,
+            warm: 0.15,
+          },
+        };
+      }
       // 雷部神锤 / 五雷正法落成的是金色雷击，陨星那种橙色才是爆炸，其余按圣裁光柱。
       // ★大画布的爆炸要把 scale 压小：原尺寸 300x240 会糊住半个战场，
       //   而且每帧合成 7 万像素，弹幕一多就掉帧。
@@ -275,11 +301,17 @@
     if (e.kind === 'ring') {
       // 光环一律用金色符文阵：透视圆盘贴地、尺寸克制，不会像霜新星那样
       // 横着铺出一个压住玩家的大椭圆。
+      // ★★上限从 1.5 放到 3.2（第四十四轮）：这是「范围加成看不出来」的**真正元凶**。
+      //   scale 的语义是「r=90 时为 1」，原来夹在 1.5 → 半径超过 135 之后
+      //   画面上的圈就再也不长了。而加了千里镜之后判定半径能到 190，
+      //   于是玩家把千里镜点满、伤害范围实打实变大了一倍，看到的圈却纹丝不动。
+      //   数值断言全绿、手感为零 —— 同一个坑的另一半。
+      //   3.2 对应 r≈288，够覆盖「光环 + 千里镜满级」的全部可能值。
       return {
         name: 'rune', key: key,
         o: {
           x: base.x, y: base.y, life: life, maxLife: maxLife, alpha: base.alpha,
-          scale: clamp((e.r || 60) / 90, 0.65, 1.5),
+          scale: clamp((e.r || 60) / 90, 0.65, 3.2),
           palette: PAL.gold, light: 1,
           warm: 0.2,
         },

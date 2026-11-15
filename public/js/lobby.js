@@ -156,6 +156,23 @@ createApp({
       // ---------- 剧情模式（第十五轮）----------
       // 关卡选择弹层是否打开
       storyOpen: false,
+
+      // ---------- 山海榜：图鉴 / 成就 / 山海谱（第三十六轮）----------
+      // 【为什么预先算好数组再塞进 data】存档对象不是响应式的，而且模板里
+      //   带参调用 computed 会白屏（项目踩过）。所以「打开面板 / 买完天赋」时
+      //   一次性把要显示的东西算成数组，模板只负责 v-for。
+      hallOpen: false,
+      hallTab: 'codex',      // codex / ach / tal
+      hallJade: 0,
+      hallMobs: [],
+      hallWeapons: [],
+      hallAchs: [],
+      hallTals: [],
+      hallMobDone: 0,
+      hallWeaponDone: 0,
+      hallAchDone: 0,
+      hallTalSpent: 0,
+      hallTalTotal: 0,
       // 当前选中的模组 id。默认取「有进度的那个」，没有就按 MOD_IDS 顺序取第一个真剧情模组。
       // ★不能用 MOD_IDS[0]（那是 vanilla 自由模式，它没有 stages）——
       //   这样写会打开一个空列表，而且不报错，只是「弹层里什么都没有」。
@@ -417,6 +434,29 @@ createApp({
         get hasToken() { return !!self.token; },
         get shareOpen() { return self.shareOpen; },
         get shareUrl() { return self.shareUrl; },
+        // ---- 山海榜（第三十六轮）----
+        // 为什么要开这个口子：.hall-mask 虽然在顶层（不依赖登录态），
+        // 但「点按钮 → 面板出现」这条链要经过大厅视图，自动化很难稳定走到；
+        // 而面板里的行数、灵玉、页签状态又必须被断言（否则「点开是空的」是静默失败）。
+        openHall: function (tab) { self.openHall(tab || 'codex'); },
+        closeHall: function () { self.closeHall(); },
+        get hall() {
+          return {
+            open: self.hallOpen,
+            tab: self.hallTab,
+            jade: self.hallJade,
+            mobs: self.hallMobs.length,
+            weapons: self.hallWeapons.length,
+            achs: self.hallAchs.length,
+            tals: self.hallTals.length,
+            mobDone: self.hallMobDone,
+            achDone: self.hallAchDone,
+            talTotal: self.hallTalTotal,
+            talSpent: self.hallTalSpent
+          };
+        },
+        // 买一级天赋（测试点按不到按钮时走这条；UI 上仍然是真按钮）
+        buyTal: function (id) { self.buyTal(id); },
         // 连接日志（新的在前）。测试脚本据此断言「界面真的把事件记下来了」，
         // 也是排查线上问题时唯一能拿到的完整时间线。
         get connLog() { return self.connLog.slice(); },
@@ -1298,6 +1338,120 @@ createApp({
 
     closeStory() {
       this.storyOpen = false;
+    },
+
+    // ---------------- 山海榜（图鉴 / 成就 / 山海谱） ----------------
+    // 打开面板：先算数据再显示，避免「先弹出空壳再跳一下」
+    openHall(tab) {
+      this.hallTab = tab || 'codex';
+      this.refreshHall();
+      this.hallOpen = true;
+    },
+
+    closeHall() {
+      this.hallOpen = false;
+    },
+
+    // 把存档折成模板能直接 v-for 的数组。
+    // ★全部从 window 上现取：Vue 模板/运行时读不到脚本顶层 const（见文件头注释），
+    //   写成 const PROGRESS = ... 在方法里能用，但一旦有人提到模板里就会静默失效。
+    refreshHall() {
+      const P = window.VS_PROGRESS;
+      const X = window.VS.CODEX;
+      if (!P || !X) {
+        log('山海榜数据没加载上（VS_PROGRESS / VS.CODEX 缺失）');
+        return;
+      }
+      const codex = P.codex;
+      const meta = P.meta;
+
+      // ---- 妖物图鉴 ----
+      const mobs = [];
+      let mobDone = 0;
+      for (let i = 0; i < X.MOB_LIST.length; i++) {
+        const m = X.MOB_LIST[i];
+        const k = codex.mobs[m.id] || 0;
+        if (k > 0) mobDone += 1;
+        mobs.push({
+          id: m.id,
+          name: m.name,
+          // 只给「精怪 / 妖王」挂标签：绝大多数怪都是寻常妖物，
+          // 每行都挂一个标签等于没有信息，还会把每行挤得更窄（手机上看得很明显）。
+          tierLabel: m.tier === 'normal' ? '' : (X.TIER_LABEL[m.tier] || ''),
+          kills: k
+        });
+      }
+
+      // ---- 武器精通（全部武器都列出来，没拿过的显示「未使用」）----
+      const C = constTable();
+      const weapons = [];
+      let weaponDone = 0;
+      for (let i = 0; i < C.WEAPONS.length; i++) {
+        const d = C.WEAPONS[i];
+        const rec = codex.weapons[d.id] || null;
+        const ms = X.masteryOf(rec);
+        if (ms.uses > 0) weaponDone += 1;
+        weapons.push({ id: d.id, name: d.name, lvName: ms.name, lv: ms.lv, uses: ms.uses });
+      }
+
+      // ---- 成就 ----
+      const achs = [];
+      let achDone = 0;
+      for (let i = 0; i < X.ACHIEVEMENTS.length; i++) {
+        const a = X.ACHIEVEMENTS[i];
+        const got = !!codex.ach[a.id];
+        if (got) achDone += 1;
+        achs.push({ id: a.id, name: a.name, desc: a.desc, got: got });
+      }
+
+      // ---- 山海谱 ----
+      const tals = [];
+      let talLevels = 0;
+      for (let i = 0; i < X.TALENTS.length; i++) {
+        const t = X.TALENTS[i];
+        let lv = meta.tal[t.id] || 0;
+        if (lv > t.max) lv = t.max;
+        const cost = X.talCost(t, lv);
+        const maxed = cost === null;
+        talLevels += lv;
+        tals.push({
+          id: t.id,
+          name: t.name,
+          desc: t.desc,
+          lv: lv,
+          max: t.max,
+          cost: maxed ? 0 : cost,
+          maxed: maxed,
+          // 钱不够时按钮置灰（真正的原因由 buyTal 弹提示说明）
+          canBuy: !maxed && meta.jade >= cost
+        });
+      }
+
+      this.hallJade = meta.jade;
+      this.hallMobs = mobs;
+      this.hallWeapons = weapons;
+      this.hallAchs = achs;
+      this.hallTals = tals;
+      this.hallMobDone = mobDone;
+      this.hallWeaponDone = weaponDone;
+      this.hallAchDone = achDone;
+      this.hallTalSpent = X.talSpent(meta.tal);
+      this.hallTalTotal = talLevels;
+    },
+
+    // 买一级天赋。失败一定说出原因（还差多少灵玉 / 已满），
+    // 只把按钮置灰的话玩家不知道差什么 —— 商店那边就是这么改过来的。
+    buyTal(id) {
+      const P = window.VS_PROGRESS;
+      if (!P) return;
+      const r = P.buyTalent(id);
+      if (!r.ok) {
+        // 用 err 类：这是「没点成功」，玩家需要立刻看到原因（已满 / 还差多少灵玉）
+        this.notice$('err', r.reason || '点不了');
+        return;
+      }
+      log('山海谱升级：' + id + ' 花了 ' + r.cost + ' 灵玉，余额 ' + P.meta.jade);
+      this.refreshHall();
     },
 
     switchStoryMod(id) {

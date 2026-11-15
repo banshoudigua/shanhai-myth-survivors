@@ -28,6 +28,12 @@
   // 【为什么可以在这里直接取】skillbook.js 排在 game.js 之前，且只依赖 const.js。
   const SKILLBOOK = window.VS.SKILLBOOK;
 
+  // 山海榜：局外成长表（shared/codex.js）与本地存档（public/js/progress.js）。
+  // ★两者都由更早的 <script> 加载；缺任意一个都不会白屏 ——
+  //   结算页只是不显示「灵玉 / 成就」，游戏本体照常（防的是「脚本顺序改错就整页挂」）。
+  const CODEX = window.VS.CODEX;
+  const PROGRESS = window.VS_PROGRESS;
+
   // 调试浮层开关：URL 加 ?debug=1 打开，或本地存过就保持
   const DEBUG = /[?&]debug=1/.test(location.search);
 
@@ -384,7 +390,17 @@
     // 点角标展开；PC 默认 false（不折叠）。
     slotsFolded: slotsFoldedOn,
     // 结算里的全队战绩（服务端 game_over 带上来的每个人各自的数字）
-    resultList: []
+    resultList: [],
+    // 本局结算的「回顾」：伤害构成 / 获得的灵玉 / 新解锁的成就。
+    // ready=false 表示还没结算（同一局只入账一次，见 settleRun）。
+    // 【为什么放 ui】它是界面数据，不进世界、不进快照；联机时永远是 ready:false。
+    runExtra: { ready: false, jade: 0, newAch: [], dmgList: [], total: 0 },
+    // 赤月天象（第三十九轮）：全屏暗红天幕的开关与剩余秒数。
+    // 【为什么放 ui 而不是 hud】天幕是**纯表现**（一个不需要参与任何判定的 class），
+    // 而 hud 那边是按字段白名单同步的：多一个每帧变的数字就要多一条签名比对。
+    // 这里只在下发的 moon 值翻转时才写响应式（见 applyHud），代价一样低。
+    moonOn: false,
+    moonLeft: 0
   });
 
   // 商店条目表：整局不变，从 const.js 现算（不手写清单 —— 与技能图鉴同一个原则）
@@ -1091,7 +1107,10 @@
       // 难度：卷首页选了哪一档。自由模式传空 → sim 回落「普通」，
       // 与改造前完全一致（原来 createWorld 根本不传这个参数）。
       difficulty: ui.diffId || undefined,
-      spawnRadius: computeSpawnRadius()
+      spawnRadius: computeSpawnRadius(),
+      // 山海谱（局外天赋）：折成纯数值交给 sim。联机时 buildWorld 基本不用
+      // （联机世界在服务端建），所以这里不需要额外判 ONLINE。
+      meta: metaBonus()
     });
   }
 
@@ -1111,6 +1130,8 @@
     ui.pendingLevels = 0;
     ui.surviveText = '0秒';
     ui.screen = 'playing';
+    // 新一局：把上一局的结算回顾清掉（否则重开时结算屏会先闪一眼旧数据）
+    ui.runExtra = { ready: false, jade: 0, newAch: [], dmgList: [], total: 0 };
 
     // 把玩家选择记到本地，下次进来默认还是这个角色。
     // ★剧情模式不写：那里的 ui.charId 表示「主动换成了谁」，空值是常态，
@@ -1793,18 +1814,134 @@ function goLobby(why) {
       //   剧情模式的 Boss 叫蚩尤/九婴/烛龙/女娲，写死会全部显示成「血月领主」。
       //   （这个事件里sim 已经走过 nameTable，见 spawnWave。）
       pushToast((e.name || '首领') + '降临！', true);
+    } else if (e.type === 'affix') {
+      // 变异怪第一次出现（每种词缀每局一次，见 sim 的 noteAffixSeen）。
+      // 【为什么必须播报】光环颜色是**唯一的**信息载体，不说明的话玩家只会觉得
+      // 「这只怪怎么突然打不动 / 怎么追得上我」，把它当成 bug 而不是玩法。
+      pushToast('变异怪「' + (e.name || '') + '」出现：' + (e.hint || ''), true);
     } else if (e.type === 'story') {
       // 剧情节拍：顶部横条淡入，4 秒后自动淡出。
       // ★用 setTimeout 而不是「按时间差隐藏」—— 暂停时计时器照跑，
       //   玩家暂停 10 秒回来发现节拍早没了，那才是真问题。
       //   这里换成「重新触发时先清掉上一个定时器」，暂停不影响它的可见时长。
       showStoryLine(e.line);
+    } else if (e.type === 'challenger') {
+      // 挑战者（第三十四轮）：它是**可选的一段战斗**，所以提示必须说清两件事 ——
+      // 「它来了」和「打它有什么好处」。只说前者的话，玩家会把它当成一只普通精英，
+      // 于是永远不知道掉头去收它是有回报的（那这个机制就白做了）。
+      pushToast('挑战者现身：击杀必得宝箱', true);
+    } else if (e.type === 'challenger_down') {
+      pushToast('击败' + (e.name || '挑战者') + '！宝箱已掉落', true);
+    } else if (e.type === 'summoner') {
+      // 山魈（第四十一轮）：它是全项目唯一**不追你**的精英，靠「远远地召妖」施压。
+      // 【为什么提示里必须说「它在远处」】第一版只写了「山魈现身」，实测玩家会往身前找，
+      //   找不到就以为提示错了 —— 它其实在两百多像素外绕着走。
+      //   说清位置 + 说清「先点掉它」，「追还是拖」这个选择才成立。
+      pushToast((e.name || '山魈') + '现身：它在远处召妖，先点掉它', true);
+    } else if (e.type === 'summoner_down') {
+      pushToast('击杀' + (e.name || '山魈') + '！妖群不再增援', true);
+    } else if (e.type === 'twins') {
+      // 双生妖（第四十五轮）：这条提示是整套规则的**说明书**。
+      // 【为什么必须把「先打死一只会站起来」写在出现的那一刻】
+      //   玩家对「受伤/满血/复活」这三种状态没有预设，第一只倒下时如果没有提示，
+      //   他只会以为「这游戏卡了」。写在它出现的同一刻，才有机会改变打法（先压血线）。
+      const TW = C.TWINS || { delaySec: 6 };
+      pushToast((e.name || '双生妖') + '现身：两只必须 ' +
+        (e.delaySec || TW.delaySec) + ' 秒内一起收掉，先倒的会站起来', true);
+    } else if (e.type === 'twin_half') {
+      // 已经倒了一只：倒计时与「还差几只」一起给，玩家不用自己数秒
+      pushToast('双生妖倒下一只！' + (e.left || 1) + ' 只需在 ' +
+        (e.delaySec || 6) + ' 秒内收掉，否则它会复生', true);
+    } else if (e.type === 'twin_slain') {
+      pushToast('双生同命已解！宝箱与金币已掉落', true);
+    } else if (e.type === 'twin_revive') {
+      // 失败分支：说清「是它站起来了」，而不是「又刷了一只」——
+      // 这两种说法对玩家的下一步动作完全相反（一个该补刀，一个该跑）。
+      pushToast((e.name || '双生妖') + '复生了：同命已断，它变回普通精英', false);
     } else if (e.type === 'chest_drop') {
       // 宝箱是「要专门走过去拿」的（不被磁石吸），所以必须明确告诉玩家它掉了、
       // 而且是谁掉的 —— 否则很容易走开之后才发现漏了一个免费升级。
       pushToast((e.name || '首领') + '掉落了宝箱，走过去拾取', true);
     } else if (e.type === 'chest_open') {
       pushToast('开箱！免费升级一次', true);
+    } else if (e.type === 'shrine') {
+      // 上古神龛（第三十五轮）：神龛是「走过去就生效」的，没有面板也没有二次确认 ——
+      // 所以**这条提示是玩家唯一的反馈**，必须说清「拿到了什么」，
+      // 否则他只知道屏幕闪了一下，不知道自己的伤害/血量变了。
+      // 满层时也要播报，但说法不同：不说的话玩家会以为祝福白领了。
+      if (e.full) {
+        pushToast('「' + (e.shrineName || '神龛') + '」已满 ' + (e.level || 0) + ' 层，不再叠加', false);
+      } else {
+        pushToast((e.shrineName || '上古神龛') + '：' + (e.hint || ''), true);
+      }
+    } else if (e.type === 'rage') {
+      // 血怒（第三十八轮）：连杀换来的临时爆发。
+      // 【必须说清三件事】它开了、强多少、还剩多久 —— 玩家正要在这一瞬间决定
+      // 「往怪堆里冲还是先退」。只说一句「血怒」的话，8 秒还是 3 秒全靠猜。
+      // ★倍率从 const.js 现算，不写死百分比：表一调，提示就跟着变。
+      const RG = C.RAGE || { dmgMul: 1.3, speedMul: 1.12, durationSec: 8 };
+      pushToast('血怒！伤害 +' + Math.round((RG.dmgMul - 1) * 100) + '%、移速 +' +
+        Math.round((RG.speedMul - 1) * 100) + '%（' + (e.sec || RG.durationSec) + ' 秒）', true);
+    } else if (e.type === 'moon') {
+      // 赤月天象（第三十九轮）。
+      // 【为什么开始与结束都要播报】天幕是渐变的，玩家未必盯着屏幕边缘；
+      //   而这件事**改变了整张图的规则**（怪更快、更密，但经验更高）——
+      //   不说的话，玩家只会觉得「这一波莫名其妙被追上了」。
+      // ★三个数字全部从 const.js 现算，不写死百分比：表一调，提示跟着变。
+      const BM = C.BLOOD_MOON || { name: '赤月', mobSpeedMul: 1.2, countMul: 1.3, expMul: 1.3 };
+      if (e.on) {
+        pushToast((e.name || BM.name) + '临空：妖物疾行 +' + Math.round((BM.mobSpeedMul - 1) * 100) +
+          '%、灵息 +' + Math.round((BM.expMul - 1) * 100) + '%（约 ' + (e.left || '') + ' 秒）', true);
+      } else {
+        pushToast((e.name || BM.name) + '西沉，妖物复归寻常', false);
+      }
+    } else if (e.type === 'meteor') {
+      // 陨星（第四十轮）：全项目第一个**会伤到自己人**的事件，所以提示必须
+      // 把「它砸哪」和「你该干什么」一次说清 —— 只说「陨星来了」的话，
+      // 玩家会站在原地看天上，然后被砸中并认为这是随机伤害。
+      // ★数字全部从 const.js 现算：表一调，提示跟着变。
+      const MT = C.METEOR || { warnSec: 1.8, radius: 130, playerHpPct: 0.12 };
+      pushToast('陨星天降：' + MT.warnSec + ' 秒后砸向妖群最密处，快出圈（半径 ' +
+        MT.radius + '）', true);
+    } else if (e.type === 'ley') {
+      // 地脉灵泉（第四十二轮）：全项目第一个**请玩家停下来**的点位。
+      // 提示条必须把三件事一次说清：站在哪、站多久、换来什么 ——
+      // 只说「灵泉涌出」的话，玩家会以为走过去就自动领（那是神龛的语义）。
+      // ★数字全部从 const.js 现算：表一调，提示跟着变。
+      const LY = C.LEYLINE || { name: '地脉灵泉', chargeSec: 2, burstRadius: 300, healPct: 0.15 };
+      pushToast((LY.name || '地脉灵泉') + '涌出：站进圈内 ' + LY.chargeSec +
+        ' 秒唤醒（中途离开会回落），冲击半径 ' + LY.burstRadius +
+        '、回复 ' + Math.round(LY.healPct * 100) + '% 生命', true);
+    } else if (e.type === 'ley_burst') {
+      // 爆发单独一条：与「涌出」隔了 2 秒以上，挂在同一条事件上会让人以为提示条在重复。
+      const LY2 = C.LEYLINE || { burstRadius: 300 };
+      pushToast('地脉冲击：半径 ' + LY2.burstRadius + ' 内妖物受创并被定住', false);
+    } else if (e.type === 'pact') {
+      // 血祭坛（第四十三轮）：全项目第一个**要你先付账**的点位。
+      // 【提示条必须把「付什么」写在最前面】只说「血祭坛浮现」的话，玩家会把它当成
+      //   又一座白给的神龛，踩上去发现血上限少了，第一反应是「这玩法在阴我」。
+      //   把它写成一条明码标价的交易（掉多少 / 换多少 / 需要多少血），
+      //   「踩不踩」才是一个玩家自己做的决定。
+      // ★数字全部从 const.js 现算：表一调，提示跟着变。
+      const BP = C.BLOODPACT || { name: '血祭坛', hpCostPct: 0.14, dmg: 0.18, minHpPct: 0.7, lifeSec: 18 };
+      pushToast((BP.name || '血祭坛') + '浮现：踩上去以 ' + Math.round(BP.hpCostPct * 100) +
+        '% 生命上限换 +' + Math.round(BP.dmg * 100) + '% 伤害（需 ' +
+        Math.round(BP.minHpPct * 100) + '% 以上生命，' + (e.sec || BP.lifeSec) + ' 秒后沉没）', true);
+    } else if (e.type === 'pact_taken') {
+      // 成交：必须报「少了多少」与「还剩几层」—— 这是玩家确认「刚才那一下真的生效了」
+      // 的唯一反馈（血上限的变化在战斗里根本看不出来）。
+      const BP2 = C.BLOODPACT || { stackMax: 2 };
+      pushToast('血契成立（' + (e.level || 1) + '/' + (e.stackMax || BP2.stackMax) +
+        '）：生命上限 ' + (e.maxBefore || '?') + ' → ' + (e.maxAfter || '?') +
+        '，伤害提升', true);
+    } else if (e.type === 'pact_deny') {
+      // 血气不足：要说清「差多少」和「祭坛还在」—— 否则玩家会以为它被自己踩没了。
+      const BP3 = C.BLOODPACT || { minHpPct: 0.7 };
+      pushToast('血气不足（当前 ' + Math.round((e.hpPct || 0) * 100) + '%，需 ' +
+        Math.round((e.needPct || BP3.minHpPct) * 100) + '%），血祭坛仍在原地', false);
+    } else if (e.type === 'pact_full') {
+      const BP4 = C.BLOODPACT || { stackMax: 2 };
+      pushToast('血契已满 ' + (e.stackMax || BP4.stackMax) + ' 层，不能再签', false);
     } else if (e.type === 'levelup') {
       ui.screen = 'levelup';
       ui.pendingLevels = (e.pendingLevels !== undefined) ? e.pendingLevels
@@ -1859,6 +1996,74 @@ function goLobby(why) {
   function syncHud() {
     applyHud(SIM.getHud(world));
   }
+
+  // ============================================================
+  // 山海榜：局外成长（第三十六轮）
+  // ============================================================
+
+  // 把山海谱的等级折成 sim 认识的纯数值。没点过任何天赋时返回 null，
+  // 让世界对象保持干净（也方便对比「有天赋 / 没天赋」的两种行为）。
+  function metaBonus() {
+    if (!PROGRESS || !CODEX) return null;
+    const b = CODEX.talBonus(PROGRESS.talentLevels());
+    if (!b.hp && !b.dmgMul && !b.speedMul && !b.pickupMul && !b.cdMul && !b.gold) return null;
+    return {
+      hp: b.hp, dmgMul: b.dmgMul, speedMul: b.speedMul,
+      pickupMul: b.pickupMul, cdMul: b.cdMul, gold: b.gold
+    };
+  }
+
+  // 本局入账（单机 + 剧情）。★同一局只能算一次 ——
+  // 结算屏每帧都在，重复调用会把灵玉与图鉴计数翻好几倍。
+  // 用 ui.runExtra.ready 当哨兵；startMatch 时重置。
+  function settleRun() {
+    if (ONLINE || !world || !world.player || ui.runExtra.ready) return;
+    const sum = SIM.runSummary(world, world.player);
+
+    // 伤害构成：把 id 翻成中文名并算占比。
+    // ★占比用「本局总伤害」当分母，而不是「列表里最大的一项」——
+    //   否则「前几项占比加起来才 60%」看着像丢数据。
+    const total = sum.dmgDealt || 1;
+    const list = [];
+    for (let i = 0; i < sum.dmgList.length; i++) {
+      const one = sum.dmgList[i];
+      list.push({
+        src: one.src,
+        name: CODEX ? CODEX.srcLabel(one.src) : one.src,
+        dmg: one.dmg,
+        pct: Math.max(1, Math.round(one.dmg / total * 100))
+      });
+    }
+
+    // ★只留前 7 项，其余并成「其它」：后期武器 + 组合技能有十几项，
+    //   全列出来会把结算面板顶出手机屏幕（而这个面板必须能在一屏内看完）。
+    if (list.length > 7) {
+      let rest = 0;
+      for (let i = 7; i < list.length; i++) rest += list[i].dmg;
+      list.length = 7;
+      list.push({
+        src: 'other',
+        name: '其它',
+        dmg: rest,
+        pct: Math.max(1, Math.round(rest / total * 100))
+      });
+    }
+
+    // 存档入账（灵玉、图鉴、武器精通、成就）。PROGRESS 缺失时降级为空结果，
+    // 结算页只是不显示那两块，不会因为存档层没加载上而报错。
+    const r = PROGRESS ? PROGRESS.settle(sum) : { jade: 0, newAch: [] };
+
+    ui.runExtra = {
+      ready: true,
+      jade: r.jade || 0,
+      newAch: r.newAch || [],
+      dmgList: list,
+      total: sum.dmgDealt
+    };
+    console.log('[codex] 本局入账：灵玉 +' + (r.jade || 0) +
+      '，伤害来源 ' + list.length + ' 项，新成就 ' + ((r.newAch || []).length) + ' 个');
+  }
+
 
   // 调试用的「界面预览」窗口：在这之前 HUD 用脚本塞进去的那份数据，
   // 忽略服务端下发。存在的理由很实际 —— 想看一眼「阵亡倒计时」这种界面，
@@ -1984,6 +2189,19 @@ function goLobby(why) {
       hud.boss = b;
     }
 
+    // 赤月天象（第三十九轮）。
+    // ★★这一段是**必须补的白名单**：getHud 加了字段、applyHud 不补，
+    //   表现就是「天幕永远不出现」，而且一句错都不报（本项目同一个坑踩过三次：
+    //   emitRoom 的头像 / 难度 / 地图）。所以新字段一律在这里显式读一遍。
+    // 只在翻转时写响应式：天幕的开关是 class，每帧无脑写会让整层反复重渲染。
+    const moonNow = h.moon ? 1 : 0;
+    if (moonNow !== (ui.moonOn ? 1 : 0)) {
+      ui.moonOn = moonNow === 1;
+    }
+    // 剩余秒数按 0.1 秒对齐（服务端就是这么发的），变了才写。
+    const ml = moonNow ? (h.moonLeft || 0) : 0;
+    if (ml !== ui.moonLeft) ui.moonLeft = ml;
+
     // 调试浮层只在 ?debug=1 时存在；非调试下这四个响应式赋值纯属浪费，
     // 它们每帧都变，会把整块调试面板跟着重渲染一次。
     if (DEBUG) {
@@ -2044,6 +2262,10 @@ function goLobby(why) {
     }
 
     // 只有「进行中」才推进逻辑；暂停 / 升级面板 / 结算都冻结世界
+    // ★结算入账放在这里：屏幕刚切到 result 的那一帧算一次（settleRun 内部有哨兵）。
+    //   放在事件处理里要写三处（阵亡 / 通关 / 未通过），漏一处就少一次入账。
+    if (ui.screen === 'result' && !ui.runExtra.ready) settleRun();
+
     const running = ui.screen === 'playing' && world.state === 'playing';
 
     if (running) {
@@ -2351,6 +2573,13 @@ function goLobby(why) {
           }
           return ui.screen === 'playing';
         },
+        // 赤月天幕（第三十九轮）。
+        // ★与 worldLive 挂钩：单机暂停 / 结算时世界已经不动了，
+        //   天幕还红着会让人以为「怪还在加速」。联机暂停不存在（世界停不下来），
+        //   所以那边升级面板开着也照常显示 —— 这是真实战场信息。
+        moonOn: function () {
+          return !!ui.moonOn && this.worldLive;
+        },
         // 联机阵亡中的等待态：这时候世界还在跑，界面只浮一层倒计时，不能盖住战场。
         // 观战者不显示：HUD 借的是被跟随者的状态，那人的「等待复活」不是观战者在等。
         deadWaiting: function () {
@@ -2375,6 +2604,15 @@ function goLobby(why) {
         },
         // 结算里的全队战绩（联机才有内容；单机为空数组 → 那一块不显示）
         resultList: function () { return ui.resultList; },
+        // 本局回顾（第三十六轮）：伤害构成 / 灵玉 / 新成就。
+        // ★拆成几个 computed 而不是让模板写 ui.runExtra.xxx：
+        //   模板里访问深层对象没问题，但这几个值在结算页是「有没有内容」的分支依据，
+        //   单独拿出来更好读，也避免模板里出现 ?? 之类的判断（Vue 3 模板支持，
+        //   但项目里统一不这么写，读起来更直）。
+        runDmg: function () { return ui.runExtra.dmgList; },
+        runJade: function () { return ui.runExtra.jade; },
+        runAch: function () { return ui.runExtra.newAch; },
+        runTotal: function () { return ui.runExtra.total; },
         // 「撑满了 N 分钟」里的 N。难度决定时长（18/20/22/25 分钟），
         // 不能再写死 20 —— 休闲局通关写成「撑满了 20 分钟」是明显的错。
         matchMinutes: function () {

@@ -11,9 +11,12 @@
 
 const fs = require('node:fs');
 const { spawn } = require('node:child_process');
-const { TMP, CHROME } = require('./env');
+const { TMP, CHROME, splitShare, shareSuffix } = require('./env');
 
-const ARG = String(process.argv[2] || 3000);
+// 线上链接带分享码：允许直接把整条分享链接传进来，这里拆出 code（机制见 env.js 的注释）
+const SH = splitShare(process.argv[2] || 3000);
+const SHARE = shareSuffix(SH.code);
+const ARG = SH.url;
 const ONLINE = /^https?:\/\//.test(ARG);
 const BASE = ONLINE ? ARG.replace(/\/$/, '') : ('http://127.0.0.1:' + ARG);
 const CDP_PORT = 9341;
@@ -225,7 +228,7 @@ async function main() {
 
   const chrome = await launchChrome();
   const P = await connect();
-  await P.navigate(BASE + '/game.html?debug=1');
+  await P.navigate(BASE + '/game.html?debug=1' + SHARE);
 
   const ready = await waitFor(function () {
     return P.eval('(function(){return !!(window.VS_GAME && window.VS_GAME.renderer && window.VS && VS.PixelFx);})()');
@@ -411,7 +414,7 @@ async function main() {
   expect('★切到 JS 定位时清掉了 CSS 的 bottom', pos.bottom === 'auto', JSON.stringify(pos));
 
   // 剧情卷首页：Ink 数据 + 回顾列表
-  await P.navigate(BASE + '/game.html?debug=1&mod=myth&stage=ch1');
+  await P.navigate(BASE + '/game.html?debug=1&mod=myth&stage=ch1' + SHARE);
   await waitFor(function () {
     return P.eval('!!(window.VS_GAME && window.VS && VS.Storylines && document.querySelector(".pl-recap-btn"))');
   }, 10000, '剧情卷首页挂载');

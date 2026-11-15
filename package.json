@@ -34,7 +34,9 @@
     "skillbooktest": "node tools/skillbooktest.js",
     "sbui": "node tools/sbui.js",
     "portaltest": "node tools/portaltest.js",
-    "propshot": "node tools/propshot.js"
+    "propshot": "node tools/propshot.js",
+    "layertest": "node tools/layertest.js",
+    "formtest": "node tools/formtest.js"
   },
   "engines": {
     "node": ">=22"

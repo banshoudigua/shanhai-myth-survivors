@@ -95,6 +95,8 @@
         { kind: 'spirit', n: 3, scale: 0.85 }
       ],
       chests: { n: 3 },
+      // 上古神龛（第三十五轮）：三种祝福各一处，见 buildShrines
+      shrines: { n: 3 },
       portals: { n: 1 },
       spawn: { radius: 700, countMul: 1.0 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
@@ -129,6 +131,8 @@
         { kind: 'brazier', n: 2, scale: 0.62 }
       ],
       chests: { n: 3 },
+      // 上古神龛（第三十五轮）：三种祝福各一处，见 buildShrines
+      shrines: { n: 3 },
       portals: { n: 1 },
       spawn: { radius: 620, countMul: 0.85 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
@@ -165,6 +169,8 @@
         { kind: 'candle', n: 2, scale: 1.1 }
       ],
       chests: { n: 3 },
+      // 上古神龛（第三十五轮）：三种祝福各一处，见 buildShrines
+      shrines: { n: 3 },
       portals: { n: 1 },
       spawn: { radius: 820, countMul: 1.15 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
@@ -201,6 +207,8 @@
         { kind: 'brazier', n: 2, scale: 0.62 }
       ],
       chests: { n: 3 },
+      // 上古神龛（第三十五轮）：三种祝福各一处，见 buildShrines
+      shrines: { n: 3 },
       portals: { n: 1 },
       spawn: { radius: 700, countMul: 1.0 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
@@ -246,6 +254,8 @@
         { kind: 'lamp', n: 3, scale: 0.65 }
       ],
       chests: { n: 3 },
+      // 上古神龛（第三十五轮）：三种祝福各一处，见 buildShrines
+      shrines: { n: 3 },
       portals: { n: 1 },
       spawn: { radius: 760, countMul: 1.05 },
       // 怪池偏好（第十五轮）：这张图的「性格」。
@@ -286,6 +296,8 @@
         { kind: 'ripples', n: 5, scale: 1.0, layer: 'ground', pal: 'water' }
       ],
       chests: { n: 3 },
+      // 上古神龛（第三十五轮）：三种祝福各一处，见 buildShrines
+      shrines: { n: 3 },
       portals: { n: 1 },
       // 这张图怪偏少但更密（countMul 最低、radius 最大）——
       // 孤岛之间空旷，靠「更远但更多」制造被围的压迫感
@@ -674,6 +686,65 @@
     return out;
   }
 
+  // 上古神龛点位（第三十五轮）：三种祝福各一处，摆在比宝箱更外一圈。
+  // 【三条硬约定与物件/宝箱完全一致】纯函数、只用地形 mapId 派生的 LCG、
+  //   避开障碍与出生点（见本段开头）。
+  // ★★类型**不在这里决定**，这里只给点位：类型 = (序号 + 地图 id 散列) % 类型数，
+  //   由 sim 在开局算一次、随掉落物的 value 发下去，客户端只认 value。
+  //   这样 maps.js 不用 require const.js 的祝福表 —— 两张表各自增删互不影响。
+  // ★比宝箱远（0.38 对 0.30）：宝箱是「路过顺手开」，神龛该是「这一趟专门去」，
+  //   三个神龛拉开在三个方向，玩家选哪个就代表他这一局想补什么。
+  function buildShrines(map) {
+    const m = map || MAP_MAP[DEFAULT_MAP_ID];
+    const n = (m.shrines && m.shrines.n) || 0;
+    if (!n) return [];
+    const rnd = makeRnd(seedOf(m.id + ':shrines'));
+    const obs = buildObstacles(m);
+    const chests = buildChests(m);
+    const cx = m.w / 2;
+    const cy = m.h / 2;
+    const base = Math.min(m.w, m.h) * 0.38;
+    const out = [];
+
+    function freeAt(x, y) {
+      if (x < PROP_MARGIN + 80 || y < PROP_MARGIN + 80) return false;
+      if (x > m.w - PROP_MARGIN - 80 || y > m.h - PROP_MARGIN - 80) return false;
+      const dx = x - cx, dy = y - cy;
+      if (dx * dx + dy * dy < 640 * 640) return false;   // 离出生点至少 640
+      for (let i = 0; i < obs.length; i++) {
+        const ox = obs[i].x - x, oy = obs[i].y - y;
+        const rr = obs[i].r + 44;
+        if (ox * ox + oy * oy < rr * rr) return false;
+      }
+      // 与宝箱拉开：两者都是「走上去才生效」的地面物件，叠在一起会分不清踩到哪个
+      for (let i = 0; i < chests.length; i++) {
+        const px = chests[i].x - x, py = chests[i].y - y;
+        if (px * px + py * py < 300 * 300) return false;
+      }
+      for (let i = 0; i < out.length; i++) {
+        const sx = out[i].x - x, sy = out[i].y - y;
+        if (sx * sx + sy * sy < 420 * 420) return false;
+      }
+      return true;
+    }
+
+    for (let i = 0; i < n; i++) {
+      let placed = false;
+      let guard = 0;
+      while (!placed && guard < 160) {
+        guard += 1;
+        const a = (Math.PI * 2 / n) * i + rnd() * 0.5;
+        const r = base * (0.9 + rnd() * 0.3);
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (!freeAt(x, y)) continue;
+        out.push({ x: round1(x), y: round1(y) });
+        placed = true;
+      }
+    }
+    return out;
+  }
+
   // 传送门：按对生成。portal[i].pair 指向另一端在数组里的下标。
   // ★两端都参与「踩上去就传」的判定，所以必须成对；奇数个会有一个永远传不走。
   function buildPortals(map) {
@@ -805,6 +876,7 @@
     buildObstacles: buildObstacles,
     buildProps: buildProps,
     buildChests: buildChests,
+    buildShrines: buildShrines,
     buildPortals: buildPortals,
     buildGrid: buildGrid,
     collectNear: collectNear,

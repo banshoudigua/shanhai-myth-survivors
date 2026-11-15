@@ -89,7 +89,18 @@
       blood_lord:        '蚩尤',
       bone_tyrant:       '九婴',
       abyss_prelate:     '烛龙',
-      moon_queen:        '女娲'
+      moon_queen:        '女娲',
+      // 第三十四轮：挑战者（局内事件精英）。取「夸父」——逐日不休，
+      // 正好对上它的行为（会一直追着你跑，不打死就不走）。
+      // ★任何新怪 id 都必须在这里有一行，campaigntest 会逐个 id 核对；
+      //   漏了的表现是 HUD 里冒出一个英文 id，而这条断言正是为此存在。
+      challenger:        '夸父',
+      // 第四十一轮：山魈（局内召唤型精英）。取「魍魉」—— 传说中影影绰绰、
+      // 越追越远的东西，正好对上它「绕着走、召小妖」的样子。
+      shanxiao:          '魍魉',
+      // 第四十五轮：双生妖（一对同命精英）。取「并封」——《山海经》里
+      // 「其状如彘，前后皆有首」的兽：一个身子、两个头，正好对上「两个意识一条命」。
+      twins:             '并封'
     },
     // 【为什么地图名要与章节名分开】两者是不同的东西：
     //   章节名回答「这一关发生什么」（落霞坳 / 焚天阙），
@@ -254,7 +265,12 @@
       plague_hound: '狂犬魔', blood_spider: '咒缚蛛', gargoyle: '石像守卫',
       bone_knight: '铁卫', witch_hunter: '猎魔骑士', blood_priest: '暗影祭司',
       ghoul_matriarch: '母巢', blood_lord: '堕落领主', bone_tyrant: '白骨暴君',
-      abyss_prelate: '深渊主教', moon_queen: '陨星女王'
+      abyss_prelate: '深渊主教', moon_queen: '陨星女王',
+      challenger: '逐日骑士',
+      // 第四十一轮：山魈 → 唤妖巫（magic 系的命名走「职务」而不是神名）
+      shanxiao: '唤妖巫',
+      // 第四十五轮：双生妖 → 双生守卫（同一个「职务」口径，不借神名）
+      twins: '双生守卫'
     },
     mapNames: {
       graveyard: '低语林地', corridor: '回响长廊', marsh: '雾沼',

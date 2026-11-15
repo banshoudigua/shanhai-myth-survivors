@@ -334,6 +334,12 @@ a:hover {
   font-family: inherit;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
+  /* ★第二十九轮：聚焦时浏览器会「把框滚进可视区」，默认贴着视口上下边 ——
+     这时键盘一弹，可视区变矮，浏览器发现框被挡住了就**再滚一次**，
+     那就是手机上看得到的「跳一下」。留出滚动边距之后，第一次就把框滚到
+     一个键盘弹出后仍然可见的位置，第二次滚动自然不发生了。 */
+  scroll-margin-top: 96px;
+  scroll-margin-bottom: 40px;
 }
 
 .input::placeholder {
@@ -1311,6 +1317,24 @@ button:disabled {
     height: clamp(120px, 34vw, 170px);
     margin-bottom: 10px;
   }
+
+  /* ============================================================
+     登录/注册屏：横幅再压到 72px（第二十九轮）
+     ============================================================
+     【为什么】手机上的「点输入框页面跳上跳下」不是动画问题，是**滚动预算**问题：
+     横幅 133px + 顶栏，把登录卡推到 346px 才开始；注册表单 5 个输入框，
+     最后一个落在 881px，而一屏只有 844（真机加浏览器栏约 730）。
+     于是每点一个框浏览器滚一次 → 键盘弹起可视区再缩 → 又滚一次 → 失焦再滚回去。
+     压到 72px 之后最后一个框从 881 降到 820、聚焦位移从 258px 降到 58px。
+     ★只作用于 auth 视图，且**只在窄屏生效** —— 桌面的大横幅是展示位，不动。 */
+  .hero-banner.hero-slim {
+    height: 72px;
+    margin-bottom: 10px;
+  }
+  .hero-banner.hero-slim .hero-img {
+    /* 压扁后 70% 会把人物全裁掉，改取上方的龙影与赤云 */
+    object-position: center 32%;
+  }
 }
 
 @media (max-width: 720px) {
@@ -1516,4 +1540,279 @@ button:disabled {
     min-height: 44px;
     padding: 8px 14px;
   }
+}
+
+/* ============================================================
+   山海榜：图鉴 / 成就 / 山海谱（第三十六轮）
+   ------------------------------------------------------------
+   ★弹层居中一律用 `margin: auto`，**不写 align-items:center**。
+     内容比视口高时（妖物 15 条 + 武器 17 条），flex 居中的子元素顶部会被推到
+     容器内容区之外、且只能往下滚 —— 上面那一截永远滚不回来。项目为此报障过两次。
+   ★列表项一律 flex: 0 0 auto：触摸设备上按钮有 44px 下限，flex 项会被压扁。
+   ============================================================ */
+
+.hall-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 64;
+  display: flex;
+  padding: 18px;
+  background: rgba(8, 8, 10, 0.72);
+  overflow-y: auto;
+}
+
+.hall-box {
+  /* 内容矮时精确居中；内容高时顶部留在容器内（见文件头说明） */
+  margin: auto;
+  width: min(560px, 100%);
+  max-height: calc(100vh - 36px);
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 12px;
+  background: var(--panel-2, #1d2126);
+  border: 1px solid var(--border, #313842);
+  border-radius: var(--radius-lg, 12px);
+}
+
+.hall-box h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: var(--text, #e8e4dc);
+}
+
+.hall-box h2 em {
+  font-style: normal;
+  color: var(--amber, #f4c455);
+}
+
+.hall-jade {
+  flex: 1 1 auto;
+  font-size: 12.5px;
+  color: var(--text-mute, #8d97a3);
+  font-weight: 400;
+}
+
+.hall-jade b {
+  color: var(--amber, #f4c455);
+  font-size: 15px;
+  margin-left: 2px;
+}
+
+/* 「收起」必须在标题行里，且**不能**被 flex 压扁 */
+.hall-close {
+  flex: 0 0 auto;
+}
+
+.hall-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex: 0 0 auto;
+}
+
+.hall-tab {
+  flex: 1 1 0;
+  padding: 9px 6px;
+  font-size: 13.5px;
+  color: var(--text-mute, #8d97a3);
+  background: var(--panel-3, #23282f);
+  border: 1px solid var(--border, #313842);
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.hall-tab.on {
+  color: #1a1410;
+  background: var(--amber, #f4c455);
+  border-color: var(--amber, #f4c455);
+  font-weight: 600;
+}
+
+/* 面板主体自己滚：标题与页签固定在上面，翻列表时不会跟着跑掉 */
+.hall-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 2px;
+}
+
+.hall-sec {
+  font-size: 12.5px;
+  color: var(--text-mute, #8d97a3);
+  margin: 12px 0 6px;
+  letter-spacing: 0.4px;
+}
+
+.hall-sec:first-child {
+  margin-top: 2px;
+}
+
+.hall-sec b {
+  color: var(--amber, #f4c455);
+}
+
+.hall-note {
+  margin-left: 8px;
+  font-size: 11px;
+  color: var(--text-mute, #7d8792);
+  opacity: 0.8;
+}
+
+.hall-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hall-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  font-size: 13px;
+  background: var(--panel-3, #23282f);
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+/* 未解锁：整体压暗，但仍然可读（要让玩家知道「还有这些东西」） */
+.hall-row.locked {
+  opacity: 0.45;
+}
+
+.hr-name {
+  flex: 0 0 auto;
+  min-width: 76px;
+  color: var(--text, #e8e4dc);
+}
+
+.hr-tag {
+  flex: 0 0 auto;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  color: var(--amber, #f4c455);
+  background: rgba(244, 196, 85, 0.12);
+  border: 1px solid rgba(244, 196, 85, 0.28);
+  border-radius: 5px;
+}
+
+.hr-num {
+  flex: 1 1 auto;
+  text-align: right;
+  font-size: 12px;
+  color: var(--text-mute, #8d97a3);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 成就行：描述比较长，允许换行，别用省略号把「怎么拿」藏起来 */
+.hall-row.ach {
+  align-items: flex-start;
+}
+
+.hall-row.ach .hr-num {
+  text-align: left;
+  flex: 1 1 auto;
+  white-space: normal;
+  line-height: 1.5;
+}
+
+.hall-tip {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-mute, #8d97a3);
+  margin: 2px 0 10px;
+}
+
+.hall-tip b {
+  color: var(--amber, #f4c455);
+}
+
+.hall-tip.dim {
+  margin-top: 10px;
+  opacity: 0.75;
+}
+
+.tal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  padding: 9px 10px;
+  margin-bottom: 6px;
+  background: var(--panel-3, #23282f);
+  border: 1px solid var(--border, #313842);
+  border-radius: 8px;
+}
+
+.tal-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tal-name {
+  font-size: 13.5px;
+  color: var(--text, #e8e4dc);
+}
+
+.tal-name em {
+  font-style: normal;
+  margin-left: 8px;
+  font-size: 11.5px;
+  color: var(--amber, #f4c455);
+}
+
+.tal-desc {
+  font-size: 12px;
+  color: var(--text-mute, #8d97a3);
+}
+
+/* 买不了时保持灰，但**按钮本身仍然 ≥44px**（触摸目标约定，不因禁用而放松） */
+.tal-row .btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 520px) {
+  .hall-mask { padding: 10px; }
+  .hall-box { padding: 13px 12px 10px; max-height: calc(100vh - 20px); }
+  .hr-name { min-width: 62px; font-size: 12.5px; }
+  .hall-box h2 { font-size: 16px; }
+  .tal-row { gap: 8px; padding: 8px; }
+  .tal-row .btn { flex: 0 0 auto; font-size: 12.5px; padding: 8px 10px; }
+}
+
+/* 山海榜入口按钮：与「剧情模式」并排，但不用同一种强调色 ——
+   剧情是「带故事的一局」，山海榜是「不打的积累」，两者都该被看见但别抢戏。
+   右上角的小徽标显示灵玉余额：有余额就是在提醒「该去点天赋了」。 */
+.btn-hall {
+  position: relative;
+  border-color: var(--border);
+  color: var(--text-dim);
+}
+
+.btn-hall:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+.btn-badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: center;
+  color: #1a1410;
+  background: var(--amber);
+  border-radius: 9px;
+  font-variant-numeric: tabular-nums;
 }

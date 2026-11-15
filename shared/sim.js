@@ -289,6 +289,109 @@
     return _navVec;
   }
 
+  // 每 0.5 秒量一次「净位移」。
+  // ★为什么不用逐帧判：怪贴着墙会**左右摆动** 1~2px，单帧位移不为 0，
+  //   逐帧判会把计时不停清零，永远攒不到兜底阈值（实测那只怪摆了 20 秒，stuckSec 只到 0.65）。
+  // 贴到玩家身边时清零（那是「到了」，不是撞墙），否则兜底会把正在输出的怪弹走。
+  function sampleStuck(w, ent) {
+    if (w.tick < (ent.stuckAt || 0)) return;
+    const sx0 = ent.stuckX === undefined ? ent.x : ent.stuckX;
+    const sy0 = ent.stuckY === undefined ? ent.y : ent.stuckY;
+    const ndx = ent.x - sx0;
+    const ndy = ent.y - sy0;
+    const net = Math.sqrt(ndx * ndx + ndy * ndy);
+    ent.stuckX = ent.x;
+    ent.stuckY = ent.y;
+    ent.stuckAt = w.tick + 10;
+
+    const ps = w.players || [];
+    for (let i = 0; i < ps.length; i++) {
+      if (!ps[i].alive) continue;
+      if (distance(ent.x, ent.y, ps[i].x, ps[i].y) <= ent.r + ps[i].r + 14) {
+        ent.stuckSec = 0;
+        return;
+      }
+    }
+    if (net > 10) ent.stuckSec = 0;
+    else ent.stuckSec = (ent.stuckSec || 0) + 0.5;
+  }
+
+  // 兜底：短距「挤出去」。
+  // 走到这里说明转向那套（合向量切向 + 正反双向 + 流场）已经用尽 —— 一般是
+  // 「针尖缝 / 三圆夹角」。做法是沿「远离障碍」的方向试探 20/32/44/60px，
+  // 落到第一个不压障碍的点。这是**唯一**允许「无视碰撞走一步」的地方。
+  // 三条约束（缺一不可）：
+  //   ① 卡住 ≥1.8 秒才触发（正常贴墙滑行不该被打断）；
+  //   ② 离最近玩家 < 260px 不触发（玩家会看到怪在眼前闪现，像瞬移贴脸）；
+  //   ③ 冷却 80 tick（4 秒）—— 一次没挤出去就下一轮再来，不会连跳穿整张图。
+  // ★不消耗随机数、只用整数 tick —— 双端同一 tick 必然做同样的决定。
+  function tryPhaseOut(w, ent) {
+    if (w.tick < (ent.phaseAt || 0)) return false;
+
+    // 合向量法线（只在罕见时刻跑，写法直白即可）
+    let nx = 0;
+    let ny = 0;
+    let nearest = Infinity;
+    const list = w.obstacles;
+    for (let i = 0; i < list.length; i++) {
+      const o = list[i];
+      const ox = ent.x - o.x;
+      const oy = ent.y - o.y;
+      const d = Math.sqrt(ox * ox + oy * oy) || 0.001;
+      const gap = d - o.r - ent.r;
+      if (gap < nearest) nearest = gap;
+      if (gap > 34) continue;
+      const wgt = 1 / (Math.max(0, gap) + 6);
+      nx += (ox / d) * wgt;
+      ny += (oy / d) * wgt;
+    }
+    if (nearest > ent.r + 40) return false;      // 附近根本没墙，不需要兜底
+
+    const nl = Math.sqrt(nx * nx + ny * ny);
+    if (nl < 0.0001) return false;
+    // ★(nx,ny) 是「障碍中心 → 自身」，也就是**朝外**的方向；
+    //   「远离障碍」就是它本身，不是它的反号（第一版写成 -n，把怪往墙里挤，
+    //   9 个候选点全被判挡住，兜底等于没做）。
+    const outx = nx / nl;
+    const outy = ny / nl;
+    const tx = -outy;
+    const ty = outx;
+
+    let pd = Infinity;
+    const ps = w.players || [];
+    for (let i = 0; i < ps.length; i++) {
+      if (!ps[i].alive) continue;
+      const d = distance(ent.x, ent.y, ps[i].x, ps[i].y);
+      if (d < pd) pd = d;
+    }
+    if (pd < 260) return false;
+
+    const dirs = [[outx, outy], [tx, ty], [-tx, -ty]];
+    const steps = [20, 32, 44, 60];
+    for (let s = 0; s < steps.length; s++) {
+      const L = steps[s];
+      for (let k = 0; k < dirs.length; k++) {
+        const px = clamp(ent.x + dirs[k][0] * L, ent.r, w.map.w - ent.r);
+        const py = clamp(ent.y + dirs[k][1] * L, ent.r, w.map.h - ent.r);
+        const saveX = ent.x;
+        const saveY = ent.y;
+        ent.x = px;
+        ent.y = py;
+        if (!hitsObstacle(w, ent)) {
+          ent.stuckSec = 0;
+          ent.steerT = 0;
+          ent.phaseAt = w.tick + 80;
+          // 挤出来之后先按流场绕 1.2 秒，别再直线冲回同一堵墙（见 moveMobToward）
+          ent.detourT = 1.2;
+          return true;
+        }
+        ent.x = saveX;
+        ent.y = saveY;
+      }
+    }
+    return false;
+  }
+
   // 带地形碰撞的位移：分轴滑动（+ 可选的地形绕行）
   //
   // autoSteer 只给**怪物**开：玩家是自己控制方向的，帮他自动绕障会让人觉得
@@ -300,6 +403,16 @@
       return;
     }
     pushOutObstacles(w, ent);
+
+    // ---------- 卡住采样 + 兜底（第三十八轮）----------
+    // ★★这两件事必须放在**最前面**。下面有两条 return（绕行惯性分支、单帧在走），
+    //   把兜底写在切向分支里的话，一只「左右摆着蹭墙」的怪永远走不到那段代码 ——
+    //   实测它就卡在 x=2019~2023 之间摆了 20 秒，兜底一次都没触发（stuckSec 都涨到 14 了）。
+    if (autoSteer) {
+      sampleStuck(w, ent);
+      if (ent.stuckSec >= 1.8) tryPhaseOut(w, ent);
+    }
+
     const oldX = ent.x;
     const oldY = ent.y;
     ent.x += dx;
@@ -338,67 +451,102 @@
       return;
     }
 
-    // ---------- 顶住时的切向绕行（第十五轮）----------
+    // ---------- 顶住时的切向绕行（第十五轮；第三十八轮修正）----------
     // 【为什么需要】分轴滑动只在「斜着撞墙」时有用。正对着障碍中心走过去时，
     //   **x 轴和 y 轴会被同时判定为「被挡」**，两轴都回退 → 怪原地不动 ——
     //   玩家看到的就是「怪卡在石头上蹭、绕不过来」。
     // 【做法】看实际位移占期望位移多少，低于一半就认为顶住了；
     //   然后沿障碍的**切向**（把「障碍中心 → 自身」转 90°）推一步。
-    //   圆形障碍是凸的，切线不会指向障碍内部，所以只要选对方向就不会穿墙。
-    // 【为什么不寻路】凸障碍没有凹角、形不成死胡同，转向 + 滑动已经够用；
-    //   A* 要维护格子图、还要保证双端逐帧一致，成本远大于收益。
+    // ★★更正（第三十八轮）：这里原来写着「圆形障碍是凸的，两两相切不产生凹角，
+    //   永远不会形成死胡同」—— **这句话是错的**。单个圆确实是凸的，
+    //   但**两个圆之间的缝是凹的**：两根石柱相距 40px 时，中间那条缝就是死胡同
+    //   （实测 spire 图有蝙蝠在里面卡了 28 秒，位置一步不动）。
+    //   所以现在的做法是：① 法线取「近处所有障碍的合向量」；② 正反两个切向都试；
+    //   ③ 卡久了允许暂时背离玩家；④ 仍然出不去就短距「挤」出去（见下）。
     const movedX = ent.x - oldX;
     const movedY = ent.y - oldY;
-    if (Math.sqrt(movedX * movedX + movedY * movedY) > wantLen * 0.5) return;
+    const movedLen = Math.sqrt(movedX * movedX + movedY * movedY);
+
+    if (movedLen > wantLen * 0.5) return;   // 这一帧在走（stuckSec 由 sampleStuck 每 0.5 秒采一次）
 
     const ux = dx / wantLen;
     const uy = dy / wantLen;
-    // 找最近的那个障碍（它八成就是挡路的那块）。障碍总数只有 20~36 个，
-    // 线性扫一遍比走空间网格再复用数组更简单，也和 hitsObstacle 的口径一致。
-    // 用两个标量而不是对象：这里每帧都可能被多只怪走到，省掉临时对象。
+
+    // ---------- 法线用「近处所有障碍的合向量」，而不是只取最近那一个 ----------
+    // ★★这是本轮真正的修复：单个圆是凸的，但**两个圆之间的缝是凹的**。
+    //   旧版只看最近的那个圆，切向会直接指进另一个圆里 → 每帧都被判「挡住」→
+    //   位置一步不动（实测：spire 图两根石柱相距 40px，蝙蝠夹在缝里卡了 28 秒）。
+    //   把贴身的几块法线加起来，切向就自动沿着「缝的中轴」滑出去。
+    // 障碍只有 20~47 个，这条循环本来就在跑，累加几乎不增加成本。
     const list = w.obstacles;
-    let bestOx = 0;
-    let bestOy = 0;
-    let bestD = Infinity;
+    let nx = 0;
+    let ny = 0;
+    let nearest = Infinity;
+    let nearOx = 0;
+    let nearOy = 0;
     for (let i = 0; i < list.length; i++) {
       const o = list[i];
       const ox = ent.x - o.x;
       const oy = ent.y - o.y;
-      const d = Math.sqrt(ox * ox + oy * oy) - o.r - ent.r;
-      if (d < bestD) { bestD = d; bestOx = ox; bestOy = oy; }
+      const dist = Math.sqrt(ox * ox + oy * oy) || 0.001;
+      const gap = dist - o.r - ent.r;
+      if (gap < nearest) { nearest = gap; nearOx = ox; nearOy = oy; }
+      if (gap > 34) continue;                 // 只让贴身的参与合向量
+      const wgt = 1 / (Math.max(0, gap) + 6);
+      nx += (ox / dist) * wgt;
+      ny += (oy / dist) * wgt;
     }
-    if (bestD > 0 && bestD > ent.r + 30) return;   // 最近的还离得远，不是它挡的
+    if (nearest > 0 && nearest > ent.r + 30) { ent.stuckSec = 0; return; }  // 最近的还离得远，不是它挡的
 
-    let tx = -bestOy;
-    let ty = bestOx;
-    const tl = Math.sqrt(tx * tx + ty * ty);
-    if (tl < 0.0001) return;
-    tx /= tl;
-    ty /= tl;
-    // 取与前进方向同侧的那一边：取反的话怪会往回绕，看起来像在原地犹豫
+    // 合向量退化（正好落在几个圆的对称中心）时退回「最近那个圆」的法线
+    if (nx * nx + ny * ny < 0.0001) { nx = nearOx; ny = nearOy; }
+    const nl = Math.sqrt(nx * nx + ny * ny);
+    if (nl < 0.0001) return;
+    let tx = -ny / nl;
+    let ty = nx / nl;
+    // 先走与前进方向同侧的那一边（不往回绕，看起来不像犹豫）
     if (tx * ux + ty * uy < 0) { tx = -tx; ty = -ty; }
 
-    // ★全局流场兜底：局部切向只看最近那一块障碍，遇到「两块夹缝 / 成片障碍」
-    //   会把怪带进死胡同，然后反复顶墙。流场给的是全场最短距离场的下一步，
-    //   只在与前进方向不相反时采纳 —— 不会让怪突然掉头（保持原有追击手感）。
+    // ---------- 候选方向依次试：正向切向 → 反向切向 → 流场 → 流场反向 ----------
+    // 【为什么要「反向也试」】缝里唯一的出路常常是往回退半步再绕。
+    //   旧版只试一个方向，那个方向一旦被挡就原地不动 —— 上面那 28 秒就是这么来的。
     const nd = navDirAt(w, ent.x, ent.y);
-    if (nd && (nd.x || nd.y) && (nd.x * ux + nd.y * uy > -0.35)) {
-      tx = nd.x;
-      ty = nd.y;
-    }
+    const navOk = !!(nd && (nd.x || nd.y));
+    const nvx = navOk ? nd.x : 0;
+    const nvy = navOk ? nd.y : 0;
+    // 卡得越久越允许「暂时背离玩家」：0.6 秒后不再要求与前进方向同侧
+    const allowBack = ent.stuckSec > 0.6;
 
-    ent.x += tx * wantLen;
-    ent.y += ty * wantLen;
-    // 绕过去仍然撞（比如卡在两块障碍的夹缝里）→ 退回，绝不穿墙
-    if (hitsObstacle(w, ent)) {
+    let done = false;
+    for (let c = 0; c < 4; c++) {
+      let cx2 = 0;
+      let cy2 = 0;
+      if (c === 0) { cx2 = tx; cy2 = ty; }
+      else if (c === 1) { cx2 = -tx; cy2 = -ty; }
+      else if (c === 2) {
+        if (!navOk) continue;
+        if (!allowBack && nvx * ux + nvy * uy < -0.35) continue;
+        cx2 = nvx; cy2 = nvy;
+      } else {
+        if (!navOk || !allowBack) continue;
+        cx2 = -nvx; cy2 = -nvy;
+      }
+      ent.x += cx2 * wantLen;
+      ent.y += cy2 * wantLen;
+      if (!hitsObstacle(w, ent)) {
+        // 记住这次的方向，接下来 0.45 秒沿它走 —— 见上面「绕行惯性」的说明
+        ent.steerT = 0.45;
+        ent.steerDx = cx2;
+        ent.steerDy = cy2;
+        done = true;
+        break;
+      }
+      // 这一边被挡：退回原位再试下一边（不退回会累积成「斜着穿过障碍」）
       ent.x = oldX;
       ent.y = oldY;
-    } else {
-      // 记住这次的方向，接下来 0.45 秒沿它走 —— 见上面「绕行惯性」的说明
-      ent.steerT = 0.45;
-      ent.steerDx = tx;
-      ent.steerDy = ty;
     }
+    if (done) return;
+
   }
 
   // 这个点是不是压在障碍上（刷怪时用来避让）
@@ -512,7 +660,7 @@
       // 个人战绩：必须按人分开统计，结算界面每个人显示各自的击杀/伤害/金币。
       // w.stats 只是「当前上下文玩家的战绩」的一个别名（见 setCtx），
       // 所以下面战斗代码里的 w.stats.kills += 1 这类写法一个字都不用改。
-      stats: { kills: 0, dmgDealt: 0, gold: 0, healed: 0 },
+      stats: { kills: 0, dmgDealt: 0, gold: 0, healed: 0, killsBy: {}, dmgBy: {}, challengers: 0 },
       // 武器与被动：都存 id + 等级，实际数值每次升级时重算进 attrs
       weapons: [{
         id: baseWeapon.id,
@@ -533,6 +681,25 @@
       shopGold: 0,
       // 血契石叠加的伤害加成（每次 +12%，最多 3 层 → 最高 +36%）
       shopBuffDmg: 0,
+      // 山海谱（局外天赋）折算好的加成：{ hp, dmgMul, speedMul, pickupMul, cdMul, gold }。
+      // ★这里存的是**数值**不是等级 —— 等级表在 shared/codex.js，
+      //   由前端折好再传进来，sim 不需要认识天赋系统（也就不会多一条加载顺序依赖）。
+      // ★只有单机/剧情会传；联机时服务端不认客户端天赋（见 game.js 的开局参数）。
+      meta: opts.meta || null,
+      // 上古神龛的祝福层数（第三十五轮）：{ 神龛 id: 层数 }。
+      // ★必须是**每个人一份**：队友跑过去领的是他自己的祝福，不该给全队加。
+      //   所以存人身上、不进世界级字段，与 shopBuffDmg 同一套做法。
+      shrines: {},
+      // ---------- 血怒（第三十八轮：连杀奖励） ----------
+      // 【为什么这四个数存在玩家身上而不是世界上】
+      //   连杀是「你一个人清得怎么样」，队友的连杀不该给我加伤害。
+      //   与 shrines / shopBuffDmg 同一套归属：每个人一份。
+      // ★rage 只影响伤害与移速的**临时**乘区，绝不写进 attrs —— 见 damageMob / tickRage。
+      rage: 0,            // 血怒剩余秒数（>0 表示正在爆发）
+      rageStreak: 0,      // 当前连杀数（0 ~ needKills-1，触发时归零）
+      rageGap: 0,         // 距上一次击杀过了多久（秒），超过 windowSec 断链
+      rageCd: 0,          // 冷却剩余秒数
+      rageCount: 0,       // 本局触发过几次（只用于结算/测试观察，不参与逻辑）
       attrs: null
     };
 
@@ -545,6 +712,10 @@
     setCtx(w, player);
     recalcAttrs(w);
     player.hp = player.maxHp;
+    // 山海谱「聚宝」的开局金币：直接给可花余额（shopGold），
+    // 不给 stats.gold —— stats.gold 是「这一局赚了多少」的结算口径，
+    // 把它当赠送入口会让结算页凭空多出一笔钱，也破坏「金币只能靠打怪赚」的直觉。
+    if (player.meta && player.meta.gold > 0) player.shopGold = player.meta.gold;
     if (prevCtx) setCtx(w, prevCtx);
 
     return player;
@@ -709,6 +880,61 @@
 
       wave: 0,
       nextWaveTick: 1,         // 下一波的 tick 号：开局第 1 帧就来第一波
+      // ---------- 挑战者（第三十四轮）----------
+      // 下一只挑战者的 tick 号。开局给 0 = 「还没排期」，
+      // 第一次走到 startSec 时由 maybeSpawnChallenger 排上，之后每次顺延一个间隔。
+      challengerNextTick: 0,
+      // 本局一共刷过几只（只用于结算/测试观察，不参与任何逻辑）
+      challengerSpawned: 0,
+      // ---------- 山魈（第四十一轮：召唤型妖物） ----------
+      // 下一只山魈的 tick 号。0 = 「还没排期」，第一次走到 startSec 时由
+      // maybeSpawnSummoner 排上，之后每次顺延一个间隔。
+      summonerNextTick: 0,
+      // 本局一共刷过几只（只用于观察与测试，不参与任何逻辑）
+      summonerSpawned: 0,
+      // ---------- 赤月天象（第三十九轮）----------
+      // 当前是否在赤月里（0/1）。存在世界对象上而不是每个玩家身上 ——
+      // 它描述的是**这张图的天色**，不是某个人的状态，联机时所有人一起经历。
+      moonOn: 0,
+      // 本局第几次赤月（-1 = 还没到第一次）。只用于观察与测试。
+      moonIdx: -1,
+      // 剩余秒数（0 = 不在赤月里）。给 HUD 用，让界面不必自己算时间。
+      moonLeft: 0,
+      // ---------- 陨星（第四十轮）----------
+      // 下一颗陨星的 tick 号。0 = 「还没排期」，第一次走到 startSec 时由
+      // maybeSpawnMeteor 排上，之后每次顺延一个间隔。
+      meteorNextTick: 0,
+      // 本局一共落过几颗（只用于观察与测试，不参与任何逻辑）
+      meteorSpawned: 0,
+      // 血怒静音计数（第四十轮）：>0 时击杀**不计入连杀**。
+      // 目前唯一的用法是「天火砸死的那一坨不算你连杀」——
+      // 不静音的话每 95 秒白送一次血怒，那它会从「奖励手快」退化成「等天火」。
+      rageMute: 0,
+      // ---------- 地脉灵泉（第四十二轮）----------
+      // 下一座灵泉的 tick 号。0 = 「还没排期」，第一次走到 startSec 时由
+      // maybeSpawnLey 排上，之后每次顺延一个间隔。
+      leyNextTick: 0,
+      // 本局一共涌出过几座 / 一共被唤醒过几次（只用于观察与测试，不参与任何逻辑）
+      leySpawned: 0,
+      leyBursts: 0,
+      // ---------- 血祭坛（第四十三轮）----------
+      // 下一座血祭坛的 tick 号。0 = 「还没排期」，第一次走到 startSec 时由
+      // maybeSpawnPact 排上，之后每次顺延一个间隔。
+      pactNextTick: 0,
+      // 本局一共浮现过几座 / 一共被踩掉过几层（只用于观察与测试，不参与任何逻辑）
+      pactSpawned: 0,
+      pactTaken: 0,
+      // ---------- 双生妖（第四十五轮：同命相连的一对精英） ----------
+      // 下一对的排期 tick（0 = 还没排期）
+      twinNextTick: 0,
+      // 本局一共刷过几对（只用于观察与测试）
+      twinSpawned: 0,
+      // 配对序号自增（每个 mob 身上记 m.twinPair = 这个号）
+      twinSeq: 0,
+      // 当前在场的配对记录：{ id, dead, reviveAt, resolved, spawnX, spawnY, maxHp, defId }
+      // ★这是**服务端事实**，不进快照：配对规则完全在服务端结算，客户端只需要
+      //   知道「这两只是双生妖」（defId 已在快照里），不必知道谁和谁配、还剩几秒。
+      twinPairs: [],
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -779,6 +1005,19 @@
     for (let i = 0; i < chestSpots.length; i++) {
       spawnPickup(w, 'chest', chestSpots[i].x, chestSpots[i].y, 1, 9999);
     }
+
+    // 上古神龛（第三十五轮）：每张图三个，三种祝福各一处。
+    // ★剧情关一律不放：主线每一关都是逐关手工配平的（有 Boss、有限时），
+    //   凭添三条永久加成会让「打不过」变成「有没有绕过去领祝福」的问题。
+    //   这条与挑战者同一条口径，simtest 钉了「剧情关一个神龛都没有」。
+    // ★类型在开局算一次就定下来（value 带下去），运行期不再变：
+    //   否则联机时「主机以为这是兵主之龛、队友看到的是风伯之龛」，
+    //   而两人结论不同又都觉得自己没错 —— 这类不同步最难查。
+    const shrineSpots = (!storyStage && MAPS_MOD.buildShrines) ? MAPS_MOD.buildShrines(w.map) : [];
+    for (let i = 0; i < shrineSpots.length; i++) {
+      spawnPickup(w, 'shrine', shrineSpots[i].x, shrineSpots[i].y,
+        shrineTypeAt(w.map, i), C.SHRINE_RULE.life);
+    }
     // 刷怪环半径：客户端按视口算的值优先；没给就用这张图自己的设定
     // （大图的怪从 700 格外走过来要太久，小图用 700 又显得太挤）。
     w.spawnRadius = opts.spawnRadius || (w.map.spawn && w.map.spawn.radius) || 700;
@@ -839,7 +1078,11 @@
         connId: one.connId || '',
         name: one.name,
         isGuest: one.isGuest,
-        slot: one.slot === undefined ? i : one.slot
+        slot: one.slot === undefined ? i : one.slot,
+        // 山海谱天赋（局外成长）：只由**本端单机/剧情**的开局参数带进来，
+        // 联机建世界时服务端不会收到这个字段（详见 game.js 开局的注释）。
+        // one.meta 优先，方便以后按座位传不同的加成。
+        meta: one.meta || opts.meta
       });
     }
 
@@ -959,7 +1202,58 @@
       }
     }
 
+    // ---------- 上古神龛的祝福（第三十五轮） ----------
+    // 与血契石同一个理由放在这里：这一处汇总完，升级、进化、买 buff、复活
+    // 走的都是同一条路，祝福不会因为某条路径忘了重算而消失。
+    // ★遍历的是 const.js 的表而不是 p.shrines 的键：表决定了「哪一项加到哪」，
+    //   对象里存的是层数。表里没有的 id（老存档 / 手改）一律忽略，不会凭空加属性。
+    // ★★位置必须在 `attrs.speed = C.PLAYER.speed * attrs.speedMul` **之前**：
+    //   那一行是拿 speedMul 算绝对值，祝福加在它后面只会改乘区、步速一点不动
+    //   （第一次写就踩了：断言里 speed 120 → 120，乘区明明已经变了）。
+    let shrineHp = 0;
+    if (p.shrines) {
+      for (let i = 0; i < C.SHRINES.length; i++) {
+        const sdef = C.SHRINES[i];
+        const n = p.shrines[sdef.id] || 0;
+        if (!n) continue;
+        if (sdef.dmg) attrs.dmgMul += sdef.dmg * n;
+        if (sdef.speed) attrs.speedMul += sdef.speed * n;
+        if (sdef.pickup) attrs.pickupMul += sdef.pickup * n;
+        // 血量走「绝对值」而不是倍率：+25 写在表里就是 +25，读起来和看到的一致
+        if (sdef.hp) shrineHp += sdef.hp * n;
+      }
+    }
+
+    // ---------- 山海谱（局外天赋，第三十六轮） ----------
+    // 与神龛同一个理由汇总在这里：升级 / 进化 / 买 buff / 复活走的都是这一条，
+    // 天赋不会因为某条路径忘了重算而消失。
+    // ★位置同样必须在下面那行 `attrs.speed = ...` 之前（speedMul 晚了就不生效）。
+    let metaHp = 0;
+    if (p.meta) {
+      if (p.meta.dmgMul) attrs.dmgMul += p.meta.dmgMul;
+      if (p.meta.speedMul) attrs.speedMul += p.meta.speedMul;
+      if (p.meta.pickupMul) attrs.pickupMul += p.meta.pickupMul;
+      if (p.meta.cdMul) attrs.cdMul += p.meta.cdMul;
+      if (p.meta.hp) metaHp = p.meta.hp;
+      // 冷却下限 0.25 是全局不变式，天赋叠上来也不能破
+      if (attrs.cdMul < 0.25) attrs.cdMul = 0.25;
+    }
+
     attrs.speed = C.PLAYER.speed * attrs.speedMul;
+
+    // ---------- 血祭坛（第四十三轮：用生命上限换伤害） ----------
+    // 与神龛 / 山海谱同一个理由放在汇总点：升级、进化、买 buff、复活、掉线接回
+    // 走的都是 recalcAttrs，契约不会因为某条路径忘了重算而失效（或被重复收一次费）。
+    // ★伤害加进 dmgMul（与被动 / 神龛同一个乘区）：不新造一条乘区，
+    //   否则「伤害构成」里要多一档，而它其实只是又一次伤害加成。
+    // ★代价是**上限打折**，所以它只能落在下面那行 maxHp 上：
+    //   写成「扣当前血量」的话，喝一瓶绷带就补回来了 —— 那不是代价，是一次延后结算。
+    // ★0.5 的下限纯属防御：以后有人把 stackMax 调到 10，血量也不该变成 0 或负数。
+    const pactN = p.pacts || 0;
+    if (pactN > 0) attrs.dmgMul += C.BLOODPACT.dmg * pactN;
+    const pactScale = pactN > 0
+      ? Math.max(0.5, 1 - C.BLOODPACT.hpCostPct * pactN)
+      : 1;
 
     // ---------- 升级加血 ----------
     // 血量上限 = (基础血量 + 等级加成) × 角色/被动倍率。
@@ -968,8 +1262,9 @@
     // 「血厚的角色练得久」得到正确结果。反过来（倍率也作用于每级成长）会让
     // 圣殿骑士在后期远远甩开其它角色，角色平衡直接失效。
     // 上限 C.PLAYER.hpPerLevelCap 是防「血量流叠到几千血彻底无敌」的兜底。
+    // ★神龛的血量上限跟等级加成同一位置（乘倍率之前）：它也是「练出来的绝对值」。
     const lvHp = Math.min((p.level - 1) * C.PLAYER.hpPerLevel, C.PLAYER.hpPerLevelCap);
-    attrs.maxHp = Math.round((C.PLAYER.hp + lvHp) * attrs.hpMul);
+    attrs.maxHp = Math.round((C.PLAYER.hp + lvHp + shrineHp + metaHp) * attrs.hpMul * pactScale);
     attrs.pickupRadius = C.PLAYER.pickupRadius * attrs.pickupMul;
 
     p.attrs = attrs;
@@ -986,7 +1281,7 @@
   // 伤害与死亡
   // ============================================================
 
-  function damageMob(w, m, dmg, knockX, knockY) {
+  function damageMob(w, m, dmg, knockX, knockY, src) {
     if (!m.alive) return 0;
 
     // 第十一轮新增的两个被动在**结算这一刻**判定（它们不是面板乘区）：
@@ -996,15 +1291,45 @@
     // 用 w.player 而不是 w.self：damageMob 之前一定已经 setCtx 到了正确的归属人，
     // 用 self 会在多人局里把 A 的暴击算到 B 身上（而且这种错只在联机复现）。
     const A = w.player ? w.player.attrs : null;
-    if (A) {
+    // ---------- 天火不是「你的攻击」（第四十轮）----------
+    // 陨星的伤害对血怒 / 暴击 / 斩杀一律不参与结算。
+    // 【为什么必须隔离】不隔离的话，同一个事件在不同 build 下清掉的怪数不一样：
+    //   带暴击的玩家砸出 600，不带的砸出 300 —— 而玩家在屏幕上只看到「一次天火」，
+    //   于是「陨星到底有多少伤害」这件事就没有答案了。结算里的伤害构成也会
+    //   凭空多出一大块不属于任何装备的数字。
+    // ★第四十二轮把地脉灵泉也算进这一类：它的数值同样写在表里（leyDmgAt），
+    //   打它的人和被打的人的 build 都不该让同一个灵泉一会儿清一片、一会儿清半片。
+    //   ★但它**不静音连杀**（见 updateLeys 的说明）：那是玩家站着不动换来的。
+    const isWorld = src === 'meteor' || src === 'ley';
+    // ---------- 血怒的临时乘区（第三十八轮） ----------
+    // ★放在暴击/斩杀**之前**：血怒是「底子变强」，暴击是「这一下翻倍」。
+    //   反过来（先翻倍再乘血怒）数学上一样、但意义不同 —— 这里选「血怒先进基数」，
+    //   因为下面还要按词缀减伤打折，一条算式顺着「基数 → 倍率 → 减免」读下来最不容易改错。
+    // ★读的是 w.player（当前归属人）而不是 w.self：联机时用 self 会把我的血怒算到别人头上。
+    if (!isWorld && w.player && w.player.rage > 0) dmg = dmg * C.RAGE.dmgMul;
+    if (A && !isWorld) {
       if (A.crit > 0 && nextRand(w) < A.crit) dmg = dmg * 2;
       if (A.exec > 0 && m.hp > 0 && m.maxHp > 0 && m.hp < m.maxHp * 0.25) {
         dmg = dmg * (1 + A.exec);
       }
     }
 
+    // 词缀减伤（坚壁）：挂在**暴击/斩杀之后**。
+    // 顺序有讲究：先算清「这一下本来是多少」，再按词缀打折；
+    // 反过来（先打折再翻倍）会让减伤对暴击失效 —— 暴击那一下打坚壁怪像打普通怪，
+    // 玩家就会得出「暴击能破甲」的错误结论。
+    const af = m.affix ? (C.AFFIX_MAP && C.AFFIX_MAP[m.affix]) : null;
+    if (af && af.dmgReduce) dmg = dmg * (1 - af.dmgReduce);
+
     m.hp -= dmg;
     w.stats.dmgDealt += dmg;
+
+    // 伤害构成（第三十六轮）：按来源（武器 id / 'thorns' / 'other'）分别累计。
+    // ★必须在「暴击、斩杀、词缀减伤」之后记 —— 玩家看到的是实际打出的数字，
+    //   记录原始 dmg 会让结算页的总和对不上「造成伤害」那一格（两处数字打架最难解释）。
+    // ★来源为空串时归到 'other'：宁可显示「其它」，也不要出现一行空白条目。
+    const key = src || 'other';
+    w.stats.dmgBy[key] = (w.stats.dmgBy[key] || 0) + dmg;
 
     // 受击闪白：纯视觉，给打击感一点反馈（渲染层读它）
     m.flash = 0.08;
@@ -1022,13 +1347,101 @@
     return dmg;
   }
 
+  // ============================================================
+  // 血怒（第三十八轮：连杀奖励）
+  // ============================================================
+  // 一次击杀 → 记一笔连杀；够数就进入血怒。真正的判定全在下面两个函数里，
+  // killMob 只负责喊一声（这样「谁算击杀」这件事只有一处，不用复制条件）。
+
+  // 记录一次击杀。调用点只有 killMob 一处，且那时 w.player 已经是「打出这一下」的归属人。
+  function bumpRage(w) {
+    const p = w.player;
+    if (!p || !p.alive) return;
+    const R = C.RAGE;
+    // 静音期不计数（第四十轮）：目前只有「天火砸死的那一坨」用它 ——
+    // 否则每 95 秒白送一次血怒，血怒就不再是「你打得快」的奖励。
+    if (w.rageMute > 0) return;
+    // 血怒期间不计数：否则「爆发 8 秒里清掉的那一堆」会直接把下一次也攒满，
+    // 变成两次爆发首尾相接 —— 那等于常驻加成，而常驻的东西没人会为它调整走位。
+    if (p.rage > 0) return;
+    // 冷却期间也不计数（连杀从 0 开始攒，见 tickRage 的说明）
+    if (p.rageCd > 0) return;
+
+    p.rageStreak += 1;
+    p.rageGap = 0;
+    if (p.rageStreak < R.needKills) return;
+
+    // 够数 → 进入血怒。连杀清零，出冷却在结束时才开始算（见 tickRage）。
+    p.rage = R.durationSec;
+    p.rageStreak = 0;
+    p.rageGap = 0;
+    p.rageCount = (p.rageCount || 0) + 1;
+    // ★带 slot：联机时这条只推给触发者本人。别人收到「你血怒了」会莫名其妙，
+    //   而他们的伤害也确实没变（乘区是每人一份的）。
+    w.events.push({ type: 'rage', slot: p.slot, name: p.name, sec: R.durationSec });
+  }
+
+  // 每帧推进血怒的三条计时（一步一帧，dt 是固定步长）。
+  // ★单独一个函数 + 独立循环：不能让「阵亡 / 选升级」的 continue 把它跳过，
+  //   否则一个正在选升级的人回来会带着一整套过期的血怒（时长白给）。
+  function tickRage(w, p, dt) {
+    const R = C.RAGE;
+
+    // 阵亡一律清零（第三十八轮）：联机里倒下 5 秒后会原地复活，
+    // 带着半截血怒站起来等于「死一次还白赚几秒爆发」。
+    // 连杀也一起清 —— 不然复活后第一只怪就接上死亡前的链条，
+    // 玩家看到的是「我明明死过，光环却还在攒」。
+    if (!p.alive) {
+      p.rage = 0;
+      p.rageStreak = 0;
+      p.rageGap = 0;
+      return;
+    }
+
+    if (p.rage > 0) {
+      p.rage -= dt;
+      if (p.rage > 0) return;
+      // 结束：清零 + 进冷却。★冷却在这里才开始算，而不是在触发那一刻 ——
+      // 从触发就开始算的话，8 秒爆发的后半段就已经在冷却了，等于没有冷却。
+      p.rage = 0;
+      p.rageCd = R.cooldownSec;
+      return;
+    }
+
+    if (p.rageCd > 0) {
+      p.rageCd -= dt;
+      if (p.rageCd < 0) p.rageCd = 0;
+      return;
+    }
+
+    // 没在爆发也没在冷却：只有「连杀还挂着」时才需要判断链。
+    if (p.rageStreak <= 0) return;
+    p.rageGap += dt;
+    if (p.rageGap > R.windowSec) {
+      p.rageStreak = 0;
+      p.rageGap = 0;
+    }
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
     w.stats.kills += 1;
+    // 血怒的连杀计数（第三十八轮）。放在这里而不是掉落逻辑里：
+    // 「打死一只」是唯一的事实，掉落那些分支会随 tier 走不同路径，漏一条就少算。
+    bumpRage(w);
 
     // 掉落经验球
     const def = m.def;
+
+    // ---------- 图鉴 / 挑战者计数（第三十六轮） ----------
+    // 图鉴按**怪种 id** 累计：结算时并进 vs_codex.mobs，图鉴页据此显示「已收录 / 击杀数」。
+    // ★用 def.id 而不是显示名：名字会被剧情改名表替换（同一个 id 在不同章节叫法不同），
+    //   按名字记会把同一只怪拆成两条图鉴。
+    if (def && def.id) {
+      w.stats.killsBy[def.id] = (w.stats.killsBy[def.id] || 0) + 1;
+      if (def.challenger) w.stats.challengers = (w.stats.challengers || 0) + 1;
+    }
 
     // ---------- 经验掉落：分三级 ----------
     // 小球（基础值）/ 大球（明显更大更亮，要专门走过去捡）/ Boss 的一圈巨量球。
@@ -1103,8 +1516,78 @@
     const healPerKill = w.player.attrs.killHeal || 0;
     if (healPerKill > 0) healPlayer(w, healPerKill);
 
+    // ---------- 挑战者：必掉宝箱（第三十四轮） ----------
+    // 【为什么给宝箱而不是再加一堆经验球】宝箱是「要专门走过去拿的一次免费升级」，
+    // 也就是说它给的奖励**兑现之前还要再做一个决定**（现在掉头去捡，还是先跑）。
+    // 这正是挑战者存在的理由：从「它来找你」到「你去拿它掉的东西」是一段完整的小事件，
+    // 而不是「打完 +500 经验」这种一次性数字。
+    // ★和 Boss 的宝箱走**同一条**拾取分支（spawnPickup 的 'chest' → 开箱给三选一），
+    //   所以这里不需要第二套实现。
+    if (def.challenger) {
+      const rule = C.CHALLENGER || { chest: 1, goldDrops: 2 };
+      for (let i = 0; i < (rule.chest || 0); i++) {
+        spawnPickup(w, 'chest', m.x, m.y, 1, C.DROPS.chest.life);
+      }
+      // 金币按小环撒开：叠在一个点上只会被一次性吸走，看着像「只掉了一枚」
+      for (let i = 0; i < (rule.goldDrops || 0); i++) {
+        const ang = (Math.PI * 2 / (rule.goldDrops || 1)) * i + 0.4;
+        spawnPickup(w, 'gold',
+          m.x + Math.cos(ang) * 14, m.y + Math.sin(ang) * 14, C.DROPS.goldValue);
+      }
+      w.events.push({
+        type: 'challenger_down', x: Math.round(m.x), y: Math.round(m.y), name: def.name
+      });
+    }
+
+    // ---------- 山魈：击杀给一小笔金币（第四十一轮） ----------
+    // 【为什么给金币而不是宝箱】宝箱是挑战者的身份标识（「打死它 = 一次免费升级」）——
+    //   两种事件精英都给宝箱，玩家就没必要区分它们了。山魈给的是「你花时间追它的补偿」：
+    //   金币在局内能直接换补给（绷带 / 血契石），是一份立刻能兑现的回报。
+    // ★金币按小环撒开：叠在一个点上只会被一次性吸走，看着像「只掉了一枚」。
+    if (def.summoner) {
+      const rule = C.SUMMONER || { goldDrops: 3 };
+      const n = rule.goldDrops || 0;
+      for (let i = 0; i < n; i++) {
+        const ang = (Math.PI * 2 / (n || 1)) * i + 0.4;
+        spawnPickup(w, 'gold',
+          m.x + Math.cos(ang) * 14, m.y + Math.sin(ang) * 14, C.DROPS.goldValue);
+      }
+      w.events.push({
+        type: 'summoner_down', x: Math.round(m.x), y: Math.round(m.y),
+        name: (w.nameTable && w.nameTable.mob[def.id]) || def.name
+      });
+    }
+
+    // ---------- 双生妖：同命结算（第四十五轮） ----------
+    // 【为什么挂在 killMob 而不是 damageMob】「死掉」这件事只有 killMob 知道全貌
+    //   （damageMob 只负责把血打空）。而「先死的那只」正是同命机制的输入。
+    // ★判定用的是 m.twinPair（配对号），不是 defId：复活出来的那只 defId 一样，
+    //   但它的链接已断（twinPair=0），不会再次进入这个分支 —— 这就是「只复活一次」。
+    if (m.twinPair) onTwinKilled(w, m);
+
     // 死亡特效，让打击感有反馈
     w.effects.push({ kind: 'death', x: m.x, y: m.y, r: def.r, life: 0.25, maxLife: 0.25, color: def.color });
+
+    // ---------- 词缀「分裂」：死后原地裂成两只 ----------
+    // 【三条必须守住的线】
+    //   ① 子怪**绝不带词缀** —— 带的话就是「分裂的分裂的分裂…」，一次击杀能刷出
+    //      指数级的怪，帧率与难度一起崩。这条由 affix 传 0 + 单测断言钉死。
+    //   ② 子怪血量取**父怪当前上限**的比例，而不是 def.hp 的比例：
+    //      父怪身上可能已经叠了波次成长与词缀血量，用基础值算会变成「越打越轻松」。
+    //   ③ 受 MAX_MOBS 约束 —— 后期同屏已经上千只，分裂是唯一能**凭空加怪**的路径，
+    //      不设闸门就会顶破上限（服务端单帧耗时直接爆）。
+    const splitAf = m.affix ? (C.AFFIX_MAP && C.AFFIX_MAP[m.affix]) : null;
+    if (splitAf && splitAf.splitCount && splitAf.splitHpRatio) {
+      const n = splitAf.splitCount;
+      for (let i = 0; i < n; i++) {
+        if (w.mobs.length >= C.MAX_MOBS) break;
+        const ang = (Math.PI * 2 / n) * i + 0.6;
+        const cx = clamp(m.x + Math.cos(ang) * 18, 24, w.map.w - 24);
+        const cy = clamp(m.y + Math.sin(ang) * 18, 24, w.map.h - 24);
+        const childMul = (m.maxHp * splitAf.splitHpRatio) / (def.hp || 1);
+        spawnMob(w, m.defId, cx, cy, childMul, 0);
+      }
+    }
   }
 
   // 对「指定的那个玩家」造成伤害。
@@ -1150,7 +1633,7 @@
         const dx = m.x - srcX;
         const dy = m.y - srcY;
         if (dx * dx + dy * dy > RANGE2) continue;
-        damageMob(w, m, p.attrs.thorns);
+        damageMob(w, m, p.attrs.thorns, 0, 0, 'thorns');
         hitN += 1;
         if (hitN >= 6) break;
       }
@@ -1214,29 +1697,46 @@
   // 生成：怪物与掉落
   // ============================================================
 
-  function spawnMob(w, mobId, x, y, hpMul) {
+  // affix：词缀 id（0 / 不传 = 普通怪）。见 const.js 的 AFFIXES。
+  // ★第六个参数是**追加**的，老的调用点（测试里手拼怪、宝箱召唤等）不用改。
+  //
+  // seed（第七个参数，可省）：给了的话就用它当相位，并且**不再从主随机流取数**。
+  // 【为什么要这个口子】挑战者是在任意 tick 由事件刷进来的。它如果照常调
+  //   nextRand（相位、冲锋冷却），就等于在「波次刷怪的中途」插走了几个随机数 ——
+  //   后面每一波的落点都会整体错位。词缀那一轮已经为这个坑付过一次代价
+  //   （见上面词缀那段的长注释），所以这里从接口上就把它堵死：
+  //   事件类生成必须能「零随机」地造出一只怪。
+  function spawnMob(w, mobId, x, y, hpMul, affix, seed) {
     const def = C.MOB_MAP[mobId];
     if (!def) return null;
+
+    // 词缀：只影响「生成时的血量」与后面几处结算，形象还是同一套精灵。
+    // ★查不到就当作没有（词缀表被删/改了 id 时不能把怪生成成 NaN 血）
+    const af = (affix && C.AFFIX_MAP && C.AFFIX_MAP[affix]) || null;
+    const hp = def.hp * hpMul * (af && af.hpMul ? af.hpMul : 1);
+    const fixed = (typeof seed === 'number' && isFinite(seed));
 
     const m = {
       id: w.nextId++,
       defId: def.id,
       def: def,
       x: x, y: y, px: x, py: y,
-      hp: def.hp * hpMul,
-      maxHp: def.hp * hpMul,
+      hp: hp,
+      maxHp: hp,
       r: def.r,
       alive: true,
       vx: 0, vy: 0,
       kx: 0, ky: 0,          // 击退速度
       hitCd: 0,              // 接触伤害冷却
       flash: 0,              // 受击闪白剩余时间
-      shootCd: def.shootCd ? randRange(w, 0.4, def.shootCd) : 0,
-      chargeCd: def.chargeCd ? randRange(w, 1.0, def.chargeCd) : 0,
+      // fixed 时用固定值：seed 当相位，冷却取 def 的标称值（都是确定性的）
+      shootCd: def.shootCd ? (fixed ? def.shootCd : randRange(w, 0.4, def.shootCd)) : 0,
+      chargeCd: def.chargeCd ? (fixed ? def.chargeCd : randRange(w, 1.0, def.chargeCd)) : 0,
       charging: 0,
       stun: 0,
-      phase: nextRand(w) * Math.PI * 2,   // 血蝠摆动等用
-      buffMul: 1
+      phase: fixed ? seed : nextRand(w) * Math.PI * 2,   // 血蝠摆动等用
+      buffMul: 1,
+      affix: af ? af.id : 0               // 0 = 普通怪（协议里 0 不发送）
     };
 
     w.mobs.push(m);
@@ -1285,6 +1785,1225 @@
     if (alive.length === 0) return null;
     if (alive.length === 1) return alive[0];
     return alive[Math.floor(nextRand(w) * alive.length) % alive.length];
+  }
+
+  // ============================================================
+  // 词缀（变异怪）：抽签与判定
+  // ============================================================
+  //
+  // ★★★这里的抽签**必须不消耗随机流**（nextRand）
+  //   刷怪循环里的随机流是按顺序取的：落点角度 → 落点抖动 → 怪种权重 → 相位……
+  //   在中间插一次 nextRand，后面每只怪的落点就整体偏移一格。
+  //   后果是「只加了个词缀，怪的站位全变了」：既有那些钉地图/走位/分布形状的断言
+  //   会莫名其妙变红，而且因果极难看出来（挨了整整一轮才定位到是呼吸帧，就是前车之鉴）。
+  //   所以这里用一个便宜的整数散列当伪随机：波次 + 序号 + 怪种 id → 0..1。
+  //   它照样是确定性的（同种子同一波结果完全一样），只是与主随机流互不干扰。
+  function affixHash(a, b, str) {
+    let h = Math.imul(a + 1, 73856093) ^ Math.imul(b + 1, 19349663);
+    for (let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619);
+    h ^= h >>> 13;
+    h = Math.imul(h, 1274126177);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;      // 0..1
+  }
+
+  // 给「这一波的第 idx 只、怪种为 mobId 的怪」抽一个词缀 id，没抽中返回 0。
+  function rollAffix(wave, idx, mobId, chance) {
+    if (!(chance > 0)) return 0;
+    if (affixHash(wave, idx, mobId) >= chance) return 0;
+    // 种类用同一散列的另一段（换一个 salt），不再消耗主随机流
+    const t = affixHash(wave, idx + 7919, mobId);
+    const list = C.AFFIXES;
+    if (!list || !list.length) return 0;
+    return list[Math.floor(t * list.length) % list.length].id;
+  }
+
+  // 这一只该不该挂词缀。返回 0 表示普通怪。
+  function affixForSpawn(w, mobId) {
+    const def = C.MOB_MAP[mobId];
+    if (!def) return 0;
+    // ★剧情关一律不挂：剧情关的怪量/血量是**逐关手工配平**的（还有限时），
+    //   随机词缀会让同一关两把的难度差出一截，「打不过」变成运气问题。
+    //   词缀是自由模式的随机调料，别往主线上撒。
+    if (w.storyStage) return 0;
+    // Boss 与光环单位（指挥）不挂：
+    //   · Boss 自带光环与专属行为，再叠词缀就分不清「它强在哪」；
+    //   · 指挥的定位是「给周围加速/加血」，它自己变成狂暴怪是另一个角色。
+    if (def.tier === 'boss' || def.tier === 'commander' || def.kind === 'buffer') return 0;
+    // ★挑战者同样不挂词缀：它本身就是「特意来堵你的一只强敌」，
+    //   再叠狂暴/坚壁会让它的强度在一局之内差出一截（打不打得过变成抽签）。
+    if (def.challenger) return 0;
+    // ★山魈同理不挂：它本身是「会召唤的靶子」，再叠狂暴就是「追不上的靶子」，
+    //   而叠坚壁是「追不死的靶子」—— 两种都会把「追还是拖」的选择题变成无解。
+    if (def.summoner) return 0;
+    // ★双生妖（第四十五轮）同样不挂：它的难度来自「同命窗口」这条规则本身。
+    //   叠「坚壁」会让 6 秒内收掉一只变成不可能（直接判你失败），
+    //   叠「狂暴」则让它跑得比玩家快、你又必须先磨血 —— 两条都把规则变成运气。
+    if (def.twins) return 0;
+    const chance = C.affixChance ? C.affixChance(w.wave) : 0;
+    if (!(chance > 0)) return 0;
+    return rollAffix(w.wave, w.affixIdx || 0, mobId, chance);
+  }
+
+  // 某只词缀怪第一次出现时播报一句（每种词缀每局一次，别刷屏）
+  function noteAffixSeen(w, affixId) {
+    const af = C.AFFIX_MAP && C.AFFIX_MAP[affixId];
+    if (!af) return;
+    if (!w.affixSeen) w.affixSeen = {};
+    if (w.affixSeen[affixId]) return;
+    w.affixSeen[affixId] = true;
+    w.events.push({
+      type: 'affix', affixId: affixId, name: af.name, hint: af.hint || '', wave: w.wave
+    });
+  }
+
+  // ============================================================
+  // 挑战者（第三十四轮：局内精英事件）
+  // ============================================================
+  //
+  // ★★这一整段都**不许碰 nextRand**（和词缀抽签同一条纪律，理由见 spawnMob 的 seed 参数）。
+  //   它是在任意 tick 插进来的，不是波次的一部分：一旦从这里取走随机数，
+  //   之后所有波次的落点都会整体错位，而那些钉分布/走位的断言会莫名其妙变红。
+  //   所以落点角度用散列、相位与冷却用固定值 —— 结果仍可复现，只是与主随机流隔离。
+
+  // 场上还活着几只挑战者。只在走到「该刷了」的那一帧才调它，不做每帧扫描。
+  function countAliveChallengers(w) {
+    const id = C.CHALLENGER.mobId;
+    let n = 0;
+    for (let i = 0; i < w.mobs.length; i++) {
+      const m = w.mobs[i];
+      if (m.alive && m.defId === id) n += 1;
+    }
+    return n;
+  }
+
+  // 挑一个锚点玩家（挑战者围着谁出现）。
+  // ★不用 pickSpawnAnchor：那个函数在多人局里会 nextRand 抽一个人。
+  //   这里用散列取模，多人时同样是「轮流围着不同的人」，但不消耗随机流。
+  // salt：散列用的盐。后者（第四十五轮的双生妖）复用同一套锚点规则，
+  //   只是换一个盐，好让两件事在同一个 tick 里也选不到同一个人。
+  function pickChallengerAnchor(w, salt) {
+    const key = salt || 'challenger';
+    const alive = [];
+    for (let i = 0; i < w.players.length; i++) {
+      if (w.players[i].alive) alive.push(w.players[i]);
+    }
+    if (!alive.length) return null;
+    if (alive.length === 1) return alive[0];
+    const k = Math.floor(affixHash(w.tick, 31, key) * alive.length) % alive.length;
+    return alive[k];
+  }
+
+  // 造一只挑战者。返回那只怪（额度不够 / 定义缺失时返回 null）。
+  function spawnChallenger(w) {
+    const rule = C.CHALLENGER;
+    const def = C.MOB_MAP[rule.mobId];
+    if (!def) return null;
+
+    // 同屏硬上限同样要守：挑战者不是一个可以「超发」的实体类别，
+    // 后期同屏上千只怪时再多塞一只就会顶破 MAX_MOBS（服务端单帧耗时直接爆）。
+    if (w.mobs.length >= C.MAX_MOBS - 2) return null;
+
+    const anchor = pickChallengerAnchor(w);
+    const ax = anchor ? anchor.x : w.map.w / 2;
+    const ay = anchor ? anchor.y : w.map.h / 2;
+
+    // 落点：常规刷怪环外一点。角度与距离都用散列定，不用 nextRand。
+    const ang = affixHash(w.tick, 17, 'challenger') * Math.PI * 2;
+    const radius = w.spawnRadius + rule.spawnPad;
+    const pad = 40;
+    let x = 0;
+    let y = 0;
+    // 撞障碍就按 1/6 圈转着试（纯确定性），全都撞就直接用这个点 ——
+    // 碰撞层会把它推出来，不会卡死（和 ringSpawnPos 同一套兜底思路）。
+    for (let k = 0; k < 6; k++) {
+      const a = ang + k * (Math.PI / 3);
+      x = ax + Math.cos(a) * radius;
+      y = ay + Math.sin(a) * radius;
+      if (x < pad) x = pad;
+      if (x > w.map.w - pad) x = w.map.w - pad;
+      if (y < pad) y = pad;
+      if (y > w.map.h - pad) y = w.map.h - pad;
+      if (!pointBlocked(w, x, y, def.r + 4)) break;
+    }
+
+    // 血量跟着波次成长（与同期的普通怪用同一条曲线），否则后期它就是个纸糊的箱子。
+    // 剧情关不会走到这里（见 maybeSpawnChallenger 的第一道闸），所以不用考虑 campaign 的曲线。
+    const hpMul = C.waveHpMul(w.wave) * w.diff.hpMul;
+    // ★第七参传相位：这次生成零随机（理由见 spawnMob 的 seed 说明）
+    const m = spawnMob(w, rule.mobId, x, y, hpMul, 0, 1.7);
+    if (!m) return null;
+
+    w.challengerSpawned = (w.challengerSpawned || 0) + 1;
+    w.events.push({
+      type: 'challenger', name: def.name,
+      x: Math.round(x), y: Math.round(y), hp: Math.round(m.maxHp)
+    });
+    return m;
+  }
+
+  // 每帧调一次（放在波次生成之后）。三道闸：剧情关 / 时间未到 / 场上已有。
+  function maybeSpawnChallenger(w) {
+    const rule = C.CHALLENGER;
+    if (!rule || !rule.mobId) return;
+
+    // ① 主线《补天纪》一律不刷：剧情关是逐关手工配平的（有 boss、有限时），
+    //    随机强敌会让「打不过」变成运气问题。
+    if (w.storyStage) return;
+
+    // ② 还没到第一次出现的时刻（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return;
+
+    // ③ 还没到下一只的时点
+    if (w.tick < w.challengerNextTick) return;
+
+    // ④ 场上已经有活着的：把下一次往后顺延一个间隔，等它被解决。
+    //    【为什么顺延而不是原地等待】原地等的话，玩家一打死它下一帧就立刻来新的，
+    //    节奏变成「打完立刻接一只」，那就不是插曲了。
+    if (countAliveChallengers(w) >= rule.maxAlive) {
+      w.challengerNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+      return;
+    }
+
+    const m = spawnChallenger(w);
+    // 生成失败（额度满）也照样顺延，不然每帧都会重试到满额为止。
+    w.challengerNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return m;
+  }
+
+  // ============================================================
+  // 山魈（第四十一轮：召唤型妖物）
+  // ============================================================
+  //
+  // 【它是什么】唯一一只**不贴脸**的精英：绕着玩家转、始终吊在两百多像素外，
+  //   每隔 5.5 秒把身边的妖群召出来，一生最多召 8 只。详见 const.js 的 SUMMONER 段。
+  //
+  // ★★与挑战者同一条纪律：整段**不许碰 nextRand**。
+  //   它在任意 tick 插进来，一旦取走随机数，之后每一波的落点都会整体错位。
+  //   落点角度、召唤相位全部用 affixHash 算 —— 可复现，但与主随机流隔离。
+  //
+  // 【为什么要单独一个 tickSummoner，而不是塞进 updateMobs 的 if 里】
+  //   updateMobs 那一大段是「移动」的地盘，召唤是「生成」的事；
+  //   混在一起以后想调节奏就得翻移动代码，而且它还要守 MAX_MOBS 与额度两道闸。
+  //   单独一个函数，测试也能绕开整局直接造一只山魈来验。
+
+  // 场上还活着几只山魈。只在走到「该刷了」的那一帧才调它，不做每帧扫描。
+  function countAliveSummoners(w) {
+    const id = C.SUMMONER.mobId;
+    let n = 0;
+    for (let i = 0; i < w.mobs.length; i++) {
+      const m = w.mobs[i];
+      if (m.alive && m.defId === id) n += 1;
+    }
+    return n;
+  }
+
+  // 挑一个锚点玩家（山魈围着谁出现）。
+  // 与挑战者同口径：用散列取模，多人时轮流围着不同的人，但不消耗随机流。
+  function pickSummonerAnchor(w) {
+    const alive = [];
+    for (let i = 0; i < w.players.length; i++) {
+      if (w.players[i].alive) alive.push(w.players[i]);
+    }
+    if (!alive.length) return null;
+    if (alive.length === 1) return alive[0];
+    const k = Math.floor(affixHash(w.tick, 53, 'shanxiao') * alive.length) % alive.length;
+    return alive[k];
+  }
+
+  // 造一只山魈（返回那只怪；额度不够 / 定义缺失时返回 null）
+  function spawnSummoner(w) {
+    const rule = C.SUMMONER;
+    const def = C.MOB_MAP[rule.mobId];
+    if (!def) return null;
+
+    // 同屏硬上限：山魈本身是「加怪」的实体，别在后期上千只的时候再挤进去一只
+    if (w.mobs.length >= C.MAX_MOBS - 2) return null;
+
+    const anchor = pickSummonerAnchor(w);
+    const ax = anchor ? anchor.x : w.map.w / 2;
+    const ay = anchor ? anchor.y : w.map.h / 2;
+
+    const ang = affixHash(w.tick, 23, 'shanxiao') * Math.PI * 2;
+    const radius = w.spawnRadius + rule.spawnPad;
+    const pad = 40;
+    let x = 0;
+    let y = 0;
+    // 撞障碍就按 1/6 圈转着试（纯确定性），与挑战者同一套兜底
+    for (let k = 0; k < 6; k++) {
+      const a = ang + k * (Math.PI / 3);
+      x = ax + Math.cos(a) * radius;
+      y = ay + Math.sin(a) * radius;
+      if (x < pad) x = pad;
+      if (x > w.map.w - pad) x = w.map.w - pad;
+      if (y < pad) y = pad;
+      if (y > w.map.h - pad) y = w.map.h - pad;
+      if (!pointBlocked(w, x, y, def.r + 4)) break;
+    }
+
+    // 血量走与同期普通怪同一条曲线；剧情关走不到这里（见 maybeSpawnSummoner 第一道闸）
+    const hpMul = C.waveHpMul(w.wave) * w.diff.hpMul;
+    // ★第七参传相位：这次生成零随机（理由同上）
+    const m = spawnMob(w, rule.mobId, x, y, hpMul, 0, 2.3);
+    if (!m) return null;
+
+    // 召唤计时与额度挂在怪身上（而不是世界上）：
+    // 联机时世界里的字段会被所有人共享，而「这一只召了几只」是它自己的事。
+    m.summoned = 0;
+    m.summonCd = rule.summonEverySec;
+
+    w.summonerSpawned = (w.summonerSpawned || 0) + 1;
+    w.events.push({
+      type: 'summoner', name: (w.nameTable && w.nameTable.mob[def.id]) || def.name,
+      x: Math.round(x), y: Math.round(y), hp: Math.round(m.maxHp)
+    });
+    return m;
+  }
+
+  // 每帧调一次（放在挑战者之后）。四道闸：剧情关 / 时间未到 / 未到下一次 / 场上已有。
+  function maybeSpawnSummoner(w) {
+    const rule = C.SUMMONER;
+    if (!rule || !rule.mobId) return;
+
+    // ① 主线《补天纪》一律不刷（与挑战者 / 神龛 / 赤月 / 陨星同一条总纪律）
+    if (w.storyStage) return;
+
+    // ② 还没到第一次出现的时刻（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return;
+
+    // ③ 还没到下一只的时点
+    if (w.tick < w.summonerNextTick) return;
+
+    // ④ 场上已经有活着的：把下一次往后顺延一个间隔，等它被解决
+    if (countAliveSummoners(w) >= rule.maxAlive) {
+      w.summonerNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+      return;
+    }
+
+    const m = spawnSummoner(w);
+    // 生成失败（额度满）也照样顺延，不然每帧都会重试到满额为止
+    w.summonerNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return m;
+  }
+
+  // 山魈自己的召唤计时（由 updateMobs 在它那一支里调）。
+  // 【为什么被定住时不召唤】陨星落地会把圈内的怪定身 0.6 秒 ——
+  //   那一下如果照常召唤，玩家会觉得「砸它没用」。定身就是定身，连嘴也一起定住。
+  function tickSummoner(w, m, dt) {
+    const rule = C.SUMMONER;
+    if (!rule) return;
+    if (!m.alive) return;
+    if (m.stun > 0) return;
+    // 额度用完就彻底安静：它退回一只普通的精英怪，不再表现出任何召唤行为
+    if ((m.summoned || 0) >= rule.summonCap) return;
+
+    m.summonCd = (m.summonCd === undefined ? rule.summonEverySec : m.summonCd) - dt;
+    if (m.summonCd > 0) return;
+    m.summonCd = rule.summonEverySec;
+
+    // 血量倍率与它自己同一条曲线（召出来的不是「新手怪」，也不是「下一波的怪」）
+    const hpMul = C.waveHpMul(w.wave) * w.diff.hpMul;
+    let made = 0;
+    for (let i = 0; i < rule.summonCount; i++) {
+      // ★两道闸缺一不可：额度（它自己的一生上限）与全局实体上限（服务端单帧耗时）
+      if ((m.summoned || 0) >= rule.summonCap) break;
+      if (w.mobs.length >= C.MAX_MOBS) break;
+
+      // 角度与半径都用散列定（零随机）：同一只山魈每次召出来的站位是固定的
+      const seq = m.summoned || 0;
+      const ang = affixHash(m.id, seq + 3, 'summon') * Math.PI * 2;
+      const rr = rule.summonRing * (0.7 + 0.3 * affixHash(m.id, seq + 11, 'summon'));
+      const cx = clamp(m.x + Math.cos(ang) * rr, 24, w.map.w - 24);
+      const cy = clamp(m.y + Math.sin(ang) * rr, 24, w.map.h - 24);
+      // ★词缀传 0：召出来的小怪绝不带词缀（否则就是「分裂的分裂」那类指数增长）
+      const child = spawnMob(w, rule.summonMob, cx, cy, hpMul, 0,
+        affixHash(m.id, seq, 'phase') * Math.PI * 2);
+      if (child) {
+        m.summoned = seq + 1;
+        made += 1;
+      }
+    }
+
+    // 召唤成功给一次视觉反馈（复用现成的 boom 特效，不新增 kind ——
+    // 新增 kind 要进串池、要在渲染层加分支，为一次脉冲不值得）。
+    // ★**刻意不推事件**：每 5.5 秒一条提示条会把真正重要的播报淹掉，
+    //   这只怪的存在感靠标记环 + 脚下的爆发就够。
+    if (made > 0) {
+      w.effects.push({
+        kind: 'boom', x: m.x, y: m.y, r: m.r * 2.2,
+        life: 0.32, maxLife: 0.32, color: '#c9553a'
+      });
+    }
+  }
+
+  // ============================================================
+  // 双生妖（第四十五轮：同命相连的一对精英）
+  // ============================================================
+  //
+  // 【它是什么】一次来两只。打死其中一只，另一只必须在 6 秒内也倒下；
+  //   否则先死的那只会原地站起来（按它自己的上限回 60% 血），链接从此断开。
+  //   两只都在窗口内倒下 → 掉宝箱 + 金币。详见 const.js 的 TWINS 段。
+  //
+  // 【为什么是「打死一只才开始计时」，而不是「出生就开始」】
+  //   出生就开始的话，这个机制会退化成「限时挑战」（赤月、剧情关限时都是这个东西），
+  //   玩家面对的仍然是「尽快输出」。挂在「第一只倒下」这一刻，计时器才绑在**你的动作**上：
+  //   是你开的这个 6 秒，也是你决定「现在要不要收掉它」。
+  //
+  // 【为什么记录放在 w.twinPairs 而不是挂在 mob 上】
+  //   死的那个 mob 下一帧就会被 compactMobs 从数组里摘掉（见 step 第 8 步），
+  //   复活要用的坐标/上限/defId 必须存在别处。而「谁和谁是一对」靠 m.twinPair 的配对号索引。
+  //   ★复活走 spawnMob 重新造一只，**不是**把死的那只救活 —— 因为死的那只已经不在了。
+  //     新造的那只 m.twinPair = 0（链接断开），这是「只复活一次」的唯一实现方式。
+  //
+  // ★★与挑战者 / 山魈 / 陨星同一条铁律：整段**不许碰 nextRand**。
+  //   它在任意 tick 插进来，一旦取走随机数，后面每一波的落点都会整体错位。
+  //   落点角度、两只的相位全部走 affixHash 散列。
+
+  // 场上还活着几只双生妖（含已经被打断链接的那只）。
+  // 只在「该刷了」的那一帧才调，不做每帧扫描 —— 和挑战者/山魈同一条省法。
+  function countAliveTwins(w) {
+    const id = C.TWINS.mobId;
+    let n = 0;
+    for (let i = 0; i < w.mobs.length; i++) {
+      const m = w.mobs[i];
+      if (m.alive && m.defId === id) n += 1;
+    }
+    return n;
+  }
+
+  // 造一对。返回造出来的数组（不足两只则作废并返回 null）。
+  function spawnTwins(w) {
+    const rule = C.TWINS;
+    const def = C.MOB_MAP[rule.mobId];
+    if (!def) return null;
+
+    // 两只一起进场，必须能同时放下 —— 只放得下一只时宁可这一轮不刷，
+    // 因为「只有一只的双生妖」既不成立（它没有同伴可同命）还会白占同屏闸。
+    if (w.mobs.length >= C.MAX_MOBS - 2) return null;
+
+    const anchor = pickChallengerAnchor(w, 'twins');
+    const ax = anchor ? anchor.x : w.map.w / 2;
+    const ay = anchor ? anchor.y : w.map.h / 2;
+
+    // 基准方向与距离：散列定，不用 nextRand
+    const ang = affixHash(w.tick, 47, 'twins') * Math.PI * 2;
+    const radius = w.spawnRadius + rule.spawnPad;
+    const hpMul = C.waveHpMul(w.wave) * w.diff.hpMul;
+    const pad = 40;
+
+    const pairId = (w.twinSeq || 0) + 1;
+    w.twinSeq = pairId;
+
+    const made = [];
+    for (let k = 0; k < rule.count; k++) {
+      // 两只以基准方向为轴对称张开：进场时是两个方向来的，追到玩家身边又汇到一处
+      const base = ang + (k === 0 ? -rule.spread : rule.spread);
+      let x = 0;
+      let y = 0;
+      // 撞障碍就按 1/6 圈转着试（纯确定性），全撞就直接用这个点（碰撞层会推出来）
+      for (let t = 0; t < 6; t++) {
+        const a = base + t * (Math.PI / 3);
+        x = ax + Math.cos(a) * radius;
+        y = ay + Math.sin(a) * radius;
+        if (x < pad) x = pad;
+        if (x > w.map.w - pad) x = w.map.w - pad;
+        if (y < pad) y = pad;
+        if (y > w.map.h - pad) y = w.map.h - pad;
+        if (!pointBlocked(w, x, y, def.r + 4)) break;
+      }
+      // ★第七参传相位：这次生成零随机（理由见 spawnMob 的 seed 说明）
+      const m = spawnMob(w, rule.mobId, x, y, hpMul, 0, 2.3 + k * 0.7);
+      if (!m) continue;
+      m.twinPair = pairId;
+      made.push(m);
+    }
+
+    // 只造出一只 → 整对作废：把它原地抹掉（不走 killMob —— 那不是玩家打死的，
+    // 不该给经验、不该计连杀、也不该进图鉴）。
+    if (made.length < 2) {
+      for (let i = 0; i < made.length; i++) {
+        made[i].alive = false;
+        made[i].twinPair = 0;
+      }
+      return null;
+    }
+
+    w.twinPairs.push({
+      id: pairId,
+      dead: 0,
+      // 0 = 没有在跑的倒计时
+      reviveAt: 0,
+      // 已经结算完（全灭 or 已经复活过一次）。结算完的配对不再接受任何动作。
+      resolved: false,
+      spawnX: 0, spawnY: 0, maxHp: 0, defId: rule.mobId
+    });
+
+    w.twinSpawned = (w.twinSpawned || 0) + 1;
+    w.events.push({
+      type: 'twins', name: def.name,
+      x: Math.round(made[0].x), y: Math.round(made[0].y),
+      hp: Math.round(made[0].maxHp), delaySec: rule.delaySec
+    });
+    return made;
+  }
+
+  // 每帧调一次（放在挑战者/山魈之后）。四道闸：剧情关 / 时间未到 / 场上已有 / 排期。
+  function maybeSpawnTwins(w) {
+    const rule = C.TWINS;
+    if (!rule || !rule.mobId) return;
+
+    // ① 主线《补天纪》一律不刷：剧情关逐关手工配平，还有限时，
+    //    随机塞一对「必须先磨血」的精英会让「打不过」变成运气问题。
+    if (w.storyStage) return;
+
+    // ② 还没到首次时点
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return;
+
+    // ③ 还没到下一对的时点
+    if (w.tick < w.twinNextTick) return;
+
+    // ④ 场上已经有活着的：下一对往后顺延一个间隔，等这一对先被解决。
+    //    顺延而不是原地等 —— 否则玩家刚打完，下一帧新的一对就站在脸上。
+    if (countAliveTwins(w) >= rule.maxAlive) {
+      w.twinNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+      return;
+    }
+
+    const made = spawnTwins(w);
+    // 生成失败（实体额度满）也照样顺延，不然每帧都会重试到满额为止
+    w.twinNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return made;
+  }
+
+  // 双生妖被打死时调（由 killMob 转进来）。
+  // 【三个分支，顺序不能乱】
+  //   ① 找不到配对 / 已结算 → 什么都不做（复活出来的那只走这里：链接已断）
+  //   ② 两只都倒了 → 撤掉倒计时 + 发奖励（**必须先撤倒计时**，否则同帧内
+  //      第一只排下的 timer 会在 6 秒后把「已经全灭的一对」又叫起来一只）
+  //   ③ 只倒了一只 → 排下 6 秒倒计时，并把复活要用的坐标/上限记在配对上
+  function onTwinKilled(w, m) {
+    const pairs = w.twinPairs || [];
+    let pair = null;
+    for (let i = 0; i < pairs.length; i++) {
+      if (pairs[i].id === m.twinPair) { pair = pairs[i]; break; }
+    }
+    if (!pair || pair.resolved) return;
+
+    const rule = C.TWINS;
+    pair.dead = (pair.dead || 0) + 1;
+
+    if (pair.dead >= rule.count) {
+      // ② 同命达成：撤掉倒计时，别再叫起来
+      pair.resolved = true;
+      pair.reviveAt = 0;
+
+      for (let i = 0; i < (rule.chest || 0); i++) {
+        spawnPickup(w, 'chest', m.x, m.y, 1, C.DROPS.chest.life);
+      }
+      // 金币按小环撒开：叠在一点只会被一次性吸走，看着像「只掉了一枚」
+      const gn = rule.goldDrops || 0;
+      for (let i = 0; i < gn; i++) {
+        const a = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+        spawnPickup(w, 'gold',
+          m.x + Math.cos(a) * 14, m.y + Math.sin(a) * 14, C.DROPS.goldValue);
+      }
+      w.events.push({
+        type: 'twin_slain', x: Math.round(m.x), y: Math.round(m.y),
+        name: (w.nameTable && w.nameTable.mob[m.defId]) || (m.def && m.def.name) || '双生妖',
+        gold: gn
+      });
+      return;
+    }
+
+    // ③ 只倒了一只：排倒计时
+    pair.reviveAt = w.tick + Math.round(rule.delaySec * C.TICK_HZ);
+    pair.spawnX = m.x;
+    pair.spawnY = m.y;
+    pair.maxHp = m.maxHp;
+    pair.defId = m.defId;
+    w.events.push({
+      type: 'twin_half', x: Math.round(m.x), y: Math.round(m.y),
+      delaySec: rule.delaySec, left: rule.count - pair.dead
+    });
+  }
+
+  // 同命倒计时推进（每帧一次，放在清理死怪之前）。
+  // 【为什么到点要重新 spawnMob 而不是把尸体救活】尸体在 step 第 8 步就被压掉了。
+  // 【为什么复活的那只 m.twinPair = 0】那是「只复活一次」的唯一实现：
+  //   链接一断，它再死就只是打死一只普通精英。不这样做，一对双生妖就是一局无限复活。
+  function updateTwins(w) {
+    const pairs = w.twinPairs;
+    if (!pairs || !pairs.length) return;
+    const rule = C.TWINS;
+
+    for (let i = pairs.length - 1; i >= 0; i--) {
+      const pair = pairs[i];
+
+      if (!pair.resolved && pair.reviveAt > 0 && w.tick >= pair.reviveAt) {
+        // ★实体上限：复活也是「凭空加一只」，必须守同一条闸。
+        //   这一支**不是死代码** —— 后期满屏时它恰恰是最常走的一条：
+        //   怪都堆到上限了，先死的那只就只好等一个空位（每 2 秒问一次）。
+        //   ★不能顺延整个间隔：那会让「它明明该站起来」变成「永远不站起来」。
+        if (w.mobs.length >= C.MAX_MOBS) {
+          pair.reviveAt = w.tick + Math.round(2 * C.TICK_HZ);
+          continue;
+        }
+        const def = C.MOB_MAP[pair.defId] || C.MOB_MAP[rule.mobId];
+        // 还原被打死那只的**生命上限**：spawnMob 的 hpMul 是相对 def.hp 的倍率，
+        // 而它身上可能已经叠了波次成长与难度倍率 —— 用 pair.maxHp 反推才等价。
+        const hpMul = def.hp > 0 ? (pair.maxHp / def.hp) : 1;
+        const m = spawnMob(w, pair.defId, pair.spawnX, pair.spawnY, hpMul, 0, 3.1);
+        if (m) {
+          m.hp = Math.max(1, Math.round(m.maxHp * rule.reviveHpPct));
+          // ★链接断开：这只再死不会触发第二次复活
+          m.twinPair = 0;
+          pair.resolved = true;
+          pair.reviveAt = 0;
+          w.effects.push({
+            kind: 'boom', x: m.x, y: m.y, r: m.r * 2.4,
+            life: 0.36, maxLife: 0.36, color: '#8fb6c8'
+          });
+          w.events.push({
+            type: 'twin_revive', x: Math.round(m.x), y: Math.round(m.y),
+            name: (w.nameTable && w.nameTable.mob[m.defId]) || def.name
+          });
+        } else {
+          // 实体额度满了：短等 2 秒再试（与陨星落空同一条兜底口径），
+          // 绝不顺延整个间隔 —— 那会让「它明明该站起来」变成「永远不站起来」。
+          pair.reviveAt = w.tick + Math.round(2 * C.TICK_HZ);
+        }
+      }
+
+      // 已结算且没有待办 → 摘掉，别让这个数组一局攒下几十条
+      if (pair.resolved && pair.reviveAt <= 0) pairs.splice(i, 1);
+    }
+  }
+
+  // ============================================================
+  // 赤月天象（第三十九轮：局内全局事件）
+  // ============================================================
+  //
+  // 【它是什么】每隔 100 秒，整张图进入 22 秒「赤月」：妖物移速 ×1.20、
+  //   每波数量 ×1.3，但经验球价值 ×1.3。详见 const.js 的 BLOOD_MOON 段。
+  //
+  // 【★★为什么整段不碰 nextRand】
+  //   与挑战者同一条纪律：它在任意 tick 切换状态，不属于「这一波」的一部分。
+  //   一旦从这里抽随机数，之后所有波次的落点都会整体错位一格，
+  //   而那些钉「同种子逐只位置一致」的断言会莫名其妙变红。
+  //   排期完全由 tick 算（C.moonPhaseAt），零随机。
+  //
+  // 【为什么状态用「边沿」推事件，而不是每帧推】
+  //   每帧推的话，20Hz × 22 秒 = 440 条事件，界面会连播 440 次提示条。
+  //   这里只在 on/off 翻转的那一帧推一条。
+  function tickMoon(w) {
+    const rule = C.BLOOD_MOON;
+    if (!rule) return;
+
+    // ① 主线《补天纪》一律没有赤月。
+    //    剧情关是逐关手工配平的（有 boss、有限时、还有剧情节拍），
+    //    半路突然把全图怪的移速抬两成，会让「打不过」变成运气问题。
+    //    ★这一条也是「剧情模式不引入随机压力」这条总纪律的一部分
+    //      （挑战者、神龛都遵守同一条）。
+    const ph = w.storyStage
+      ? { on: false, index: -1, leftSec: 0 }
+      : C.moonPhaseAt(w.tick);
+
+    w.moonLeft = ph.leftSec;
+    const on = ph.on ? 1 : 0;
+    if (on === w.moonOn) return;   // 没有翻转就不推事件
+
+    w.moonOn = on;
+    if (on) w.moonIdx = ph.index;
+    w.events.push({
+      type: 'moon',
+      on: on,
+      // 结束事件不需要剩余时长；开始事件带上它，界面提示条才能说「约 N 秒」
+      left: Math.round(ph.leftSec),
+      // 名字从表里取，不写死 —— 以后改名（比如「妖月」）只改一处
+      name: rule.name
+    });
+  }
+
+  // ============================================================
+  // 陨星（第四十轮：局内小事件）
+  // ============================================================
+  //
+  // 【它是什么】每 95 秒从天而降一颗，落在「玩家附近**妖物最密**的那一格」：
+  //   预警 1.8 秒 → 落地砸伤圈内妖物（并按血量上限 12% 伤玩家，但不致死）→
+  //   原地留下 5 秒「星火」，只烧妖物。详见 const.js 的 METEOR 段。
+  //
+  // 【★★这一整段同样不碰 nextRand】
+  //   与挑战者 / 赤月同一条纪律：它在任意 tick 触发，不属于「这一波」的一部分。
+  //   落点完全由当前怪物位置算出来（纯确定性），因此**落点不需要同步**——
+  //   服务端算一次，客户端只负责按快照里的那条 strike 画预警与火球。
+  //
+  // 【为什么落点用「网格 + 质心」而不是「取最近的一只怪」】
+  //   最近的那只往往只是散兵；玩家真正在打的那一坨有十几只挤在一起。
+  //   网格（110px）把「一坨」量化成一个数，再取该格内所有怪的质心 ——
+  //   于是落点会落在怪堆**中间**，而不是堆边上那只最靠前的。
+  function pickMeteorPoint(w) {
+    const rule = C.METEOR;
+    const players = w.players;
+    const mobs = w.mobs;
+    const cell = rule.cellSize;
+    const r2 = rule.searchRadius * rule.searchRadius;
+
+    // 格子累计表：键是「格坐标压成一个整数」，值是 {n, sx, sy}。
+    // ★用整数键而不是 "cx,cy" 字符串：每颗陨星都要扫几百只怪，字符串拼接是白给的开销。
+    const cells = Object.create(null);
+    let best = null;
+    let total = 0;
+
+    for (let i = 0; i < mobs.length; i++) {
+      const m = mobs[i];
+      if (!m.alive) continue;
+
+      // 只统计「离某个活着的玩家足够近」的怪：远处的怪砸了也没人看得见
+      let near = false;
+      for (let k = 0; k < players.length; k++) {
+        const p = players[k];
+        if (!p.alive) continue;
+        const dx = m.x - p.x;
+        const dy = m.y - p.y;
+        if (dx * dx + dy * dy <= r2) { near = true; break; }
+      }
+      if (!near) continue;
+      total += 1;
+
+      // +1000 偏移只是让负坐标也能压成唯一整数（地图坐标本来非负，纯防御）
+      const key = (Math.floor(m.y / cell) + 1000) * 100000 + (Math.floor(m.x / cell) + 1000);
+      let c = cells[key];
+      if (!c) { c = { n: 0, sx: 0, sy: 0 }; cells[key] = c; }
+      c.n += 1;
+      c.sx += m.x;
+      c.sy += m.y;
+
+      // 取最密的一格。★同密度时按格子序号比大小（确定性）：否则「谁先被遍历到」
+      //   会决定落点，不同端算出来的位置就可能不一样（这类不同步最难查）。
+      if (!best || c.n > best.n || (c.n === best.n && key < best.key)) {
+        best = { n: c.n, sx: c.sx, sy: c.sy, key: key };
+      }
+    }
+
+    // 太散 / 太少 → 这颗不落。砸空地既没画面也没意义。
+    if (!best || total < rule.minMobs) return null;
+
+    let x = best.sx / best.n;
+    let y = best.sy / best.n;
+    const pad = 40;
+
+    // ① 撞障碍就往玩家方向挪几步：陨星落进石头里，星火就白铺了（怪根本进不去那个位置）
+    for (let k = 0; k < 4 && pointBlocked(w, x, y, pad); k++) {
+      const p = nearestPlayerAny(w, x, y);
+      if (!p) break;
+      const dx = p.x - x;
+      const dy = p.y - y;
+      const d = Math.sqrt(dx * dx + dy * dy) || 1;
+      x += (dx / d) * 30;
+      y += (dy / d) * 30;
+    }
+
+    // ② 离任何玩家都必须 ≥ minPlayerDist：不做「贴脸必吃」。
+    //    ★对齐的是「离得最近的那个玩家」而不是锚点玩家 —— 联机里两个人挨着站时，
+    //      只按一个人算会把圈铺到另一个人脚下。
+    for (let k = 0; k < players.length; k++) {
+      const p = players[k];
+      if (!p.alive) continue;
+      const dx = x - p.x;
+      const dy = y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d >= rule.minPlayerDist) continue;
+      // d 可能正好是 0（落点与玩家重合），给一个确定的角度兜底
+      const ang = d > 0.001 ? Math.atan2(dy, dx) : Math.PI * 0.25;
+      x = p.x + Math.cos(ang) * rule.minPlayerDist;
+      y = p.y + Math.sin(ang) * rule.minPlayerDist;
+    }
+
+    // ③ 夹回地图内（贴边砸出去只会浪费这颗星）
+    x = clamp(x, pad, w.map.w - pad);
+    y = clamp(y, pad, w.map.h - pad);
+    return { x: x, y: y, n: best.n, total: total };
+  }
+
+  // 造一颗陨星（返回那条 strike；落点不成立时返回 null）。
+  function spawnMeteor(w) {
+    const rule = C.METEOR;
+    const pt = pickMeteorPoint(w);
+    if (!pt) return null;
+
+    // 归属：算「离落点最近的那个人」的。经验/金币必须有个归属，
+    // 否则结算里会出现「无主的击杀」，图鉴也不记账。
+    const owner = nearestPlayerAny(w, pt.x, pt.y);
+    const strike = {
+      // ★src 是结算「伤害构成」的来源键（不进快照）。天火单独一档，
+      //   否则它会混进某件武器的名字里，玩家会以为「我的刀打出了 300」。
+      src: 'meteor',
+      id: w.nextId++,
+      kind: 'meteor',
+      owner: owner,
+      x: pt.x,
+      y: pt.y,
+      r: rule.radius,
+      dmg: C.meteorDmgAt(w.wave),
+      // ★对玩家的伤害在**这颗生成时**就定下来（按当时的血量上限算比例），
+      //   落地那一刻不再读配置 —— 之后有人调表也不会影响已经在空中的那颗。
+      playerDmgPct: rule.playerHpPct,
+      stunSec: rule.mobStunSec,
+      delay: rule.warnSec,
+      life: rule.warnSec,
+      color: '#ffcf5c'
+    };
+    w.strikes.push(strike);
+    w.meteorSpawned += 1;
+    w.events.push({
+      type: 'meteor',
+      x: Math.round(pt.x), y: Math.round(pt.y),
+      sec: rule.warnSec,
+      // 圈里大概有几只：提示条可以说「砸向妖群」，不必编数字
+      mobs: pt.n
+    });
+    return strike;
+  }
+
+  // 每帧调一次（放在挑战者之后）。三道闸：剧情关 / 时间未到 / 还没到下一颗的时点。
+  function maybeSpawnMeteor(w) {
+    const rule = C.METEOR;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有陨星（与挑战者 / 神龛 / 赤月同一条纪律）：
+    //    剧情关逐关手工配平，多一个「会伤到自己人的天火」会让难度变成运气。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一颗的时点
+    if (w.tick < w.meteorNextTick) return null;
+
+    const st = spawnMeteor(w);
+    if (st) {
+      // 正常：下一次按间隔顺延
+      w.meteorNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+      return st;
+    }
+
+    // ★落点不成立（场上太散 / 一只怪都没有）：**2 秒后重试**，而不是顺延一整个间隔。
+    //   【为什么不能顺延 95 秒】实测踩过：第一颗的时点正好压在波次那一帧上，
+    //   而新一波的怪刷在 700px 外（搜索半径 520 之外）—— 于是「这一波刚刷完、
+    //   场上还是空的」，第一颗被跳到了 305 秒。玩家在 4~5 分钟里根本见不到这个玩法，
+    //   而代码一行错都没有。
+    //   【为什么重试是安全的】纯确定性（不看随机数），而且成功之后立刻按 95 秒顺延，
+    //   不会出现「一直重试一直落」—— 场上没怪的时候它只是安静地等着。
+    w.meteorNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+    return null;
+  }
+
+  // ============================================================
+  // 地脉灵泉（第四十二轮：站桩充能）
+  // ============================================================
+  //
+  // 【它是什么】地上涌出一座灵泉（存在 16 秒），站进圈里**连续 2 秒**唤醒它：
+  //   半径 300 内的妖物受 90×波次曲线的伤害并被定身 0.8 秒，唤醒者回复 15% 血量上限。
+  //   详见 const.js 的 LEYLINE 段。
+  //
+  // 【★★它同样不碰 nextRand】
+  //   与挑战者 / 山魈 / 陨星同一条纪律：它在任意 tick 触发，不属于「这一波」的一部分。
+  //   泉眼角度由 affixHash 散列决定（确定性、不消费主随机流），
+  //   位置本身随快照下发，所以不需要「两端算出同一个位置」这件事成立。
+  //
+  // 【★状态放在哪】
+  //   灵泉实体本身就是一条 `strikes`（与陨星共用同一个列表、同一个快照字段），
+  //   `kind === 'ley'`。它**不走** updateStrikes 的通用退场逻辑：
+  //   那个逻辑是「life 归零 → 砸一下」，而灵泉的退场条件是「充能满」或「16 秒过去」，
+  //   所以由 updateLeys 自己管生命周期（step 里排在 updateStrikes 之前）。
+  //
+  // 【★充能进度怎么同步】
+  //   复用 strike 上那个可选浮点字段 `delay`（协议一个字节都不用加）：
+  //   对灵泉它装的是「还差几秒充满」——语义正好也是「爆发前还剩多久」。
+  //   客户端拿 1 - delay/chargeSec 画进度环，两端不可能算出不同的数
+  //   （不像「各自按玩家距离积分」那样会飘）。
+
+  // 场上还活着几座灵泉（同屏上限用）
+  function countAliveLeys(w) {
+    let n = 0;
+    const list = w.strikes;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'ley') n += 1;
+    }
+    return n;
+  }
+
+  // 选泉眼位置：锚在「主线玩家」周围 offset 处，散列定角度，撞障碍就换一个角度。
+  // ★为什么锚在玩家身边而不是随机一点：它是**请你去**的一个点位。
+  //   放到半张地图外，玩家只会看到提示条上写着「灵泉涌出」然后一辈子走不到。
+  function pickLeyPoint(w) {
+    const rule = C.LEYLINE;
+    const anchor = w.self || w.players[0];
+    if (!anchor) return null;
+    const pad = 70;
+
+    // 8 个角度依次试：第一个是散列给的，之后顺时针转 45°。
+    // ★角度必须来自散列而不是 nextRand：否则后面的每一波落点会整体错位（老坑）。
+    const baseA = affixHash(w.leySpawned + 3121, 17, 'ley') * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+      const a = baseA + (i * Math.PI) / 4;
+      let x = anchor.x + Math.cos(a) * rule.offset;
+      let y = anchor.y + Math.sin(a) * rule.offset;
+      // 夹回地图内：贴边涌出会被墙切掉半个圈
+      x = clamp(x, pad, w.map.w - pad);
+      y = clamp(y, pad, w.map.h - pad);
+      // 不能落在石头里：站不进去的圈等于没涌出来
+      if (pointBlocked(w, x, y, 26)) continue;
+      return { x: x, y: y };
+    }
+    return null;
+  }
+
+  // 涌出一座灵泉（返回这条 strike；位置不成立时返回 null）
+  function spawnLey(w) {
+    const rule = C.LEYLINE;
+    const pt = pickLeyPoint(w);
+    if (!pt) return null;
+
+    const st = {
+      // ★src 是结算「伤害构成」的来源键：灵泉单独一档「地脉」。
+      //   混进某件武器里的话，玩家会以为自己那把刀打出了三百。
+      src: 'ley',
+      id: w.nextId++,
+      kind: 'ley',
+      // ★owner 刻意留空：灵泉是**世界**的东西，不属于任何玩家。
+      //   填了 w.self 的话，锚点玩家一阵亡就会被 removeOwnedBy 顺手删掉 ——
+      //   而「我死了灵泉也没了」这件事没人能猜出来。
+      owner: null,
+      x: pt.x,
+      y: pt.y,
+      r: rule.standRadius,
+      // 已充能秒数（服务端权威）。客户端不读它，只读下面的 delay。
+      charge: 0,
+      // 「还差几秒充满」= 爆发前还剩多久（客户端据此画进度环）
+      delay: rule.chargeSec,
+      // 伤害在**涌出的那一刻**就按当时的波次定下来：之后有人调表也不影响已经在地上的那座。
+      dmg: C.leyDmgAt(w.wave),
+      life: rule.lifeSec,
+      color: rule.color
+    };
+    w.strikes.push(st);
+    w.leySpawned += 1;
+    w.events.push({
+      type: 'ley',
+      x: Math.round(pt.x), y: Math.round(pt.y),
+      sec: rule.lifeSec,
+      charge: rule.chargeSec
+    });
+    return st;
+  }
+
+  // 每帧调一次（放在陨星之后）。三道闸：剧情关 / 时间未到 / 还没到下一座的时点。
+  function maybeSpawnLey(w) {
+    const rule = C.LEYLINE;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者 / 神龛 / 赤月 / 陨星 / 山魈同一条纪律）：
+    //    剧情关逐关手工配平，凭空多一个「站 2 秒清一片」的点位会让配好的压力失效。
+    if (w.storyStage) return null;
+
+    // ② 时间未到
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一座的时点
+    if (w.tick < w.leyNextTick) return null;
+
+    // ④ 同屏最多一座：地上已经有一座（玩家还没去）时不再涌新的。
+    //    ★这里只**短等 2 秒**，不顺延整个间隔 —— 否则玩家一直不去，
+    //      后面的排期会被整体推到很久之后（陨星那一轮踩过的同款坑）。
+    if (countAliveLeys(w) > 0) {
+      w.leyNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+
+    const st = spawnLey(w);
+    if (!st) {
+      // 找不到空位（贴边 + 障碍）：短等重试，理由同上
+      w.leyNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+    w.leyNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return st;
+  }
+
+  // 每帧推进所有灵泉：算充能、管退场、充能满就爆。排在 updateStrikes 之前。
+  function updateLeys(w, dt) {
+    const rule = C.LEYLINE;
+    if (!rule) return;
+    const list = w.strikes;
+    let write = 0;
+
+    for (let i = 0; i < list.length; i++) {
+      const s = list[i];
+      // 不是灵泉：原样留给后面的 updateStrikes
+      if (s.kind !== 'ley') { list[write++] = s; continue; }
+
+      s.life -= dt;
+
+      // ---------- 谁站在圈里 ----------
+      // 取「圈内离泉眼最近的那个活人」：多人同站时爆发归给站得最正的那个人，
+      // 而不是「谁先来」—— 后者要靠额外状态记，而且两边算出来会不一样。
+      let stander = null;
+      let standD = rule.standRadius;
+      for (let k = 0; k < w.players.length; k++) {
+        const p = w.players[k];
+        if (!p.alive) continue;
+        const d = distance(p.x, p.y, s.x, s.y);
+        if (d > rule.standRadius) continue;
+        if (!stander || d < standD) { stander = p; standD = d; }
+      }
+
+      if (stander) {
+        // ★每帧只加一份 dt（不是每个站进来的人加一份）：
+        //   「两个人一起站更快」听起来合理，但它会让 chargeSec 这个数值
+        //   在单机与联机里代表两件不同的事，调起来就没基准了。
+        s.charge += dt;
+      } else if (s.charge > 0) {
+        // 离开就回落（2 倍速）：不许「站一半跑开、回头补一秒」把风险摊平。
+        s.charge -= dt * rule.decayMul;
+        if (s.charge < 0) s.charge = 0;
+      }
+
+      const full = s.charge >= rule.chargeSec;
+      // 充能倒计时写回 delay（客户端据此画进度环）。
+      s.delay = full ? 0 : Math.max(0, rule.chargeSec - s.charge);
+
+      if (!full) {
+        // 16 秒到还没充满：安静消失。★不惩罚、不播报 ——
+        // 「奖励没拿到」本身就是代价（那 2 秒的暴露风险白担了）。
+        if (s.life > 0) list[write++] = s;
+        continue;
+      }
+
+      // ---------- 充能满：地脉冲击 ----------
+      // 归属人切到站桩的那个人：伤害构成与击杀记账都要落在正确的人头上。
+      setCtx(w, stander || w.self);
+      const p = w.player;
+
+      // ① 圈内妖物受伤 + 定身。
+      //   ★这里**不设** rageMute：与天火相反 —— 天火是白送的，灵泉是站出来的。
+      //     站 2 秒换来的这一片清场，本来就应该接得上血怒（「站桩 → 爆发」是连招）。
+      damageInCircle(w, s.x, s.y, rule.burstRadius, s.dmg, 46, {
+        stunSec: rule.stunSec, src: 'ley'
+      });
+
+      // ② 回血：只回站桩那个人（不是全体）——否则「一个人站、全队回」太便宜。
+      if (p && p.alive) healPlayer(w, p.maxHp * rule.healPct);
+
+      // ③ 表现与播报
+      // ★两条特效分工，缺一不可：
+      //   ① boom：符文阵式的爆发核心（pixelfx 的「玉青那一支」，见 pixelfx-layer）
+      //   ② leyring：**冲击边界**。库里的符文阵最大只能铺到百来像素，
+      //      而这一下真正的作用范围是 300 —— 画不出边界，玩家就不知道
+      //      「站在 301px 处为什么没被扫到」。所以边界自己用 Canvas 画一圈（kind 库里没有，
+      //      会自然落到几何兜底那一支）。
+      // ★0.55 秒（比普通 boom 的 0.3 长）：太短的话只看到「闪了一下」，看不清到哪。
+      w.effects.push({
+        kind: 'boom', x: s.x, y: s.y, r: rule.burstRadius,
+        life: 0.55, maxLife: 0.55, color: rule.color
+      });
+      w.effects.push({
+        kind: 'leyring', x: s.x, y: s.y, r: rule.burstRadius,
+        life: 0.5, maxLife: 0.5, color: rule.color
+      });
+      w.leyBursts += 1;
+      w.events.push({
+        type: 'ley_burst',
+        slot: p ? p.slot : 0,
+        x: Math.round(s.x), y: Math.round(s.y)
+      });
+      // 不写回数组 = 移除
+    }
+
+    list.length = write;
+  }
+
+  // ============================================================
+  // 血祭坛（第四十三轮：用生命上限换伤害）
+  // ============================================================
+  //
+  // 【它是什么】地上浮起一座血色石坛，18 秒后沉回去。踩上去 = 签一次契约：
+  //   永久扣掉 14% 生命上限，永久换 +18% 伤害（最多两层）。血量不到 70% 时
+  //   它**拒绝**你 —— 祭坛不消失，回血了还能回来。详见 const.js 的 BLOODPACT 段。
+  //
+  // 【为什么不给玩家一个「确认」面板】
+  //   与神龛同一条硬约束：**联机时世界停不下来**（商店/自动补给/倍速都只做在单机）。
+  //   在这里弹一个「确定要付出 14% 上限吗」的框，等于让人在怪堆里腾出一只手 ——
+  //   那不是抉择，是惩罚。所以走位本身就是确认：踩上去 = 同意。
+  //   代价的可见性交给「红线式的提示条 + 踩下去当场掉一截血上限」。
+  //
+  // 【为什么状态记在 p.pacts（一个数字）而不是 p.shrines 里的一条】
+  //   神龛是按 id 分种类的祝福表（三种各不相同）；血祭只有一种，层数就是它的全部状态。
+  //   混进 p.shrines 会让人以为它也是 SHRINE_MAP 的一员（踩上去走 applyShrine 那条路）。
+  //
+  // ★★与挑战者/陨星/山魈/灵泉同一条铁律：整段**不许碰 nextRand**。
+  //   落点角度与偏移全部用 affixHash 散列 —— 可复现，且不扰动后面每一波的落点。
+
+  // 场上还活着几座血祭坛（同屏上限用）
+  function countAlivePacts(w) {
+    let n = 0;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'pact') n += 1;
+    }
+    return n;
+  }
+
+  // 选祭坛落点：锚在「自己」周围 offset 处，散列定角度，撞障碍就顺时针换角度。
+  // ★为什么锚在身边而不是丢到半张图外：它是**请你过去**的一个点位。
+  //   丢到屏幕外，玩家只会看到提示条上写着「血祭坛浮现」而永远找不到它。
+  function pickPactPoint(w) {
+    const rule = C.BLOODPACT;
+    const anchor = w.self || w.players[0];
+    if (!anchor) return null;
+    const pad = 70;
+
+    // ★角度必须来自散列而不是 nextRand（老坑：会整体错位后面每一波的落点）
+    const baseA = affixHash(w.pactSpawned + 4721, 29, 'pact') * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+      const a = baseA + (i * Math.PI) / 4;
+      let x = anchor.x + Math.cos(a) * rule.offset;
+      let y = anchor.y + Math.sin(a) * rule.offset;
+      // 夹回地图内：贴边浮现的话，它与玩家之间的距离会被墙吃掉一半
+      x = clamp(x, pad, w.map.w - pad);
+      y = clamp(y, pad, w.map.h - pad);
+      // 不能落在石头里：跑不进去的祭坛等于没有
+      if (pointBlocked(w, x, y, 26)) continue;
+      return { x: x, y: y };
+    }
+    return null;
+  }
+
+  // 浮现一座血祭坛（返回那颗 pickup；位置不成立时返回 null）
+  function spawnPact(w) {
+    const rule = C.BLOODPACT;
+    const pt = pickPactPoint(w);
+    if (!pt) return null;
+
+    // ★复用现成的「走上去就生效」实体（pickups 的 kind）而不是新造一套：
+    //   拾取、快照、渲染、磁石排除全都有现成分支，代价只是多一个 kind 字面量。
+    //   value 固定为 1：祭坛没有种类，层数记在玩家身上（见 applyPact）。
+    // ★spawnPickup 没有返回值（它是无脑 push），所以这里取数组末尾那一颗 ——
+    //   写 `const it = spawnPickup(...)` 会永远拿到 undefined，
+    //   表现是 maybeSpawnPact 以为「找不到空位」而每 2 秒重试一次，祭坛一座都不出现。
+    spawnPickup(w, 'pact', pt.x, pt.y, 1, rule.lifeSec);
+    const it = w.pickups[w.pickups.length - 1] || null;
+    if (!it) return null;
+    w.pactSpawned = (w.pactSpawned || 0) + 1;
+    w.events.push({
+      type: 'pact',
+      x: Math.round(pt.x), y: Math.round(pt.y),
+      sec: rule.lifeSec,
+      costPct: rule.hpCostPct,
+      dmg: rule.dmg
+    });
+    return it;
+  }
+
+  // 每帧调一次（放在灵泉之后）。四道闸：剧情关 / 时间未到 / 未到下一次 / 场上已有。
+  function maybeSpawnPact(w) {
+    const rule = C.BLOODPACT;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者 / 神龛 / 赤月 / 陨星 / 山魈 / 灵泉同一条纪律）：
+    //    剧情关是逐关手工配平的，凭空多一条「掉上限换伤害」只会破坏配好的血量曲线。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一座的时点
+    if (w.tick < w.pactNextTick) return null;
+
+    // ④ 同屏最多一座：地上已经有一座没被踩（或刚被拒绝）时不再浮现新的。
+    //    ★只**短等 2 秒**，不顺延整个间隔 —— 否则玩家一直不去，
+    //      后面的排期会被整体推到很久之后（陨星那一轮踩过的同款坑）。
+    if (countAlivePacts(w) > 0) {
+      w.pactNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+
+    const it = spawnPact(w);
+    if (!it) {
+      // 找不到空位（贴边 + 障碍）：短等重试，理由同上
+      w.pactNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+    w.pactNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return it;
+  }
+
+  // 踩上一座血祭坛：付上限，换伤害。
+  // 返回 true = 契约成立；false = 被拒绝（血不够 / 已满层），此时**祭坛不动**。
+  //
+  // ★★「拒绝」必须是**什么都不做**：不扣血、不给加成、不消耗祭坛。
+  //   这一支最容易写错的地方是「先扣再判」—— 那样残血玩家路过就被扣成 1 点血，
+  //   而界面上只会显示「血气不足」，没人能看出血去哪了。simtest 钉了这一条。
+  //
+  // ★第三个参数 it（那座祭坛）只用来**去掉重复播报**：拒绝之后祭坛还留在原地，
+  //   玩家站在上面会每帧再踩一次 —— 不拦的话提示条会在一秒内刷六十条。
+  //   不给 it 也能用（测试直接调时不需要节流）。
+  function applyPact(w, p, it) {
+    const rule = C.BLOODPACT;
+    if (!rule || !p || !p.alive) return false;
+
+    // 拒绝播报只发一次（见上面那段说明）
+    function noteOnce(type, extra) {
+      if (it && it.denied) return;
+      if (it) it.denied = 1;
+      w.events.push(Object.assign({ type: type, slot: p.slot, name: p.name }, extra || {}));
+    }
+
+    const cur = p.pacts || 0;
+    // ① 满层：不再叠加（但要说清「是满了」，不是「白踩了」）
+    if (cur >= rule.stackMax) {
+      noteOnce('pact_full', { level: cur, stackMax: rule.stackMax });
+      return false;
+    }
+
+    // ② 血气不足：按**当下的**生命上限算比例
+    if (p.hp < p.maxHp * rule.minHpPct) {
+      noteOnce('pact_deny', {
+        hpPct: p.maxHp > 0 ? p.hp / p.maxHp : 0,
+        needPct: rule.minHpPct
+      });
+      return false;
+    }
+
+    // ③ 成交：记层数 → 重算属性（上限打折 + 伤害加成都在 recalcAttrs 里）
+    p.pacts = cur + 1;
+    const hpBefore = p.hp;
+    const maxBefore = p.maxHp;
+
+    // ★重算走 w.player 上下文（与 applyShrine / applyLevelHp 同一套做法）：
+    //   不切的话联机里会拿「自己」的属性去重算别人 —— 表现是「队友签了契约，我掉血」。
+    const prevCtx = w.player;
+    setCtx(w, p);
+    recalcAttrs(w);
+    if (prevCtx && prevCtx !== p) setCtx(w, prevCtx);
+
+    w.pactTaken = (w.pactTaken || 0) + 1;
+
+    // 兑现的反馈：脚下溅一圈血色（复用 boom，不新增特效 kind —— 新增要进串池、
+    // 要在两条绘制管线各加一支，为一次脉冲不值得）。
+    w.effects.push({
+      kind: 'boom', x: p.x, y: p.y, r: 64,
+      life: 0.4, maxLife: 0.4, color: rule.color
+    });
+
+    w.events.push({
+      type: 'pact_taken', slot: p.slot, name: p.name,
+      level: p.pacts, stackMax: rule.stackMax,
+      maxBefore: Math.round(maxBefore), maxAfter: Math.round(p.maxHp),
+      // 实际掉的血 = 比例校正掉的这部分（玩家要在提示条上看到「我刚才少了多少」）
+      hpLost: Math.max(0, Math.round(hpBefore - p.hp))
+    });
+    return true;
   }
 
   function spawnWave(w) {
@@ -1336,19 +3055,29 @@
     const room = C.MAX_MOBS - alive - (bossWave ? 1 : 0);
 
     // 数量也按难度缩放（血月 ×1.7 会更快顶到 MAX_MOBS —— 那正是它该有的压力）
+    // ★赤月的 countMul 乘在难度之后：两者是**独立的两个维度**
+    //   （难度 = 这局整体多难，赤月 = 这一波临时多密），替换掉任何一个都会让另一个失效。
+    //   顶破 MAX_MOBS 时由下面的 room 裁剪兜住，不会超发。
     let count = Math.round((w.storyStage
       ? CP.waveCountOf(w.modId, w.storyStage, wave)
-      : C.waveCount(wave)) * diff.countMul);
+      : C.waveCount(wave)) * diff.countMul * (w.moonOn ? C.BLOOD_MOON.countMul : 1));
     if (count > room) count = room;
     if (count < 0) count = 0;
 
+    // 本波词缀抽签的序号：只用来给散列当输入，不参与任何逻辑。
+    // ★用「这一波的第几只」而不是全局 id：同种子同一波结果完全可复现，
+    //   而且不依赖「之前发生过什么」，测试里单独构造一波也能算。
+    w.affixIdx = 0;
     for (let i = 0; i < count; i++) {
       // pickWeighted 返回的是 key —— 现在 key 直接就是怪种 id
       const mobId = pickWeighted(w, pool);
       if (!mobId || !C.MOB_MAP[mobId]) continue;
       // 每只怪各自挑一个玩家当锚点：多人分开走位时两边都有压力
       const pos = ringSpawnPos(w, pickSpawnAnchor(w));
-      spawnMob(w, mobId, pos.x, pos.y, hpMul);
+      const affix = affixForSpawn(w, mobId);
+      w.affixIdx += 1;
+      spawnMob(w, mobId, pos.x, pos.y, hpMul, affix);
+      if (affix) noteAffixSeen(w, affix);
     }
 
     // Boss 波：额外来一只，血量也跟波次成长（额度上面已经预留）
@@ -1544,7 +3273,7 @@
         kx = (dx / d) * knock;
         ky = (dy / d) * knock;
       }
-      damageMob(w, m, dmg, kx, ky);
+      damageMob(w, m, dmg, kx, ky, opts.src);
       hits++;
 
       if (opts.stunSec) m.stun = Math.max(m.stun, opts.stunSec);
@@ -1553,7 +3282,7 @@
   }
 
   // 扇形范围伤害（铁鞭）
-  function damageInArc(w, x, y, radius, facing, arcDeg, dmg, knock) {
+  function damageInArc(w, x, y, radius, facing, arcDeg, dmg, knock, src) {
     const half = (arcDeg * Math.PI / 180) / 2;
     const full = arcDeg >= 360;
     const list = w.mobs;
@@ -1577,7 +3306,7 @@
       }
 
       const d = dist || 1;
-      damageMob(w, m, dmg, (dx / d) * knock, (dy / d) * knock);
+      damageMob(w, m, dmg, (dx / d) * knock, (dy / d) * knock, src);
       hits++;
     }
     return hits;
@@ -1608,7 +3337,7 @@
         life: 0.18, maxLife: 0.18,
         color: def.evolved ? '#ff4d4d' : '#e8dcc0'
       });
-      damageInArc(w, p.x, p.y, range, ang, def.arcDeg, dmg, def.knock || 0);
+      damageInArc(w, p.x, p.y, range, ang, def.arcDeg, dmg, def.knock || 0, def.id);
       return;
     }
 
@@ -1639,6 +3368,8 @@
         const swayT = i * 0.8;
 
         w.projectiles.push({
+          // 伤害归属（第三十六轮）：只在本机世界里有，不进快照（二进制协议按字段表编码，多余字段自动忽略）
+          src: def.id,
           id: w.nextId++,
           kind: 'line',
           owner: p,                     // 归属：命中算谁的伤害/金币/击杀回血（多人必备）
@@ -1662,7 +3393,7 @@
 
     // ---------- 光环（蒜雾 / 灵魂吞噬）：每次冷却到点就打一圈 ----------
     if (kind === 'aura') {
-      damageInCircle(w, p.x, p.y, range, dmg, def.knock || 0);
+      damageInCircle(w, p.x, p.y, range, dmg, def.knock || 0, { src: def.id });
       w.effects.push({
         kind: 'ring', x: p.x, y: p.y, r: range,
         life: 0.35, maxLife: 0.35,
@@ -1680,6 +3411,8 @@
       const tx = p.x + Math.cos(ang) * def.throwDist;
       const ty = p.y + Math.sin(ang) * def.throwDist;
       w.zones.push({
+        // 伤害归属（第三十六轮）：只在本机世界里有，不进快照（二进制协议按字段表编码，多余字段自动忽略）
+        src: def.id,
         id: w.nextId++,
         kind: 'zone',
         owner: p,                       // 归属：这口圣水是谁扔的，持续伤害就算谁的
@@ -1707,6 +3440,8 @@
         const ang = nextRand(w) * Math.PI * 2;
         const dist = randRange(w, 40, def.castDist);
         w.strikes.push({
+          // 伤害归属（第三十六轮）：只在本机世界里有，不进快照（二进制协议按字段表编码，多余字段自动忽略）
+          src: def.id,
           id: w.nextId++,
           kind: 'strike',
           owner: p,                     // 归属：这道雷是谁召的
@@ -1730,6 +3465,8 @@
         const ang = base + (i - (count - 1) / 2) * 0.5;
         const swayT = i * 1.1;
         w.projectiles.push({
+          // 伤害归属（第三十六轮）：只在本机世界里有，不进快照（二进制协议按字段表编码，多余字段自动忽略）
+          src: def.id,
           id: w.nextId++,
           kind: 'homing',
           owner: p,                     // 归属：追踪弹命中算谁的
@@ -1762,6 +3499,8 @@
         // 去程的弧线角速度：正负交替，多把回旋刃不会叠成同一条线
         const curve = (i % 2 === 0 ? 1 : -1) * 1.25;
         w.projectiles.push({
+          // 伤害归属（第三十六轮）：只在本机世界里有，不进快照（二进制协议按字段表编码，多余字段自动忽略）
+          src: def.id,
           id: w.nextId++,
           kind: 'boomerang',
           owner: p,                     // 归属：也是「回程要飞回谁身边」的依据（见 updateProjectiles）
@@ -1791,6 +3530,8 @@
       const n = count;
       for (let i = 0; i < n; i++) {
         w.orbits.push({
+          // 伤害归属（第三十六轮）：只在本机世界里有，不进快照（二进制协议按字段表编码，多余字段自动忽略）
+          src: def.id,
           id: w.nextId++,
           owner: p,                     // 归属：环绕物跟着谁转（updateOrbits 按它算圆心）
           angle: (Math.PI * 2 / n) * i,
@@ -1816,6 +3557,8 @@
       const dist = target ? distance(p.x, p.y, target.x, target.y) : def.throwDist;
 
       w.strikes.push({
+        // 伤害归属（第三十六轮）：只在本机世界里有，不进快照（二进制协议按字段表编码，多余字段自动忽略）
+        src: def.id,
         id: w.nextId++,
         kind: 'parabola',
         owner: p,                       // 归属：这把锤子是谁砸的
@@ -1923,6 +3666,30 @@
         }
       }
 
+      // ---------- 山魈：绕着玩家转圈（第四十一轮） ----------
+      // 【为什么不是「往反方向跑」】纯直线后退会被地形逼进死角，变成一块站着挨打的木头；
+      //   目标点取「距玩家 keepDist、再偏一个切向位移」之后，它自然沿着弧线绕，
+      //   既不贴脸也不跑远 —— 玩家必须自己把距离压上去。
+      // 【为什么也走 moveMobToward】那里面有全套速度层（光环 / 词缀 / 赤月 / 定身），
+      //   自己算一份就等于把「赤月加速」这类乘区复制一遍，迟早漏一个。
+      else if (def.kind === 'summoner') {
+        const SU = C.SUMMONER || { keepDist: 240, strafeMul: 0.55 };
+        const dx = m.x - p.x;
+        const dy = m.y - p.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const ux = dx / d;
+        const uy = dy / d;
+        // 切向右乘一个「绕行方向」：来自怪 id 的奇偶（确定性的，不取随机数），
+        // 让同屏多只山魈不会绕着同一个方向转成一串糖葫芦。
+        const side = (m.id & 1) ? 1 : -1;
+        const kd = SU.keepDist;
+        const tx = p.x + ux * kd + (-uy) * kd * SU.strafeMul * side;
+        const ty = p.y + uy * kd + (ux) * kd * SU.strafeMul * side;
+        moveMobToward(w, m, tx, ty, dt);
+        // 召唤与移动分开算：定身时它不动也不召（见 tickSummoner 的说明）
+        tickSummoner(w, m, dt);
+      }
+
       // ---------- 其余（小怪 / 精英 / 指挥 / Boss）：直接追 ----------
       else {
         moveMobToward(w, m, p.x, p.y, dt);
@@ -1957,10 +3724,33 @@
     const dx = tx - m.x;
     const dy = ty - m.y;
     const d = Math.sqrt(dx * dx + dy * dy) || 1;
-    let sp = m.def.speed * (m.buffMul || 1) * (speedMul || 1);
+    // 速度四层：怪自己的基础速度 × 光环加成 × 冲刺倍率 × 词缀（狂暴快 / 坚壁慢），
+    // 再乘赤月（第三十九轮）。
+    // ★词缀只乘在「移动」上，不改 def.speed —— def 是共享对象，改它等于改所有同种怪。
+    // ★赤月同理：只在移动这一处乘，**绝不写进 def.speed 或 m.* 的持久字段** ——
+    //   写进去就得在每个「赤月结束」的时刻改回来，漏一处就是永久加速
+    //   （血怒踩过同一个坑，见 const.js 的 RAGE 说明）。
+    const af = m.affix ? (C.AFFIX_MAP && C.AFFIX_MAP[m.affix]) : null;
+    const moonMul = w.moonOn ? C.BLOOD_MOON.mobSpeedMul : 1;
+    let sp = m.def.speed * (m.buffMul || 1) * (speedMul || 1) *
+      (af && af.speedMul ? af.speedMul : 1) * moonMul;
 
     let vx = (dx / d) * sp;
     let vy = (dy / d) * sp;
+
+    // ---------- 绕行模式（第三十八轮）----------
+    // 从夹缝里被「挤」出来之后，不能让它立刻又朝着玩家直线冲回同一堵墙 ——
+    // 实测那样会变成「挤出 20px → 撞回去 → 再卡 1.8 秒 → 再挤」的循环。
+    // 这段时间改成按全局流场走，真的绕过这堵墙再恢复直追。
+    // ★只读 w.nav（模拟层内部状态），不吃随机数，双端一致。
+    if (m.detourT > 0) {
+      m.detourT -= dt;
+      const nd = navDirAt(w, m.x, m.y);
+      if (nd && (nd.x || nd.y)) {
+        vx = nd.x * sp;
+        vy = nd.y * sp;
+      }
+    }
 
     // 血蝠带正弦摆动，走位不那么呆
     if (m.def.wobble) {
@@ -2166,11 +3956,11 @@
 
         pr.hitIds[m.id] = 1;
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        damageMob(w, m, pr.dmg, (dx / d) * 14, (dy / d) * 14);
+        damageMob(w, m, pr.dmg, (dx / d) * 14, (dy / d) * 14, pr.src);
 
         // 陨星：命中爆炸
         if (pr.explodeRadius > 0) {
-          damageInCircle(w, pr.x, pr.y, pr.explodeRadius, pr.explodeDmg, 30);
+          damageInCircle(w, pr.x, pr.y, pr.explodeRadius, pr.explodeDmg, 30, { src: pr.src });
           w.effects.push({
             kind: 'ring', x: pr.x, y: pr.y, r: pr.explodeRadius,
             life: 0.2, maxLife: 0.2, color: '#ff9f45'
@@ -2217,7 +4007,7 @@
         z.tickTimer = z.tickSec;
         // 每跳打一次，用 hitKey 保证同一跳内不重复
         z.hitKeySeed = (z.hitKeySeed || 0) + 1;
-        damageInCircle(w, z.x, z.y, z.r, z.dmg, 18, { hitKey: z.hitKey + '_' + z.hitKeySeed });
+        damageInCircle(w, z.x, z.y, z.r, z.dmg, 18, { hitKey: z.hitKey + '_' + z.hitKeySeed, src: z.src });
       }
       list[write++] = z;
     }
@@ -2230,6 +4020,13 @@
 
     for (let i = 0; i < list.length; i++) {
       const s = list[i];
+
+      // 地脉灵泉（第四十二轮）：它由 updateLeys 自己管生命周期。
+      // ★必须在这里跳过：通用逻辑是「life 归零 → 按 s.r / s.dmg 砸一下」，
+      //   而灵泉的 s.r 是**站桩半径 52**（伤害半径是 300），
+      //   走通用逻辑会变成「16 秒后对着脚下砸一个 52 的小圈」——不报错，但完全是另一个玩法。
+      if (s.kind === 'ley') { list[write++] = s; continue; }
+
       s.life -= dt;
       if (s.life > 0) {
         list[write++] = s;
@@ -2239,8 +4036,59 @@
       // 归属：落点砸下来之前的最后一步也要切上下文，否则伤害会算到别人头上
       setCtx(w, s.owner || w.self);
 
+      // ---------- 陨星（第四十轮）：先伤玩家，再伤妖物，最后铺星火 ----------
+      // 【★★顺序是刻意的】先把玩家那一份结算掉，再打怪。
+      //   反过来（先清怪）会让「玩家被砸」发生在「一大批怪刚被清掉之后」——
+      //   那时 w.player 上下文的战绩、连杀、伤害构成都已经变了，排查时会看错人。
+      //
+      // 【为什么玩家伤害要「不致死」】
+      //   环境伤害把人打死是这类事件里最招骂的一种：玩家正在怪堆里残血清场，
+      //   天上一颗石头下来直接结束整局，他记不住「我站位不好」，只记住「被砸死了」。
+      //   所以这里按「血量上限 × 比例」算，再用「当前血量 - 1」夹一次 ——
+      //   最多砸到剩 1 滴血，把「必须撤退」说清楚，但不替他结束这一局。
+      if (s.kind === 'meteor') {
+        const rule = C.METEOR;
+        const pct = s.playerDmgPct || rule.playerHpPct;
+        for (let k = 0; k < w.players.length; k++) {
+          const p = w.players[k];
+          if (!p.alive) continue;
+          const dx = p.x - s.x;
+          const dy = p.y - s.y;
+          // 站在圈外一滴血都不掉（这条由 simtest 钉住）
+          if (dx * dx + dy * dy > s.r * s.r) continue;
+          const cap = p.hp - 1;
+          if (cap <= 0) continue;
+          const raw = p.maxHp * pct;
+          damagePlayer(w, p, raw < cap ? raw : cap, s.x, s.y);
+        }
+
+        // 星火：只烧妖物，不烧玩家（见 const.js 的说明）。
+        // ★owner 沿用这颗陨星的归属，这样星的持续伤害在结算里也落在同一档。
+        w.zones.push({
+          src: 'meteor',
+          id: w.nextId++,
+          kind: 'zone',
+          owner: s.owner || w.self,
+          x: s.x,
+          y: s.y,
+          r: rule.fireRadius,
+          dmg: rule.fireDmg,
+          tickSec: rule.fireTickSec,
+          tickTimer: 0,
+          life: rule.fireSec,
+          maxLife: rule.fireSec,
+          color: '#ff8c42',
+          hitKey: 'mf' + w.nextId
+        });
+        w.events.push({ type: 'meteor_hit', x: Math.round(s.x), y: Math.round(s.y) });
+      }
+
       // 到点：造成范围伤害
-      damageInCircle(w, s.x, s.y, s.r, s.dmg, 40, { stunSec: s.stunSec || 0 });
+      // ★天火砸死的那一坨**不算连杀**（rageMute）：否则每 95 秒白送一次血怒，
+      //   血怒就从「奖励敢在怪堆里站着」退化成「等天火」。
+      if (s.kind === 'meteor') w.rageMute += 1;
+      damageInCircle(w, s.x, s.y, s.r, s.dmg, 40, { stunSec: s.stunSec || 0, src: s.src });
+      if (s.kind === 'meteor') w.rageMute -= 1;
       w.effects.push({
         kind: 'boom', x: s.x, y: s.y, r: s.r,
         life: 0.3, maxLife: 0.3, color: s.color
@@ -2289,7 +4137,7 @@
         o.hitMap[key] = w.time;
 
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        damageMob(w, m, o.dmg, (dx / d) * 10, (dy / d) * 10);
+        damageMob(w, m, o.dmg, (dx / d) * 10, (dy / d) * 10, o.src);
       }
 
       list[write++] = o;
@@ -2300,6 +4148,66 @@
   // ============================================================
   // 掉落物拾取
   // ============================================================
+
+  // ============================================================
+  // 上古神龛（第三十五轮）
+  // ============================================================
+  // 第 index 个神龛在这张图上是什么类型。
+  // 用 affixHash（整数散列）而不是 nextRand：**开局生成也绝不能动主随机流** ——
+  // 波次刷怪的落点、怪种权重全按顺序取数，这里插一次就等于把所有怪的站位整体挪一格。
+  // ★一张图三个神龛、三种祝福：`(序号 + 地图偏移) % 3` 保证三种各一处，
+  //   所以玩家在任何一个方向跑都能领到不同类型 —— 选择真的存在。
+  function shrineTypeAt(map, index) {
+    const list = C.SHRINES;
+    if (!list || !list.length) return 0;
+    const offset = Math.floor(affixHash(1, 1, map.id) * list.length) % list.length;
+    return list[(index + offset) % list.length].id;
+  }
+
+  // 领一个神龛：把祝福记到**踩到它的那个人**身上，然后重算属性。
+  // 返回 true = 生效（层数有涨），false = 已经到了上限（仍然会被吃掉）。
+  function applyShrine(w, p, typeId) {
+    const def = C.SHRINE_MAP[typeId];
+    if (!def) return false;                 // 表里没有的 id：当成普通垃圾，什么都不加
+    if (!p.shrines) p.shrines = {};
+
+    const cur = p.shrines[def.id] || 0;
+    const full = cur >= C.SHRINE_RULE.stackMax;
+    if (!full) p.shrines[def.id] = cur + 1;
+
+    // 踩之前的血量：补血要按**绝对量**算，见下面那段。
+    const hpBefore = p.hp;
+
+    // ★属性重算走 w.player 上下文（与 applyLevelHp / 商店买 buff 同一套做法）。
+    //   不切的话，联机里会拿「自己」的属性去重算别人 —— 表现是「队友领了神龛，
+    //   我的伤害变了」，这种只在联机复现的问题最难查。
+    const prevCtx = w.player;
+    setCtx(w, p);
+    recalcAttrs(w);
+    if (prevCtx && prevCtx !== p) setCtx(w, prevCtx);
+
+    // 厚土之龛除了抬上限还要当场补血：只抬上限的话，残血玩家踩上去
+    // 看到的「上限涨了、当前血没动」，会觉得这个祝福没用。
+    // ★★补血用**绝对量**（踩之前的血量 + 25），不吃 recalcAttrs 的比例校正结果。
+    //   recalcAttrs 里换被动/升级的语义是「上限变了，当前血按比例伸缩」；
+    //   而「补 25 点」是绝对量。混着用会得到「说好补 25，实际补了 33」
+    //   —— 和 applyLevelHp 当初必须绕开比例校正的原因完全一样。
+    if (!full && def.hp && p.alive) {
+      const target = Math.min(p.maxHp, hpBefore + def.hp);
+      if (target > p.hp) {
+        p.stats.healed += target - p.hp;
+        p.hp = target;
+      }
+    }
+
+    w.events.push({
+      type: 'shrine', slot: p.slot, name: p.name,
+      shrine: def.id, shrineName: def.name, hint: def.hint,
+      // 满层时也播报一句，但要说清「没再加」—— 否则玩家会以为祝福丢了
+      level: p.shrines[def.id] || cur, full: full ? 1 : 0
+    });
+    return !full;
+  }
 
   function updatePickups(w, dt) {
     const list = w.pickups;
@@ -2331,7 +4239,12 @@
       // 进入拾取半径直接吃；在吸引范围内则被吸过来
       if (d <= pickupR) {
         if (it.kind === 'exp') {
-          gainExp(w, it.value * p.attrs.expMul);
+          // 赤月（第三十九轮）：经验球价值 ×expMul —— 这是「顶着怪潮清」的回报。
+          // ★乘在「吃进去的那一刻」而不是「生成的那一刻」：
+          //   赤月结束时地上还躺着一堆球，若按生成时算，玩家会看到
+          //   「同一个球，赤月里吃 13 点、赤月后吃 10 点」——同一颗球两个价，最难解释。
+          const moonExp = w.moonOn ? C.BLOOD_MOON.expMul : 1;
+          gainExp(w, it.value * p.attrs.expMul * moonExp);
         } else if (it.kind === 'gold') {
           // 难度金币倍率在这里乘，而不是结算时再乘：
           // 让 HUD 上跳的数字、结算面板里的数字、落库的数字永远是同一个 ——
@@ -2365,14 +4278,27 @@
           // 由 chooseLevelUp 选完自动接着开 —— 不会丢。
           openLevelUp(w);
           w.events.push({ type: 'chest_open', slot: p.slot, name: p.name });
+        } else if (it.kind === 'shrine') {
+          // 上古神龛（第三十五轮）：踩上去就领，不弹面板（理由见 const.js 的 SHRINES 段）。
+          // 祝福记在 p 身上、由 recalcAttrs 汇总，所以升级/进化/买buff 都不会把它弄丢。
+          applyShrine(w, p, it.value);
+        } else if (it.kind === 'pact') {
+          // 血祭坛（第四十三轮）：踩上去签一次契约（掉生命上限换伤害）。
+          // 【为什么被拒绝时要「写回数组」】拒绝不该有代价 —— 祭坛必须留在原地，
+          //   让玩家回血后再回来（18 秒内）。成功则**不写回** = 它被吃掉了。
+          if (!applyPact(w, p, it)) {
+            list[write++] = it;
+            continue;
+          }
+          continue;
         }
         continue;
       }
 
-      // 【宝箱刻意不被磁石吸走】它是「要专门走过去拿的奖励」，
+      // 【宝箱 / 神龛 / 血祭坛刻意不被磁石吸走】它们都是「要专门走过去」的地面物件，
       // 会被自动吸过来的话，那一刻就消失了 —— 而整局里正好需要这么几个
-      // 「主动去捡」的瞬间。其余掉落物照旧吸附，别改。
-      if (it.kind === 'chest') {
+      // 「主动走过去」的瞬间。其余掉落物照旧吸附，别改。
+      if (it.kind === 'chest' || it.kind === 'shrine' || it.kind === 'pact') {
         list[write++] = it;
         continue;
       }
@@ -2731,6 +4657,24 @@
   }
 
   // 组装候选池：新武器 / 武器升级 / 新被动 / 被动升级 / 进化 / 组合技
+  // ---------- 升级卡上的「范围变化」提示（第四十四轮） ----------
+  // 【为什么要显示绝对值而不是百分比】武器的 range 是绝对值，量级从 6 到 680 都有：
+  //   写「+8%」玩家根本换算不出来，写「88→95」他一眼就知道宽了多少。
+  // 【为什么只给武器卡写】被动卡（千里镜）影响的是**全体**武器，
+  //   在单张卡上写「你所有武器都变宽」会挤掉「配哪把武器能进化」的配方说明；
+  //   而且它的效果在 HUD 的「范围倍率」那一行本来就能直接看到。
+  // 【为什么必须乘 rangeMul】玩家手上可能已经有千里镜：只按底值算会显示「88→95」，
+  //   而他实际感受到的是 176→190 —— 卡片上的数字和手感对不上，比不显示更糟。
+  // 【为什么可能返回空串】射程几百的武器升一级也只宽几个像素，圆整后会相等；
+  //   这时候与其显示「范围 460→460」，不如什么都不写。
+  function rangeDeltaText(def, level, rangeMul) {
+    const mul = rangeMul || 1;
+    const now = Math.round(C.weaponStats(def, level).range * mul);
+    const next = Math.round(C.weaponStats(def, level + 1).range * mul);
+    if (next <= now) return '';
+    return '　范围 ' + now + '→' + next;
+  }
+
   function buildChoices(w) {
     const p = w.player;
     const pool = [];
@@ -2764,7 +4708,8 @@
         type: 'weapon_up',
         id: own.id,
         name: def.name,
-        desc: '等级 ' + own.level + ' → ' + (own.level + 1) + '　' + def.desc,
+        desc: '等级 ' + own.level + ' → ' + (own.level + 1) + '　' + def.desc
+          + rangeDeltaText(def, own.level, p.attrs.rangeMul),
         tag: '武器升级',
         // ★关联说明：练这件武器能通往哪（组合技 / 进化）。
         // 玩家在候选卡上问的其实是「我为什么该选它」——
@@ -3082,6 +5027,11 @@
     }
 
     // ---------- 1. 玩家移动（逐个玩家） ----------
+    // 血怒计时先走一轮（第三十八轮）：它必须在移动/开火之前更新，
+    // 这样这一帧的移速与伤害读到的是**刚刚好**的状态，不会出现
+    // 「最后一帧还在爆发、血条已经按没爆发算」这种一帧的错位。
+    for (let i = 0; i < players.length; i++) tickRage(w, players[i], dt);
+
     for (let i = 0; i < players.length; i++) {
       const p = players[i];
       if (!p.alive) continue;              // 阵亡的人不动（留给观战 / 重连）
@@ -3112,6 +5062,47 @@
       w.nextWaveTick = w.tick + Math.round(gapSec * C.TICK_HZ);
     }
 
+    // ---------- 2.2 挑战者（局内精英事件） ----------
+    // 【为什么放在波次后面】它要读 w.wave（血量按同一条曲线成长），
+    //   也要让「这一帧刚刷完一波」之后再插它 —— 否则同一帧里两个入口都在 push 怪，
+    //   排查「这只怪哪来的」时完全看不出先后。
+    maybeSpawnChallenger(w);
+
+    // ---------- 2.25 山魈（第四十一轮：召唤型妖物） ----------
+    // 【为什么紧挨着挑战者】两者都是「事件型精英」，共用同一套闸门与顺延规则；
+    //   放在一起，以后调「谁先出现」只看这两行。
+    // 【为什么在陨星之前】陨星要按「场上妖物最密处」选点，山魈刚召出来的那几只
+    //   也应该算进这一帧的密度里（差一帧无所谓，但顺序上先加怪再选点更自然）。
+    maybeSpawnSummoner(w);
+
+    // ---------- 2.27 双生妖（第四十五轮：同命相连的一对） ----------
+    // 【为什么紧跟在两个事件精英之后】三者共用同一套闸门与顺延规则，
+    //   摆在一起，以后调「谁先出现」只看这几行。
+    // 【为什么排在陨星之前】陨星按「场上妖物最密处」选点，这一帧刚进场的那两只
+    //   也该算进密度里（差一帧无所谓，但不能反过来让新怪不算数）。
+    maybeSpawnTwins(w);
+
+    // ---------- 2.3 陨星（第四十轮：局内小事件） ----------
+    // 【为什么排在挑战者之后、updateMobs 之前】它要读「怪现在挤在哪」，
+    //   而这一步用的是上一帧的位置 —— 相差一帧无所谓（1.8 秒预警里怪还在走）。
+    //   放在 updateMobs 之后就变成「用这一帧的新位置」，除了让断言更难对齐没有好处。
+    maybeSpawnMeteor(w);
+
+    // ---------- 2.35 地脉灵泉（第四十二轮：站桩充能） ----------
+    // 【为什么排在陨星之后】两者都是「往地上放一个点位」，灵泉是**请你去**、
+    //   陨星是**请你走**。放在同一段里，一眼能看出今天这两个点位的关系。
+    // 【为什么它不读怪的位置】泉眼锚在玩家身边，与场上密度无关 ——
+    //   所以它不像陨星那样有「这一帧刚刷完、场上还空着」的落空问题。
+    maybeSpawnLey(w);
+
+    // ---------- 2.4 血祭坛（第四十三轮：用生命上限换伤害） ----------
+    // 【为什么排在灵泉之后】两者都是「地上浮起一个点位请你过去」，但方向相反：
+    //   灵泉是白给的（站 2 秒换清场），血祭坛要你先付账（永久掉上限）。
+    //   摆在同一个位置，一眼能看出「今天这两个点位的关系」。
+    // 【为什么不读场上怪的位置】祭坛锚在玩家身边，与密度无关 ——
+    //   所以它没有陨星那种「这一帧刚刷完、场上是空的」落空问题。
+    maybeSpawnPact(w);
+
     // ---------- 2.5 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -3129,6 +5120,14 @@
       }
     }
 
+    // ---------- 2.6 赤月天象（第三十九轮） ----------
+    // 【为什么必须在 updateMobs 之前】它决定这一帧怪跑多快。
+    //   放在怪物 AI 之后的话，「赤月开始的那一帧」怪还按旧速度走一步 ——
+    //   一帧的错位没人看得见，但会让「正好 ×1.20」这类断言变成 ×1.19 的浮点争议。
+    // 【为什么不放在 spawnWave 里面】它跟波次节奏无关（100 秒 vs 30 秒），
+    //   而且冷却/持续是按帧推进的，塞进「只在波次到来时才跑」的函数里就永远不会结束。
+    tickMoon(w);
+
     // ---------- 3. 怪物 AI ----------
     updateMobs(w, dt);
 
@@ -3144,6 +5143,12 @@
     // 这几个是全局的：实体各自带 owner，函数内部自己切上下文
     updateProjectiles(w, dt);
     updateZones(w, dt);
+    // ★灵泉排在 updateStrikes **之前**：它自己推进 life、自己判充能满、
+    //   自己把爆掉的那座从数组里摘掉（updateStrikes 只负责「跳过 kind==='ley'」，
+    //   两条路径互不重叠）。顺序定成这样是为了「同帧一致性」：
+    //   这一帧爆掉的灵泉必须在打包快照**之前**就消失，否则客户端会收到
+    //   一条「已经爆过、进度还是满的」灵泉，画面上就是地上一圈空环不散。
+    updateLeys(w, dt);
     updateStrikes(w, dt);
     updateOrbits(w, dt);
     updateEnemyShots(w, dt);
@@ -3175,6 +5180,13 @@
     // ---------- 7. 掉落拾取 ----------
     updatePickups(w, dt);
 
+    // ---------- 7.5 双生妖的同命倒计时（第四十五轮） ----------
+    // 【为什么必须在 8 之前】复活要 spawnMob 一只新的，而 8 会压掉死怪；
+    //   两个都是「整理 mobs 数组」的动作，先让复活把新怪放进去，再统一压缩。
+    // 【为什么不在第 2 段】它不是「到点生成」，而是「上一只倒下才开始的计时」——
+    //   排期段只负责「什么时候来一对新的」。
+    updateTwins(w);
+
     // ---------- 8. 清理死怪（每帧就地压缩，避免数组无限增长） ----------
     compactMobs(w);
 
@@ -3204,7 +5216,11 @@
 
     // 位移走「带地形碰撞」的版本：撞到障碍时自动沿墙滑行，
     // 而不是一头扎进墙里。地图上没有障碍时它退化成普通加法，开销可忽略。
-    moveWithObstacles(w, p, mx * p.attrs.speed * dt, my * p.attrs.speed * dt);
+    // ★血怒的移速加成（第三十八轮）乘在这里，**不写回 attrs**：
+    //   attrs.speed 是「面板上的那个数」，每级都在变、还要给暂停面板看；
+    //   把临时状态写进去，就得在每个「可能结束的时刻」记得改回来（漏一处就是永久加速）。
+    const spd = p.attrs.speed * (p.rage > 0 ? C.RAGE.speedMul : 1);
+    moveWithObstacles(w, p, mx * spd * dt, my * spd * dt);
 
     // 地图边界
     p.x = clamp(p.x, p.r, w.map.w - p.r);
@@ -3344,6 +5360,55 @@
   // 取一份给界面用的只读快照。
   // player 省略时取「自己」—— P1 与现有界面的调用方式完全不变；
   // 联机时服务端要为每个玩家各生成一份，就把对应的那个玩家对象传进来。
+  // 本局总结（第三十六轮）：结算页的「伤害构成」、图鉴与成就入账都读这份。
+  //
+  // 【为什么不塞进 getHud】HUD 是 20Hz 同步的，而这份数据一局只用一次；
+  //   dmgBy / killsBy 加起来十几个键，跟着 HUD 每帧传纯属浪费带宽。
+  //   单独一个函数，界面上「世界结束那一刻」取一次即可。
+  //
+  // 【字段说明】dmgList 已经按伤害降序排好 —— 模板里 v-for 直接画，
+  //   不要把排序写进模板（Vue 模板里带参调用 computed 会白屏，项目踩过）。
+  function runSummary(w, player) {
+    const p = player || w.self || w.player;
+    const weapons = [];
+    let evolutions = 0;
+    for (let i = 0; i < p.weapons.length; i++) {
+      const def = C.WEAPON_MAP[p.weapons[i].id];
+      const evolved = !!(def && def.evolved);
+      if (evolved) evolutions += 1;
+      weapons.push({ id: p.weapons[i].id, level: p.weapons[i].level, evolved: evolved });
+    }
+
+    const dmgBy = p.stats.dmgBy || {};
+    const dmgList = [];
+    const keys = Object.keys(dmgBy);
+    for (let i = 0; i < keys.length; i++) {
+      dmgList.push({ src: keys[i], dmg: Math.round(dmgBy[keys[i]]) });
+    }
+    dmgList.sort(function (a, b) { return b.dmg - a.dmg; });
+
+    return {
+      kills: p.stats.kills,
+      gold: p.stats.gold,
+      dmgDealt: Math.round(p.stats.dmgDealt),
+      dmgList: dmgList,
+      killsBy: p.stats.killsBy || {},
+      challengers: p.stats.challengers || 0,
+      level: p.level,
+      wave: w.wave,
+      time: Math.round(w.time),
+      won: !!w.won,
+      weapons: weapons,
+      combos: (p.combos || []).length,
+      evolutions: evolutions,
+      shrineKinds: p.shrines ? Object.keys(p.shrines).length : 0,
+      charId: p.charId,
+      mapId: w.map ? w.map.id : '',
+      campaign: !!w.storyStage,
+      stageId: w.storyStage ? w.storyStage.id : ''
+    };
+  }
+
   function getHud(w, player) {
     const p = player || w.self || w.player;
     const weapons = [];
@@ -3422,6 +5487,14 @@
       wave: w.wave,
       mobCount: w.aliveMobCount,
       boss: boss,
+
+      // ---------- 赤月天象（第三十九轮）----------
+      // ★放在世界级而不是个人级：天色是**所有人共同**的，联机时四个人同进同出。
+      // on 用 0/1 而不是布尔：快照/存档里数字比布尔稳（两端真值语义一致）。
+      // left 给界面显示「还剩 N 秒」——界面自己算要重新推一遍排期公式，
+      // 两处公式迟早会不一致（地图名/关卡名就踩过「同一份内容两份副本」）。
+      moon: w.moonOn ? 1 : 0,
+      moonLeft: Math.max(0, Math.round((w.moonLeft || 0) * 10) / 10),
 
       // 当前关卡区域名。界面把它显示在波次旁边 ——
       // 「第 17 波」是个数字，「血月祭坛」才让玩家知道自己推进到哪了。
@@ -3557,6 +5630,8 @@
     step: step,
     chooseLevelUp: chooseLevelUp,
     getHud: getHud,
+    // 本局总结：结算页的伤害构成 + 局外存档入账（见函数头注释）
+    runSummary: runSummary,
     takeEvents: takeEvents,
     // 联机专用：中途加入 / 掉线离开
     addPlayer: addPlayer,
@@ -3581,7 +5656,67 @@
     //   依赖「跑 N 帧后场上还有怪」的断言很脆 —— 多人局火力足，怪常被清光，
     //   于是整块断言被静默跳过（0 FAIL，但覆盖度悄悄掉了，实测踩过）。
     spawnMob: spawnMob,
+    // ★导出词缀判定（第四十五轮）：要验「事件型精英一律不挂词缀」必须能直接问这一句，
+    //   而不是「刷 100 只然后数有几只有词缀」（那是概率抽样，不是断言）。
+    affixForSpawn: affixForSpawn,
+    // ★导出「刷一波」：词缀（变异怪）是按波抽签的，测试要能直接推进到某一波、
+    //   而不是「跑 120 秒等第 4 波自己来」—— 那种写法既慢又会因为中途升级/掉血
+    //   引入无关变量。注意：它不推进时间，只负责按当前波次刷怪。
+    spawnWave: spawnWave,
+    // ★导出挑战者入口：测试要能「直接触发一次」而不必真的跑满 75 秒 ——
+    //   跑满整段的写法在性能机上要几十秒，而且会顺带跑掉几十个波次，
+    //   引入一堆与本条无关的变量（升级、掉血、额度顶满）。
+    spawnChallenger: spawnChallenger,
+    maybeSpawnChallenger: maybeSpawnChallenger,
+    // ★导出赤月入口：测试要能在**精确的 tick** 上验「边沿只推一次事件」，
+    //   靠 step 跑到 180 秒既慢（3600 帧）又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    tickMoon: tickMoon,
+    // ★导出陨星入口（第四十轮）：要验「落点必须挑最密处」「圈外玩家一滴血不掉」
+    //   「天火不计连杀」，都得在精确的 tick 上手动触发一次 ——
+    //   靠 step 跑到 210 秒既慢又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    pickMeteorPoint: pickMeteorPoint,
+    spawnMeteor: spawnMeteor,
+    maybeSpawnMeteor: maybeSpawnMeteor,
+    // ★导出山魈入口（第四十一轮）：要验「它不贴脸」「一生只召 8 只」「定身时不召唤」，
+    //   靠 step 跑到 195 秒既慢又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    //   tickSummoner 单独导出，是为了能构造「一只被定住的山魈」这种只存在于局部状态的场景。
+    spawnSummoner: spawnSummoner,
+    maybeSpawnSummoner: maybeSpawnSummoner,
+    countAliveSummoners: countAliveSummoners,
+    tickSummoner: tickSummoner,
+    // ★导出地脉灵泉（第四十二轮）：要验「站不满 2 秒不爆」「离开就回落」
+    //   「16 秒没充能就安静消失」「圈外一滴血都不掉」，都得在精确的帧上手动推进 ——
+    //   靠 step 跑到 102 秒既慢又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    pickLeyPoint: pickLeyPoint,
+    spawnLey: spawnLey,
+    maybeSpawnLey: maybeSpawnLey,
+    updateLeys: updateLeys,
+    countAliveLeys: countAliveLeys,
+    // ---------- 血祭坛（第四十三轮）----------
+    // 逐个导出：测试要能「只造一座祭坛」而不跑整局（跑整局会被波次、事件、
+    // 自动升级面板一起搅进来，谁也说不清是哪一条让断言变红的）。
+    maybeSpawnPact: maybeSpawnPact,
+    spawnPact: spawnPact,
+    applyPact: applyPact,
+    // ---------- 双生妖（第四十五轮）----------
+    // 逐个导出：要验「6 秒窗口差一帧不算」「同帧两只都倒必须撤掉倒计时」
+    // 「复活的那只不许再复活」，都得在精确的 tick 上手动推进 ——
+    // 靠 step 跑 228 秒既慢，又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    maybeSpawnTwins: maybeSpawnTwins,
+    spawnTwins: spawnTwins,
+    onTwinKilled: onTwinKilled,
+    updateTwins: updateTwins,
+    countAliveTwins: countAliveTwins,
+    countAlivePacts: countAlivePacts,
+    // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
+    //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
+    spawnPickup: spawnPickup,
     // 局内商店（只在单机用，见 shopBuy 的注释）
-    shopBuy: shopBuy
+    shopBuy: shopBuy,
+    // ★导出范围文案拼装（第四十四轮）：要验「升级卡上真的写了范围变化」
+    //   以及「卡片上的数字必须算上千里镜」，只能直接对这个函数断言 ——
+    //   走「造经验球 → 升级 → 读 choices」这条路要连带跑拾取、加血、
+    //   暂停世界三件事，变量多且慢，验的东西其实一样。
+    rangeDeltaText: rangeDeltaText
   };
 });

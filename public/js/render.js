@@ -1118,7 +1118,16 @@
   // ★ 精灵工厂（makePixelSprite）不在这里 —— 它要用 makeSprite，
   //   而后者在下面的渲染闭包里。放在顶层会直接 ReferenceError。
   const PICKUP_PAL = {
-    exp: '#dae4ec', exp_big: '#f2c14e', gold: '#f2c14e', heart: '#d94a4a', chest: '#8a6415'
+    exp: '#dae4ec', exp_big: '#f2c14e', gold: '#f2c14e', heart: '#d94a4a', chest: '#8a6415',
+    // 神龛是石头：冷灰偏暖一点，压在暗红地面上才不会糊成一块
+    shrine: '#bdb6a4',
+    // 血祭坛（第四十三轮）：**同一张石龛素材**、换一套暗红调色板。
+    // ★为什么不另画一张素材：形状完全一样（一座石头台子），差别只在「这是什么」——
+    //   再抄一份矩阵只会多一个「改了一处忘了另一处」的机会；
+    //   而颜色是玩家第一眼分辨它们的依据，所以只在颜色上分开。
+    // ★比表里的 #b03a3a 再亮一点（#c2463c）：石台本体在暗红地面上本来就暗一档，
+    //   直接拿表里的值上色，截图里会糊成一坨深褐（实测第一版就是这样）。
+    pact: '#c2463c'
   };
 
   function paintGoldOrb(g, cx, cy, r) {
@@ -1797,6 +1806,12 @@
         if (!visible(z.x, z.y, z.r + 8)) continue;
 
         const evolved = z.color === '#ffd166';
+        // ★星火（第四十轮）：陨星砸出来的燃烧区。
+        //   它是全项目唯一一个「火」的区域，其余都是圣水 —— 如果照圣水那套画，
+        //   玩家看到的是一片冷灰的水洼（截图当场发现），语义完全相反。
+        //   所以这里按颜色分流：暖底 + 琥珀虚线环 + 不铺涟漪贴花。
+        //   ★颜色仍然是数据（z.color），不是在这里写死一个隐形的 if (kind === ...)。
+        const isFire = z.color === '#ff8c42';
         // 剩余时间越少画得越淡，给玩家「快没了」的提示
         const fade = Math.min(1, z.life / Math.max(0.001, z.maxLife));
         const pulse = 1 + Math.sin(t * 4 + i * 1.7) * 0.035;
@@ -1809,7 +1824,7 @@
         //   效果只是表现，区域的伤害/范围/寿命一概没变。
         //   库没加载或没就绪时这里返回 false，下面那套三同心圆照常画，等于自动降级。
         const PR = window.VS.PropLayer;
-        if (PR && PR.drawDecal) {
+        if (!isFire && PR && PR.drawDecal) {
           PR.drawDecal(ctx, {
             key: 'zone' + z.id,
             kind: 'ripples',
@@ -1822,13 +1837,22 @@
         }
 
         ctx.globalAlpha = 0.42 + 0.5 * fade;
-        ctx.fillStyle = evolved ? COLOR.zoneFillEvolved : COLOR.zoneFill;
+        if (isFire) {
+          // 中心亮、边缘暗的暖光：看起来像「地上还在烧」，而不是一汪水
+          const fg = ctx.createRadialGradient(z.x, z.y, z.r * 0.15, z.x, z.y, z.r * pulse);
+          fg.addColorStop(0, 'rgba(255,190,110,0.55)');
+          fg.addColorStop(0.55, 'rgba(214,88,42,0.30)');
+          fg.addColorStop(1, 'rgba(120,32,18,0.05)');
+          ctx.fillStyle = fg;
+        } else {
+          ctx.fillStyle = evolved ? COLOR.zoneFillEvolved : COLOR.zoneFill;
+        }
         ctx.beginPath();
         ctx.arc(z.x, z.y, z.r * pulse, 0, TAU);
         ctx.fill();
 
         // 旋转虚线环：save/restore 把 setLineDash 一起还原，避免漏出去影响后续描边
-        ctx.strokeStyle = evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge;
+        ctx.strokeStyle = isFire ? '#ffcf5c' : (evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge);
         ctx.lineWidth = 2;
         ctx.save();
         ctx.setLineDash([7, 5]);
@@ -1846,7 +1870,7 @@
 
         // 中心亮斑
         ctx.globalAlpha = 0.5 * fade;
-        ctx.fillStyle = evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge;
+        ctx.fillStyle = isFire ? '#ffcf5c' : (evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge);
         ctx.beginPath();
         ctx.arc(z.x, z.y, Math.max(3, z.r * 0.14) * pulse, 0, TAU);
         ctx.fill();
@@ -1868,14 +1892,188 @@
       let nExpBig = 0;
       let nOther = 0;
       let nChest = 0;
+      let nShrine = 0;
+      let nPact = 0;
       for (let i = 0; i < list.length; i++) {
         const it = list[i];
         if (!visible(it.x, it.y, 12)) continue;
         if (it.kind === 'exp') { if (it.big) nExpBig += 1; else nExp += 1; }
         else if (it.kind === 'chest') nChest += 1;
+        else if (it.kind === 'shrine') nShrine += 1;
+        else if (it.kind === 'pact') nPact += 1;
         else nOther += 1;
       }
-      if (!nExp && !nExpBig && !nOther && !nChest) return;
+      if (!nExp && !nExpBig && !nOther && !nChest && !nShrine && !nPact) return;
+
+      // ---------- 血祭坛（第四十三轮）----------
+      // 【为什么与神龛分开画】两者用的是同一张石台素材（见 pixel-sprites 的说明），
+      //   唯一的差别必须靠**画法**做出来，否则玩家会把「要付账的」当成「白给的」踩上去：
+      //     · 神龛：冷灰石台 + **向上**的金色光柱（有东西在往上冒）
+      //     · 血祭坛：暗红石台 + **倒悬**的血柱（有东西在往地里渗）+ 脚下一圈血色符环
+      //   方向相反是这里最省事也最好认的一条区分（一张图两个物件同时出现时，
+      //   玩家一眼就能分出「哪个是给我的、哪个是跟我要东西的」）。
+      // ★末尾 3 秒开始整体淡出：它是 18 秒就沉回去的临时点位，
+      //   不给这个预告的话，玩家走过去时它刚好消失，会以为是自己点错了。
+      if (nPact) {
+        const PC = (C && C.BLOODPACT) || { color: '#b03a3a', lifeSec: 18 };
+        const pulse = 0.5 + 0.5 * Math.sin((R._animT || 0) * 3.4);
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'pact') continue;
+          if (!visible(it.x, it.y, 56)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          const col = PC.color || '#b03a3a';
+          // 淡出：最后 3 秒线性收到 0.25（不给 0：完全消失会像「凭空没了」）
+          // ★联机时快照里的掉落物**不带 life**（字段表里没有它，见 proto_bin 的 pickups），
+          //   所以那时 fade 恒为 1 —— 宁可少了这个预告，也不为了它往协议里加一个字节：
+          //   祭坛总共只活 18 秒，玩家心里有数。
+          const fade = it.life === undefined ? 1 : Math.max(0.25, Math.min(1, it.life / 3));
+
+          // ① 脚下血色符环：比神龛那圈更"抖"（快速呼吸），暗示它是活的、会走
+          ctx.globalAlpha = (0.10 + pulse * 0.10) * fade;
+          ctx.fillStyle = col;
+          ctx.beginPath();
+          ctx.ellipse(x, y + 6, 32 + pulse * 4, 13 + pulse * 1.6, 0, 0, TAU);
+          ctx.fill();
+          ctx.globalAlpha = (0.55 + pulse * 0.3) * fade;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(x, y + 6, 32 + pulse * 4, 13 + pulse * 1.6, 0, 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // ② 倒悬血柱：从石台上方 20px 往下渗到地面（与神龛的上升光柱方向相反）。
+          //    ★用 createLinearGradient 且每帧重建（同屏最多一座，代价可忽略）。
+          //    ★透明度比神龛那道光柱高（0.42 vs 0.18）：它压在一块暗红地面上，
+          //      按神龛那套强度画出来几乎看不见（第一版截图里就是一片糊）。
+          const beamTop = y - 18;
+          const beamH = 70;
+          const g = ctx.createLinearGradient(x, beamTop, x, beamTop + beamH);
+          g.addColorStop(0, 'rgba(0,0,0,0)');
+          g.addColorStop(0.55, col);
+          g.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.globalAlpha = (0.42 + pulse * 0.22) * fade;
+          ctx.fillStyle = g;
+          ctx.fillRect(x - 9, beamTop, 18, beamH);
+          ctx.globalAlpha = 1;
+
+          // ③ 石台本体（暗红调色板那一张，见 PICKUP_PAL.pact）
+          const sp = R.pactSprite || (R.pactSprite = makePixelSprite('pact', 'pact', 3));
+          if (sp) {
+            ctx.globalAlpha = fade;
+            ctx.drawImage(sp.cv, Math.round(x - sp.hw), Math.round(y - sp.hh) + 4,
+              sp.hw * 2, sp.hh * 2);
+            ctx.globalAlpha = 1;
+          }
+
+          // ④ 顶上的菱形符文：与神龛同一个造型、同一个位置，**颜色不同**——
+          //    「这是一类东西（可以走上去领的点位），但不是同一种」。
+          const by = y - 52 + Math.sin((R._animT || 0) * 3.0) * 2;
+          ctx.globalAlpha = 0.85 * fade;
+          ctx.beginPath();
+          ctx.moveTo(x, by - 7);
+          ctx.lineTo(x + 6, by);
+          ctx.lineTo(x, by + 7);
+          ctx.lineTo(x - 6, by);
+          ctx.closePath();
+          ctx.fillStyle = col;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = 'rgba(16,10,10,0.75)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // ⑤ 名字：血祭坛是**要付代价**的，光看颜色不够 —— 必须让它自己说出身份，
+          //    否则玩家会以为又是一座白给的神龛，踩上去掉上限才发现不对。
+          //    ★跟着 fade 一起淡出，但**不设「淡到一定程度就不画」的阈值**：
+          //      第一版写了 `if (fade > 0.5)`，结果剩 1.5 秒时名字会「啪」一下消失
+          //      （刚好跨过阈值那一帧），看着像渲染出错。渐隐才是它该有的样子。
+          //    ★save/restore 必须成对：字体与对齐是画布全局状态，漏了 restore
+          //      后面所有伤害飘字都会跟着歪（挑战者那一轮踩过同款）。
+          ctx.save();
+          ctx.globalAlpha = 0.9 * fade;
+          ctx.font = '11px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          ctx.fillStyle = 'rgba(0,0,0,0.66)';
+          ctx.fillText(PC.name || '血祭坛', x + 1, by - 12 + 1);
+          ctx.fillStyle = col;
+          ctx.fillText(PC.name || '血祭坛', x, by - 12);
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ---------- 上古神龛（第三十五轮）----------
+      // 【为什么和宝箱完全分开画】两者都是「走上去才生效」的地面物件，但语义不同：
+      //   宝箱是「捡走的一件东西」，神龛是「站在那儿的一座石龛」。画得一样的话，
+      //   玩家会以为神龛也能打开、或者以为宝箱领了就没了 —— 视觉必须能区分。
+      // 三层：脚下符文圈（类型色）→ 上升光柱 → 石龛本体（复用障碍物那套 20×20 像素素材）。
+      // 每张图只有 3 个，不做合批，逐个画。
+      if (nShrine) {
+        const pulse = 0.5 + 0.5 * Math.sin((R._animT || 0) * 2.6);
+        const smap = (C && C.SHRINE_MAP) || null;
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'shrine') continue;
+          if (!visible(it.x, it.y, 52)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          const def = smap ? smap[it.value] : null;
+          const col = (def && def.color) || '#c9a96a';
+
+          // ① 脚下符文圈：比宝箱光环更大更"稳"（宝箱是呼吸的光晕，神龛是刻在地上的圈）
+          ctx.beginPath();
+          ctx.ellipse(x, y + 6, 30 + pulse * 3, 12 + pulse * 1.2, 0, 0, TAU);
+          ctx.fillStyle = col;
+          ctx.globalAlpha = 0.10 + pulse * 0.06;
+          ctx.fill();
+          ctx.globalAlpha = 0.55 + pulse * 0.25;
+          ctx.strokeStyle = col;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // ② 上升光柱：一条竖直渐变，表示「这里有东西在往上冒」。
+          //    ★必须用 createLinearGradient 且每帧重建（只有 3 个，代价可忽略）；
+          //      用固定纯色矩形会像一块贴上去的色块，不像光。
+          const beamH = 84;
+          const g = ctx.createLinearGradient(x, y - beamH, x, y + 4);
+          g.addColorStop(0, 'rgba(0,0,0,0)');
+          g.addColorStop(1, col);
+          ctx.globalAlpha = 0.18 + pulse * 0.12;
+          ctx.fillStyle = g;
+          ctx.fillRect(x - 8, y - beamH, 16, beamH + 4);
+          ctx.globalAlpha = 1;
+
+          // ③ 石龛本体（像素素材）。★往下偏 4px：素材底下留了几行空白当"落地阴影"，
+          //    直接按中心画会看着飘在地面上方。
+          const sp = R.shrineSprite || (R.shrineSprite = makePixelSprite('shrine', 'shrine', 3));
+          if (sp) {
+            ctx.drawImage(sp.cv, Math.round(x - sp.hw), Math.round(y - sp.hh) + 4,
+              sp.hw * 2, sp.hh * 2);
+          }
+
+          // ④ 顶上的菱形符文：类型色的唯一"标识物"——三座龛的石龛本体是同一张素材，
+          //    只有这个菱形和光柱颜色不同，所以它必须清楚（描边 + 实心两层）。
+          const by = y - 52 + Math.sin((R._animT || 0) * 2.2) * 3;
+          ctx.beginPath();
+          ctx.moveTo(x, by - 7);
+          ctx.lineTo(x + 6, by);
+          ctx.lineTo(x, by + 7);
+          ctx.lineTo(x - 6, by);
+          ctx.closePath();
+          ctx.fillStyle = col;
+          ctx.globalAlpha = 0.85;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = 'rgba(16,10,10,0.75)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+        }
+      }
 
       // 宝箱最先画（在最底层）：它是全场最该被看见的东西，
       // 压在别的掉落物下面也比被金币盖住强。光晕带呼吸节奏，静止的箱子在怪堆里认不出来。
@@ -1974,7 +2172,7 @@
       if (nOther) {
         for (let i = 0; i < list.length; i++) {
           const it = list[i];
-          if (it.kind === 'exp') continue;
+          if (it.kind !== 'gold' && it.kind !== 'heart') continue;
           if (!visible(it.x, it.y, 14)) continue;
 
           const x = lerp(it.px, it.x, alpha);
@@ -2131,7 +2329,105 @@
         ctx.fill();
       }
 
-      // ---------- 第二遍：本体 ----------
+      // ---------- 第二遍：词缀标记环（只给变异怪画） ----------
+      // 【为什么用脚下的环，而不是给精灵染色】精灵是烘好的像素图，染色会糊掉细节；
+      //   而且后期同屏几百只怪，整屏泛红等于没标记 —— 一个亮色环在暗红地面上最扎眼。
+      // 带词缀的怪只占几个百分点，这一遍几乎不花时间，不做合批（合批反而要单独路径）。
+      // ★颜色一律取 AFFIX_MAP 里的值，不在这里写死：数据层只允许暗红/琥珀/冷灰三系，
+      //   写死一处颜色以后就会和表里的值慢慢漂移（同一个词缀两种颜色）。
+      const affixMap = (C && C.AFFIX_MAP) || null;
+      if (affixMap) {
+        for (let i = 0; i < list.length; i++) {
+          const m = list[i];
+          if (!m.alive || !m.affix) continue;
+          const af = affixMap[m.affix];
+          if (!af) continue;
+          const pack = art[m.defId];
+          if (!pack) continue;
+          if (!visible(m.x, m.y, m.def.r + 24)) continue;
+          const ax = lerp(m.px, m.x, alpha);
+          const ay = lerp(m.py, m.y, alpha);
+          // ★半径取精灵实际半宽（pack.body.hw），不是逻辑半径 r ——
+          //   换成像素画风之后视觉宽度不等于 2.4r，用 r 画会让环套在怪身上或飘在怪外面。
+          //   ×1.15 是实测出来的：1.02 时环贴着脚边、混战里几乎看不见（截图复核过）。
+          const rr = pack.body.hw * 1.15;
+          // 先铺一层很淡的填充（地面上的"光晕"），再压一道细描边：
+          // 只有描边的话在暗红地面上偏细，只有填充的话边界糊。两个一起才「一眼能认出是环」。
+          ctx.beginPath();
+          ctx.ellipse(ax, ay + pack.body.hh * 0.46, rr, rr * 0.4, 0, 0, TAU);
+          ctx.fillStyle = af.color;
+          ctx.globalAlpha = 0.12;
+          ctx.fill();
+          ctx.globalAlpha = 0.9;
+          ctx.strokeStyle = af.color;
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ---------- 第二遍半：事件精英的标记环 + 名牌（挑战者 / 山魈） ----------
+      // 【为什么要单独画】挑战者混在几百只怪里，靠血条区分是不够的：
+      //   血条是「被打过之后」才明显的东西，而玩家需要在**看见它的第一帧**就知道
+      //   「这只值一个宝箱，值得掉头」。所以给它三道标记：双环 + 呼吸的描边 + 名牌。
+      // 第四十一轮把这一遍扩成「所有事件精英」：山魈同样需要在第一帧被认出来 ——
+      // 玩家盯着屏幕中间打怪，不会注意到两百多像素外那只绕着走的。
+      // ★两种标记的颜色写死在这里是**故意的**：词缀环的颜色来自 AFFIX_MAP（数据驱动），
+      //   但事件精英的标记是「界面对世界的承诺」，不该被以后改词缀表的人顺手改掉。
+      for (let i = 0; i < list.length; i++) {
+        const m = list[i];
+        if (!m.alive || !m.def) continue;
+        // 挑战者 = 琥珀金「值得掉头去收的宝箱」；山魈 = 暗红偏橙「必须点掉的靶子」；
+        // 双生妖（第四十五轮）= 冷青灰「这一对必须一起收」——
+        //   它的标记必须和另外两个都不同色，否则玩家会把「先打死它」当成正常打法。
+        const mkColor = m.def.challenger ? '#f2c14e'
+          : (m.def.summoner ? '#e0673f' : (m.def.twins ? '#8fb6c8' : null));
+        if (!mkColor) continue;
+        const mkLabel = m.def.challenger ? '挑战者'
+          : (m.def.summoner ? (m.def.name || '山魈') : (m.def.twins ? '双生' : (m.def.name || '')));
+        const pack = art[m.defId];
+        if (!pack) continue;
+        if (!visible(m.x, m.y, m.def.r + 40)) continue;
+        const cx = lerp(m.px, m.x, alpha);
+        const cy = lerp(m.py, m.y, alpha);
+        const rr = pack.body.hw * 1.3;
+        // 呼吸：0.75~1 之间缓慢起伏，让人一眼看出这是「活着的标记」而不是地形装饰
+        const pulse = 0.75 + 0.25 * Math.sin(R._frame ? R._frame * 0.08 : 0);
+        ctx.globalAlpha = 0.14 * pulse;
+        ctx.fillStyle = mkColor;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + pack.body.hh * 0.46, rr, rr * 0.42, 0, 0, TAU);
+        ctx.fill();
+        ctx.globalAlpha = 0.95;
+        ctx.strokeStyle = mkColor;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + pack.body.hh * 0.46, rr, rr * 0.42, 0, 0, TAU);
+        ctx.stroke();
+        // 外圈一道更细的虚线感（用低透明度的第二圈代替虚线，省 setLineDash 的状态切换）
+        ctx.globalAlpha = 0.45;
+        ctx.beginPath();
+        ctx.ellipse(cx, cy + pack.body.hh * 0.46, rr + 5, (rr + 5) * 0.42, 0, 0, TAU);
+        ctx.stroke();
+        // 名牌：画在头顶（血条再往上 16px）。
+        // ★这里必须 save/restore：字体、对齐方式、基线都是画布全局状态，
+        //   漏了 restore 会让后面所有文字（伤害飘字）跟着改字体与对齐 ——
+        //   表现是「一出现挑战者，全场伤害数字都歪了」，而且只在这一只活着时复现。
+        ctx.save();
+        const top = cy - pack.body.hh - 16;
+        ctx.globalAlpha = 0.95;
+        ctx.font = '11px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillStyle = 'rgba(0,0,0,0.66)';
+        ctx.fillText(mkLabel, cx + 1, top + 1);
+        ctx.fillStyle = mkColor;
+        ctx.fillText(mkLabel, cx, top);
+        ctx.restore();
+        ctx.globalAlpha = 1;
+      }
+
+      // ---------- 第三遍：本体 ----------
       const dm = R._dmgMap;
       const frame = R._frame;
       const AM = window.VS.ActorMotion;
@@ -2196,7 +2492,11 @@
 
           ctx.fillStyle = 'rgba(0,0,0,0.62)';
           ctx.fillRect(x - bw / 2 - 1, top - 1, bw + 2, bh + 2);
-          ctx.fillStyle = tier === 'boss' ? '#c93a3a' : (tier === 'commander' ? '#d9642f' : '#e08a3a');
+          ctx.fillStyle = tier === 'boss' ? '#c93a3a'
+            : (tier === 'commander' ? '#d9642f'
+            // 双生妖（第四十五轮）：血条跟着它自己的标记色走 ——
+            // 冷蓝的环配琥珀金的血条会让人以为是两只不同的怪。
+            : (m.def.challenger ? '#f2c14e' : (m.def.twins ? '#8fb6c8' : '#e08a3a')));
           ctx.fillRect(x - bw / 2, top, bw * ratio, bh);
 
           // 掉血了就飘一个数（渲染层自己比对上一帧血量，不改世界数据）
@@ -2383,6 +2683,166 @@
 
         const progress = 1 - Math.max(0, s.life) / Math.max(0.001, s.delay);
 
+        // ---------- 陨星（第四十轮） ----------
+        // 【要画清三件事】圈在哪、还有多久、砸下来的东西有多大。
+        //   少任何一样，玩家都会得出「这东西是随机掉的」这个错误结论 ——
+        //   而陨星的全部价值就在「1.8 秒内做出走位决定」。
+        // ★配色守项目约定：琥珀金 #ffcf5c / 橙红 #ff8c42，不用紫。
+        if (s.kind === 'meteor') {
+          const t = progress;                 // 0 → 1（预警开始 → 落地）
+          const fall = t * t;                 // 火球越接近终点越快（重力感）
+
+          // ① 圈内淡色填充：一眼看出「这个范围会挨打」
+          ctx.globalAlpha = 0.10 + 0.16 * t;
+          ctx.fillStyle = '#ff8c42';
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, TAU);
+          ctx.fill();
+
+          // ② 收缩的警示环：从 1.9 倍收到正好等于 r，收满即落地。
+          //    「环收到边缘」是所有玩家都认得的倒计时语言，不用写字。
+          ctx.globalAlpha = 0.95;
+          ctx.strokeStyle = '#ffcf5c';
+          ctx.lineWidth = 2 + 1.5 * t;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r * (1.9 - 0.9 * t), 0, TAU);
+          ctx.stroke();
+
+          // ③ 圈心十字：怪密的时候纯靠颜色分不出圆心在哪，十字给一个硬参照
+          const arm = 10 + 6 * t;
+          ctx.globalAlpha = 0.55;
+          ctx.beginPath();
+          ctx.moveTo(s.x - arm, s.y);
+          ctx.lineTo(s.x + arm, s.y);
+          ctx.moveTo(s.x, s.y - arm);
+          ctx.lineTo(s.x, s.y + arm);
+          ctx.stroke();
+
+          // ④ 火球：从上方 380px 竖直落下。
+          //   ★距离必须**小于屏幕半高**（1280×860 时半高 430）：第一版给了 560，
+          //     结果前一半预警时间里火球在屏幕外，玩家只看到一个空圈 ——
+          //     而「天上有个东西冲你砸下来」才是这条预警最有力的信息。
+          //   ★必须竖直 —— 斜抛会让玩家按「落点 = 火球正下方」算错位置。
+          const fy = s.y - 380 * (1 - fall);
+
+          // 光晕：让它在暗红地面上「发亮」，而不是一颗扁平的橙点
+          const glow = ctx.createRadialGradient(s.x, fy, 2, s.x, fy, 46);
+          glow.addColorStop(0, 'rgba(255,243,176,0.55)');
+          glow.addColorStop(0.45, 'rgba(255,140,66,0.28)');
+          glow.addColorStop(1, 'rgba(255,140,66,0)');
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(s.x, fy, 46, 0, TAU);
+          ctx.fill();
+
+          // 尾焰：沿竖直方向回看 5 段，越远越淡越小
+          for (let k = 5; k >= 1; k--) {
+            ctx.globalAlpha = 0.34 / k;
+            ctx.fillStyle = '#ff8c42';
+            ctx.beginPath();
+            ctx.arc(s.x, fy - k * 22, 14 - k * 1.8, 0, TAU);
+            ctx.fill();
+          }
+          ctx.globalAlpha = 0.75;
+          ctx.fillStyle = '#ff8c42';
+          ctx.beginPath();
+          ctx.arc(s.x, fy, 21, 0, TAU);
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#fff3b0';
+          ctx.beginPath();
+          ctx.arc(s.x, fy, 11, 0, TAU);
+          ctx.fill();
+          continue;
+        }
+
+        // ---------- 地脉灵泉（第四十二轮） ----------
+        // 【要画清三件事】圈在哪（站进去才有用）、充到几成（还差多少）、
+        //   爆了会多大（300 的前景承诺）。少任何一样，它就是一个「路过会发光的地贴」。
+        //
+        // ★进度不靠自己积分：服务端把「还差几秒充满」写在 s.delay 里，
+        //   两端算出来的进度必然一致（各自按玩家距离积分会飘）。
+        // ★配色 = 玉青 #5fe0b0（跨层契约，与火橙 / 圣水冷灰 / 进化琥珀金都分得开）。
+        //   项目禁紫禁紫蓝，这里用青绿表达「地脉灵气」，不碰紫。
+        if (s.kind === 'ley') {
+          const CH = (C.LEYLINE && C.LEYLINE.chargeSec) || 2;
+          // delay 是可选字段：充满那一帧服务端写 0 会被协议省略 → undefined 当 0 处理
+          const left = s.delay || 0;
+          let ratio = 1 - left / CH;
+          if (ratio < 0) ratio = 0;
+          if (ratio > 1) ratio = 1;
+
+          const t = R._animT || 0;
+
+          // ① 地面底色：越充能越亮（站进去能立刻看到「有反应」）
+          const glow = ctx.createRadialGradient(s.x, s.y, 2, s.x, s.y, s.r * 1.15);
+          glow.addColorStop(0, 'rgba(95,224,176,' + (0.10 + 0.30 * ratio).toFixed(3) + ')');
+          glow.addColorStop(0.6, 'rgba(95,224,176,' + (0.05 + 0.14 * ratio).toFixed(3) + ')');
+          glow.addColorStop(1, 'rgba(95,224,176,0)');
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r * 1.15, 0, TAU);
+          ctx.fill();
+
+          // ② 站桩圈：虚线圈 + 呼吸（圈是「站进这里」的唯一硬参照，不能省）
+          const pulse = 0.5 + 0.5 * Math.sin(t * 3.2);
+          ctx.globalAlpha = 0.45 + 0.30 * pulse;
+          ctx.strokeStyle = '#5fe0b0';
+          ctx.lineWidth = 1.6;
+          ctx.setLineDash([6, 6]);
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, TAU);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // ③ 进度环：从 12 点方向顺时针填满（填满即爆发，不用写字）
+          if (ratio > 0) {
+            ctx.globalAlpha = 0.95;
+            ctx.strokeStyle = '#b7ffe4';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r - 5, -Math.PI / 2, -Math.PI / 2 + TAU * ratio);
+            ctx.stroke();
+          }
+
+          // ④ 圈心三根「地脉符」：绕圈慢转，让静止的圈看起来是活的
+          ctx.globalAlpha = 0.55 + 0.35 * ratio;
+          ctx.fillStyle = '#8ff3cf';
+          for (let k = 0; k < 3; k++) {
+            const a = t * 0.9 + (k * TAU) / 3;
+            const rr = s.r * 0.52;
+            const gx = s.x + Math.cos(a) * rr;
+            const gy = s.y + Math.sin(a) * rr;
+            ctx.fillRect(gx - 2, gy - 7, 4, 14);
+          }
+
+          // ⑤ 上升的灵光：4 颗光点在圈内往上飘（纯表现，不影响判定）
+          for (let k = 0; k < 4; k++) {
+            const ph = (t * 0.55 + k * 0.25) % 1;
+            const a = (k * TAU) / 4 + t * 0.4;
+            const rr = s.r * (0.25 + 0.55 * ((k + 1) % 3) / 2);
+            ctx.globalAlpha = (1 - ph) * (0.35 + 0.45 * ratio);
+            ctx.beginPath();
+            ctx.arc(s.x + Math.cos(a) * rr, s.y + Math.sin(a) * rr - ph * 34, 2.2, 0, TAU);
+            ctx.fill();
+          }
+
+          // ⑥ 快满了：外圈再加一道亮环，给「还有半秒」一个明确的倒计时感
+          if (ratio > 0.75) {
+            const k2 = (ratio - 0.75) / 0.25;
+            ctx.globalAlpha = 0.25 + 0.55 * k2 * (0.5 + 0.5 * Math.sin(t * 18));
+            ctx.strokeStyle = '#eafff8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(s.x, s.y, s.r + 6 * k2, 0, TAU);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
         if (s.kind === 'parabola') {
           // 审判之锤：沿抛物线飞过去
           const t = progress;
@@ -2524,6 +2984,31 @@
           continue;
         }
 
+        if (e.kind === 'leyring') {
+          // 地脉冲击的**作用边界**（第四十二轮）。库里的符文阵只能铺到百来像素，
+          // 而这一下真的会打到 300 —— 边界画不出来，玩家就没法理解
+          // 「为什么站在边上没被扫到、往里半步就挨了」。
+          // ★这个 kind 在 pixelfx 里没有对应特效，所以一定落到这一支（不会被库吃掉）。
+          if (!visible(e.x, e.y, e.r)) continue;
+          const k = 1 - t;                       // 0 → 1：环从内往外推开
+          // ★亮度刻意比 e.color 更亮（#a8ffdd）：0.9 的 alpha 叠在暗红地面上，
+          //   直接用 #5fe0b0 会被压成一条灰绿细线，「边界」就看不出来了。
+          ctx.globalAlpha = t * 0.95;
+          ctx.strokeStyle = '#a8ffdd';
+          ctx.lineWidth = 3 + 6 * t;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (0.35 + 0.65 * k), 0, TAU);
+          ctx.stroke();
+          // 内圈再补一道细的：两道环一起走，扩散感比单环明显得多
+          ctx.globalAlpha = t * 0.45;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (0.2 + 0.8 * k), 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
         if (e.kind === 'boom') {
           // 【观感修正】原来是两层纯色圆盘硬叠，边缘是刀切一样的圆，
           // 远看就是"地上放了个橙色的圈"。改成两段径向渐变：
@@ -2537,23 +3022,45 @@
           const prevOp = ctx.globalCompositeOperation;
           ctx.globalCompositeOperation = 'lighter';
 
+          // ★第四十二轮：地脉冲击走**玉青**这一支（与陨星的火橙分开）。
+          //   【为什么必须分支而不是只换 e.color】这段原来是彻底写死的火色
+          //   （rgba(255,120,40) + 白热核心），传进来的 e.color 只用在别处 ——
+          //   灵泉直接用 boom 的话，画面上是一团**火**砸在地上，
+          //   而语义是「地脉灵气涌出来」，两者完全相反（与天火那一轮「圣水被画成水洼」同款坑）。
+          //   色值 #5fe0b0 是跨层契约，写在 const.js 的 LEYLINE.color 里。
+          const jade = e.color === '#5fe0b0';
+          const outer = jade ? 'rgba(95,224,176,0.42)' : 'rgba(255,120,40,0.42)';
+          const outerMid = jade ? 'rgba(95,224,176,0.20)' : 'rgba(255,120,40,0.22)';
+          const outerEnd = jade ? 'rgba(95,224,176,0)' : 'rgba(255,120,40,0)';
+
           const gOut = ctx.createRadialGradient(e.x, e.y, rIn * 0.7, e.x, e.y, rOut);
-          gOut.addColorStop(0, 'rgba(255,120,40,0.42)');
-          gOut.addColorStop(0.55, 'rgba(255,120,40,0.22)');
-          gOut.addColorStop(1, 'rgba(255,120,40,0)');
+          gOut.addColorStop(0, outer);
+          gOut.addColorStop(0.55, outerMid);
+          gOut.addColorStop(1, outerEnd);
           ctx.fillStyle = gOut;
           ctx.beginPath();
           ctx.arc(e.x, e.y, rOut, 0, TAU);
           ctx.fill();
 
           const gIn = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, rIn);
-          gIn.addColorStop(0, 'rgba(255,244,214,0.95)');   // 白热核心
-          gIn.addColorStop(0.45, rgbaOf(COLOR.boom, 0.85));
-          gIn.addColorStop(1, rgbaOf(COLOR.boom, 0.1));    // 外沿化开
+          gIn.addColorStop(0, jade ? 'rgba(226,255,246,0.95)' : 'rgba(255,244,214,0.95)');   // 白热核心
+          gIn.addColorStop(0.45, jade ? 'rgba(95,224,176,0.80)' : rgbaOf(COLOR.boom, 0.85));
+          gIn.addColorStop(1, jade ? 'rgba(95,224,176,0.10)' : rgbaOf(COLOR.boom, 0.1));    // 外沿化开
           ctx.fillStyle = gIn;
           ctx.beginPath();
           ctx.arc(e.x, e.y, rIn, 0, TAU);
           ctx.fill();
+
+          // 地脉冲击额外加一道「边界环」：r=300 这一下必须让玩家看见自己站到了多远，
+          // 只有一团中心光晕的话，「冲击半径 300」这件事在画面上没有边界。
+          if (jade) {
+            ctx.globalAlpha = t * 0.85;
+            ctx.strokeStyle = '#b7ffe4';
+            ctx.lineWidth = 2 + 3 * t;
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, e.r * (0.55 + 0.45 * (1 - t)), 0, TAU);
+            ctx.stroke();
+          }
 
           ctx.globalCompositeOperation = prevOp;
           ctx.globalAlpha = 1;
@@ -2588,6 +3095,70 @@
     // 配色沿用项目基调（暗红 / 琥珀金 / 冷灰），刻意避开紫色系。
     const TEAM_RING = ['#f2c14e', '#8fa3b8', '#c93a3a', '#e8dcc0'];
 
+    // ---------- 血怒（第三十八轮）的两种表现 ----------
+    // ① 攒连杀：脚下一段**琥珀金弧**，进度 = 连杀数 / 门槛（不画满就说明还差几口）。
+    // ② 血怒中：脚下一层暗红地面光晕 + 两道脉动血环（内实外虚）。
+    //
+    // ★为什么用「脚下光环」而不是顶栏进度条：窄屏 390 的顶栏已经没有余量
+    //   （hudalign 钉着 20 条布局断言），为一条临时状态去改顶栏是拿布局换功能。
+    //   而光环正好长在玩家一直盯着的地方 —— 自己脚下。
+    // ★为什么攒气的弧用琥珀金而不是红：低血量脉冲环已经是红的了（r+7 起），
+    //   两者都红的话「血怒中」和「快死了」在混战里分不出来，那是会害死人的歧义。
+    // ★队友也画（见 drawTeammate）：他们真的在爆发，伤害数字上也看得出来。
+    // ★★局部变量千万别叫 R：本文件的模块对象就叫 R，而下面脉动要读 R._animT
+    //   （动画时钟）。第一版写成 `const R = C.RAGE` 把模块对象遮住了 → R._animT 是
+    //   undefined → 半径与颜色全变 NaN → **Canvas 对非法圆弧半径是静默忽略的**，
+    //   一句错误都不报，画面就是"什么都没画"。这条只能靠放大截图看出来（已踩）。
+    function drawRageMark(p, x, y) {
+      if (!p || !p.alive) return;
+      const RG = C.RAGE;
+      const need = (RG && RG.needKills) || 12;
+
+      if ((p.rage || 0) > 0) {
+        // 地面光晕：先画，压在本体下面，看起来才像「从脚下烧起来」
+        const g = ctx.createRadialGradient(x, y, p.r * 0.4, x, y, p.r * 2.2);
+        g.addColorStop(0, 'rgba(201,58,58,0.30)');
+        g.addColorStop(1, 'rgba(201,58,58,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, p.r * 2.2, 0, TAU);
+        ctx.fill();
+
+        const pulse = 0.5 + 0.5 * Math.sin(R._animT * 9);
+        // ★半径必须离「低血量的贴身红环」（p.r+7 ~ p.r+10）足够远：
+        //   两者都是红的，半径又近的话，「血怒中」和「快死了」在混战里就是同一个画面。
+        //   现在：贴身的细红环 = 快死了；中圈粗红环 + 外圈金环 = 血怒中。两者同时出现也对。
+        ctx.strokeStyle = 'rgba(201,58,58,' + (0.45 + 0.35 * pulse).toFixed(3) + ')';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, p.r + 15 + pulse * 3, 0, TAU);
+        ctx.stroke();
+        // 外圈琥珀金、反向呼吸：金色是项目的「奖励」色，正好对上「这 8 秒是赚到的」
+        ctx.strokeStyle = 'rgba(242,193,78,' + (0.18 + 0.20 * (1 - pulse)).toFixed(3) + ')';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(x, y, p.r + 25 + pulse * 4, 0, TAU);
+        ctx.stroke();
+        return;
+      }
+
+      const streak = p.rageStreak || 0;
+      if (streak <= 0) return;
+      const k = Math.max(0, Math.min(1, streak / need));
+      // 底圈：让玩家知道「这里会有一段弧」，否则单看一小段弧像 UI 画歪了
+      ctx.strokeStyle = 'rgba(242,193,78,0.14)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, p.r + 18, 0, TAU);
+      ctx.stroke();
+      // 进度弧：从正上方顺时针
+      ctx.strokeStyle = 'rgba(242,193,78,0.75)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(x, y, p.r + 18, -Math.PI / 2, -Math.PI / 2 + TAU * k);
+      ctx.stroke();
+    }
+
     function drawTeammate(p, alpha) {
       const x = lerp(p.px, p.x, alpha);
       const y = lerp(p.py, p.y, alpha);
@@ -2610,6 +3181,10 @@
       ctx.beginPath();
       ctx.ellipse(x, y + p.r * 0.9, p.r * 1.25, p.r * 0.5, 0, 0, TAU);
       ctx.stroke();
+
+      // 血怒光环 / 连杀进度弧（第三十八轮）。队友身上也要有 ——
+      // 不然「他在爆发、我这边看不出来」，配合起来会莫名其妙。
+      if (!dead) drawRageMark(p, x, y);
 
       // 本体（死亡的不画受击闪白，直接压暗）
       // ★队友各用一条动画时钟（按 slot 分键），不会四个人整齐地一起迈步；
@@ -2718,6 +3293,10 @@
         ctx.arc(x, y, p.r + 7 + pulse * 3, 0, TAU);
         ctx.stroke();
       }
+
+      // 血怒光环 / 连杀进度弧（第三十八轮）。画在本体之前 —— 它是地面层的东西，
+      // 压在身上就会挡住角色轮廓（layertest 钉过「角色不许被特效盖住」）。
+      if (p.alive) drawRageMark(p, x, y);
 
       // 受击无敌时闪烁，给玩家反馈
       const blink = p.invuln > 0 && Math.floor(R._animT * 20) % 2 === 0;
@@ -2913,8 +3492,14 @@
         if (sh[0] || sh[1]) ctx.translate(sh[0], sh[1]);
       }
 
-      // 绘制顺序：贴地物件 -> 障碍 -> 立牌物件 -> 地面物 -> 特效 -> 怪 -> 敌弹 -> 玩家 -> 弹幕 -> 飘字
+      // 绘制顺序（第二十九轮调整过）：
+      //   贴地物件 -> 障碍 -> 立牌物件 -> 裂隙 -> 地面区域 -> 掉落 -> 落点 ->
+      //   技能特效 -> 怪 -> 敌弹 -> 技能弹幕 -> 环绕物 -> 队友 -> 玩家 -> 飘字
       // ★障碍在最底：怪撞不过它，画在怪之上就成了「怪躲在墙后」（假的）
+      // ★★角色（自己与队友）必须在**所有技能表现之上**：
+      //   原来把「玩家弹幕 / 环绕物」画在玩家之后，回旋刃和能量盘从身上掠过时
+      //   会把主角糊住 —— 玩家整局只盯一个人，那个人任何时候都不该被特效遮住。
+      //   弹幕从角色身上出发时会被角色盖住一两帧，这是可接受的代价（割草游戏都这么做）。
       if (PR) PR.drawGround(ctx, w, R);
       drawObstacles(w);
       // 立牌物件（火盆/喷泉/瀑布…）画在障碍之上、怪之下：
@@ -2928,12 +3513,14 @@
       drawEffects(w, alpha);
       drawMobs(w, alpha);
       drawEnemyShots(w, alpha);
-      // 队友与自己同一层级（怪之上、弹幕之下），画在自己之前 —— 自己被压在最上层
-      drawTeammates(w, alpha);
-      drawPlayer(w, alpha);
-      drawLevelPulse(w, alpha);
+      // 技能弹幕与环绕物：也是「技能表现」，画在角色之下
       drawProjectiles(w, alpha);
       drawOrbits(w, alpha);
+      // 队友与自己同一层级，队友先画（自己被压在最上面）
+      drawTeammates(w, alpha);
+      drawPlayer(w, alpha);
+      // 升级金环是加法混合的发光，压在最上只是提亮，不构成遮挡
+      drawLevelPulse(w, alpha);
       drawDamage();
 
       ctx.restore();

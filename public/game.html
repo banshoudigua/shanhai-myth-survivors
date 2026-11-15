@@ -37,6 +37,15 @@
     <!-- 这两层纯装饰、不吃鼠标，放在最前面让它压在最底下 -->
     <div class="hud-vignette"></div>
     <div class="hud-hurt" v-if="lowHp && (screen === 'playing' || screen === 'menu')"></div>
+    <!--
+      赤月天幕（第三十九轮）：整张图进入赤月时的全屏暗红。
+      【为什么是独立一层而不是画在 Canvas 里】画面层每帧都在重绘，
+      天幕要慢速脉动（2.6 秒一个周期），用 CSS 动画比每帧算一个 alpha 省得多，
+      而且它天然是「不吃鼠标」的 —— Canvas 上画一层半透明红，
+      还得自己保证不挡住点击（这个项目里点不到控件的坑踩过好几次）。
+      v-if="moonOn" 里的 moonOn 是 game.js 的 computed（已与 worldLive 挂钩）。
+    -->
+    <div class="hud-moon" v-if="moonOn"></div>
 
     <!-- 顶部状态条 -->
     <div class="hud-top">
@@ -861,6 +870,35 @@
           </div>
         </div>
 
+        <!-- 伤害构成回顾（第三十六轮）。
+             ★只列前 7 项（其余并成「其它」，见 game.js 的 settleRun）——
+               后期武器 + 组合技有十几项，全列出来会把面板顶出手机一屏。
+             ★占比的分母是**本局总伤害**，不是列表最大值：否则「加起来才 60%」像丢数据。 -->
+        <div class="dmg-review" v-if="runDmg.length">
+          <div class="dr-head">
+            <span>伤害构成</span>
+            <span class="dr-sum">共 {{ runTotal }}</span>
+          </div>
+          <div class="dr-row" v-for="d in runDmg" :key="d.src">
+            <span class="dr-name">{{ d.name }}</span>
+            <span class="dr-bar"><i :style="{ width: d.pct + '%' }"></i></span>
+            <span class="dr-num">{{ d.dmg }}<em>{{ d.pct }}%</em></span>
+          </div>
+        </div>
+
+        <!-- 局外成长：本局赚到的灵玉 + 新解锁的成就。
+             没有内容时整块不显示 —— 空标题比没有更难看。 -->
+        <div class="run-reward" v-if="runJade > 0 || runAch.length">
+          <div class="rr-jade" v-if="runJade > 0">
+            本局获得 <b>灵玉 +{{ runJade }}</b>
+            <span class="rr-hint">（大厅「山海榜」里点天赋）</span>
+          </div>
+          <div class="rr-ach" v-for="a in runAch" :key="a.id">
+            <span class="rr-tag">成就</span>
+            <b>{{ a.name }}</b>{{ a.desc }}
+          </div>
+        </div>
+
         <!-- 全队战绩：结算包里本来就带着每个人的数字，以前只显示了「我自己」那一份 -->
         <div class="result-team" v-if="resultList.length > 1">
           <div class="rt-head">本局战绩</div>
@@ -1055,6 +1093,9 @@
   <script src="/shared/proto_bin.js"></script>
   <!-- 头像图标集：队友头顶名牌要画它（与服务端共用同一份定义） -->
   <script src="/shared/avatars.js"></script>
+  <!-- 山海榜的数据表：山海谱天赋 / 成就 / 图鉴条目 / 伤害来源中文名。
+       只依赖 const.js，所以紧跟在共享数值表之后即可；game.js 与结算页要用它。 -->
+  <script src="/shared/codex.js"></script>
   <!-- 二维码：vendor 在本地，不走 CDN（项目硬约定） -->
   <script src="/vendor/qrcode.js"></script>
   <!-- 技能特效库 pixelfx（MIT，来源与许可见 /vendor/pixelfx/NOTICE.md）：
@@ -1104,6 +1145,11 @@
        ★必须在 game.js 之前 —— 顺序错了 game.js 拿到 undefined，
          而表现是「解锁门槛完全失效」（不报错，只是谁都能进最后一关）。 -->
   <script src="/js/story-progress.js"></script>
+  <!-- 山海榜的本地存档（图鉴 / 成就 / 灵玉 / 天赋等级）。
+       ★必须在 game.js 之前：开局的「山海谱加成」与结算入账都要读它。
+         顺序错了 game.js 拿到 undefined —— 表现是加成为 0（不报错、也不白屏），
+         属于最难查的那类静默失效，所以放在这里并写清原因。 -->
+  <script src="/js/progress.js"></script>
   <!-- 站点导航（History API）：goLobby 与「下一关」的地址拼装都读它。
        ★必须在 game.js 之前 —— game.js 挂载时就会调 goLobby（观战结束那条消息）。 -->
   <script src="/js/nav.js"></script>

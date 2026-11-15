@@ -46,7 +46,13 @@
         ★图上方留白是刻意生成的（prompt 里要求 plenty of dark empty space at top），
           标题「山海神话传」正好落在这块留白上。
       -->
-      <div class="hero-banner">
+      <!-- ★第二十九轮：登录/注册这一屏把横幅压扁（.hero-slim）。
+           原因不是审美，是手机上的「跳上跳下」：
+           横幅 133px 把登录卡推到 346px 开始，注册表单（5 个输入框）最后一个框
+           落在 881px —— 一屏只有 844（真机加浏览器栏约 730），于是每点一个输入框
+           浏览器都要滚一次；键盘一弹可视区再缩，浏览器又滚一次；失焦再滚回去。
+           压到 72px 之后整张卡基本在一屏内，根上就不需要滚。 -->
+      <div class="hero-banner" :class="{ 'hero-slim': view === 'auth' }">
         <img class="hero-img" src="/img/scene-out/lobby-banner.png" alt="山海神话 · 群雄逐鹿"
              loading="eager" decoding="async">
         <div class="hero-veil"></div>
@@ -134,12 +140,14 @@
               <div class="field">
                 <label>用户名</label>
                 <input class="input" v-model.trim="loginForm.username" maxlength="16"
-                       placeholder="请输入用户名" @keyup.enter="doLogin">
+                       placeholder="请输入用户名" autocomplete="username"
+                       autocapitalize="off" spellcheck="false" enterkeyhint="next" @keyup.enter="doLogin">
               </div>
               <div class="field">
                 <label>密码</label>
                 <input class="input" type="password" v-model="loginForm.password" maxlength="64"
-                       placeholder="请输入密码" @keyup.enter="doLogin">
+                       placeholder="请输入密码" autocomplete="current-password"
+                       enterkeyhint="go" @keyup.enter="doLogin">
               </div>
               <button class="btn btn-primary btn-block" @click="doLogin" :disabled="busy.login">
                 {{ busy.login ? '登录中...' : '登录' }}
@@ -151,22 +159,26 @@
               <div class="field">
                 <label>用户名（3-16 位，字母 / 数字 / 下划线 / 中文）</label>
                 <input class="input" v-model.trim="regForm.username" maxlength="16"
-                       placeholder="登录时使用" @keyup.enter="doRegister">
+                       placeholder="登录时使用" autocomplete="username"
+                       autocapitalize="off" spellcheck="false" enterkeyhint="next" @keyup.enter="doRegister">
               </div>
               <div class="field">
                 <label>游戏昵称（可留空，默认与用户名相同）</label>
                 <input class="input" v-model.trim="regForm.nickname" maxlength="12"
-                       placeholder="队友看到的名字" @keyup.enter="doRegister">
+                       placeholder="队友看到的名字" autocomplete="off"
+                       enterkeyhint="next" @keyup.enter="doRegister">
               </div>
               <div class="field">
                 <label>密码（至少 6 位）</label>
                 <input class="input" type="password" v-model="regForm.password" maxlength="64"
-                       placeholder="请输入密码" @keyup.enter="doRegister">
+                       placeholder="请输入密码" autocomplete="new-password"
+                       enterkeyhint="next" @keyup.enter="doRegister">
               </div>
               <div class="field">
                 <label>确认密码</label>
                 <input class="input" type="password" v-model="regForm.password2" maxlength="64"
-                       placeholder="再输一次" @keyup.enter="doRegister">
+                       placeholder="再输一次" autocomplete="new-password"
+                       enterkeyhint="done" @keyup.enter="doRegister">
               </div>
               <button class="btn btn-primary btn-block" @click="doRegister" :disabled="busy.register">
                 {{ busy.register ? '注册中...' : '注册并进入' }}
@@ -179,7 +191,8 @@
             <div class="field">
               <label>不想注册？填个昵称直接开玩（战绩不保存）</label>
               <input class="input" v-model.trim="guestNickname" maxlength="12"
-                     placeholder="给自己起个名字" @keyup.enter="enterAsGuest">
+                     placeholder="给自己起个名字" autocomplete="off"
+                     enterkeyhint="go" @keyup.enter="enterAsGuest">
             </div>
             <button class="btn btn-gold btn-block" @click="enterAsGuest" :disabled="busy.guest">
               {{ busy.guest ? '进入中...' : '以游客身份进入' }}
@@ -399,6 +412,12 @@
                  两者都是「一个人打一局」，区别只在有没有故事——
                  摆在一起，玩家一眼就知道该选哪个（想随手玩就单人，想看故事就剧情）。 -->
             <button class="btn btn-story" @click="openStory">剧情模式</button>
+            <!-- 山海榜（图鉴 / 成就 / 山海谱）。
+                 与「剧情模式」并排：两者都是「不打一局也能看」的东西，
+                 摆在一起玩家才会顺手点进去；单独放一个角落几乎不会被发现。 -->
+            <button class="btn btn-hall" @click="openHall('codex')">
+              山海榜<span class="btn-badge" v-if="hallJade > 0">{{ hallJade }}</span>
+            </button>
           </div>
         </div>
 
@@ -666,6 +685,90 @@
       </div>
     </div>
 
+    <!-- ==================== 山海榜（图鉴 / 成就 / 山海谱） ==================== -->
+    <!--
+      ★为什么三块合成一个弹层：它们共享「灵玉」这一条线（打一局 → 赚灵玉 → 点天赋），
+        也共享「这局之前的积累」这个心智。拆成三个入口，玩家会以为它们是三套系统。
+      ★弹层结构与 .story-mask 一致：不用 align-items:center（面板比视口高时滚不回来，
+        项目踩过两次），靠 margin:auto 居中 + 整块可滚动。
+      ★列表一律 flex:0 0 auto —— 触摸设备上按钮有 44px 下限，flex 项会被压扁。
+    -->
+    <div class="hall-mask" v-if="hallOpen">
+      <div class="hall-box">
+        <h2>
+          山海<em>榜</em>
+          <span class="hall-jade">灵玉 <b>{{ hallJade }}</b></span>
+          <button class="btn btn-sm hall-close" @click="closeHall">收起</button>
+        </h2>
+
+        <div class="hall-tabs">
+          <button class="hall-tab" :class="{ on: hallTab === 'codex' }" @click="hallTab = 'codex'">图鉴</button>
+          <button class="hall-tab" :class="{ on: hallTab === 'ach' }" @click="hallTab = 'ach'">成就</button>
+          <button class="hall-tab" :class="{ on: hallTab === 'tal' }" @click="hallTab = 'tal'">山海谱</button>
+        </div>
+
+        <!-- ---------- 图鉴：妖物 + 武器精通 ---------- -->
+        <div class="hall-body" v-if="hallTab === 'codex'">
+          <div class="hall-sec">
+            妖物收录 <b>{{ hallMobDone }}</b> / {{ hallMobs.length }}
+            <span class="hall-note">击杀过的会点亮</span>
+          </div>
+          <div class="hall-list">
+            <div class="hall-row" v-for="m in hallMobs" :key="m.id" :class="{ locked: !m.kills }">
+              <span class="hr-name">{{ m.name }}</span>
+              <span class="hr-tag" v-if="m.tierLabel">{{ m.tierLabel }}</span>
+              <span class="hr-num">{{ m.kills ? (m.kills + ' 击杀') : '未遭遇' }}</span>
+            </div>
+          </div>
+
+          <div class="hall-sec">
+            武器精通 <b>{{ hallWeaponDone }}</b> / {{ hallWeapons.length }}
+            <span class="hall-note">用过、通关都会算</span>
+          </div>
+          <div class="hall-list">
+            <div class="hall-row" v-for="w in hallWeapons" :key="w.id" :class="{ locked: !w.uses }">
+              <span class="hr-name">{{ w.name }}</span>
+              <span class="hr-tag">{{ w.lvName }}</span>
+              <span class="hr-num">{{ w.uses ? (w.uses + ' 局') : '未使用' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- 成就 ---------- -->
+        <div class="hall-body" v-if="hallTab === 'ach'">
+          <div class="hall-sec">
+            已解锁 <b>{{ hallAchDone }}</b> / {{ hallAchs.length }}
+            <span class="hall-note">结算时自动判定</span>
+          </div>
+          <div class="hall-list">
+            <div class="hall-row ach" v-for="a in hallAchs" :key="a.id" :class="{ locked: !a.got }">
+              <span class="hr-name">{{ a.name }}</span>
+              <span class="hr-num">{{ a.desc }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- 山海谱 ---------- -->
+        <div class="hall-body" v-if="hallTab === 'tal'">
+          <p class="hall-tip">
+            灵玉每局结算获得（击杀 ÷ 8 + 波次 × 2 + 通关 40）。
+            天赋<b>永久生效</b>，只在单机与剧情里算 —— 联机不比这个。
+          </p>
+          <div class="tal-row" v-for="t in hallTals" :key="t.id">
+            <div class="tal-info">
+              <span class="tal-name">{{ t.name }}<em>Lv{{ t.lv }}/{{ t.max }}</em></span>
+              <span class="tal-desc">{{ t.desc }}</span>
+            </div>
+            <button class="btn btn-sm" :class="t.maxed ? '' : 'btn-gold'"
+                    :disabled="!t.canBuy" @click="buyTal(t.id)">
+              {{ t.maxed ? '已满' : (t.cost + ' 灵玉') }}
+            </button>
+          </div>
+          <p class="hall-tip dim">累计投入 {{ hallTalSpent }} 灵玉 · 一共 {{ hallTalTotal }} 级</p>
+        </div>
+      </div>
+    </div>
+
     <!-- ==================== 邀请队友（扫码） ==================== -->
     <!-- 与对局页共用同一套结构，样式在 theme.css 的 .share-* -->
     <!-- 【别用 @click.self】本项目的 vue.global.prod.js 里没有 `_withModifiers`
@@ -706,9 +809,19 @@
        顺序：campaign 依赖 const/maps，story 依赖 campaign，nav 独立无依赖。 -->
   <script src="/shared/campaign.js"></script>
   <script src="/js/story-progress.js"></script>
+  <!-- 山海榜：数据表（天赋/成就/图鉴）与本地存档。
+       ★codex 只依赖 const.js；progress 依赖 codex（要拿成就表与精通判定）。
+       ★两者都必须在 lobby.js 之前 —— 顺序错了大厅拿到 undefined，
+         表现是「山海榜点开是空的」，不报错也不白屏（最难查的那类）。 -->
+  <script src="/shared/codex.js"></script>
+  <script src="/js/progress.js"></script>
   <!-- 站点导航（History API）：地址 /game 与「返回大厅不新压历史项」都在这里。
        必须排在 lobby.js 之前 —— lobby.js 的 mounted 一挂载就会读 window.VS.NAV。 -->
   <script src="/js/nav.js"></script>
+  <!-- 手机输入框聚焦修正（第二十九轮）：键盘弹起后把被挡住的输入框做一次最小位移，
+       避免「浏览器自己滚一次 + 键盘挤压再滚一次」的跳上跳下。
+       只在触摸设备上生效，依赖 visualViewport；不支持就静默跳过，不影响其它功能。 -->
+  <script src="/js/mobile-form.js"></script>
   <script src="/js/lobby.js"></script>
 </body>
 

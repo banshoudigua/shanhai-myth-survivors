@@ -21,6 +21,9 @@ const PB = require('../shared/proto_bin.js');
 const config = require('../server/config.js');
 const manager = require('../server/rooms/manager.js');
 const registry = require('../server/game/match.js');
+// 串池那段要直接扫 shared/sim.js 的源码（见 [D] 的说明），所以需要 fs/path
+const fs = require('node:fs');
+const path = require('node:path');
 
 let pass = 0;
 let fail = 0;
@@ -330,6 +333,29 @@ function testRoundTrip() {
   expect('可选字段确实被省掉了（静止怪的单包更小）', stillBytes.length < movingBytes.length,
     stillBytes.length + 'B vs ' + movingBytes.length + 'B');
 
+  // ---------- 词缀（变异怪）字段：必须能过协议，且普通怪不多占一个字节 ----------
+  // 【为什么要单独钉】affix 是可选字段，值为 0 时**不发送**：
+  //   ① 若漏进 SCHEMA，联机时只有主机看得到光环，队友看到的是普通怪（不同步）；
+  //   ② 若 0 也被编码，六七百只怪同屏每帧白烧一个字节 —— 属于「不报错的劣化」。
+  const plainAffix = JSON.parse(JSON.stringify(still));
+  for (let i = 0; i < plainAffix.mobs.length; i++) plainAffix.mobs[i].affix = 0;
+  const someAffix = JSON.parse(JSON.stringify(still));
+  let affixN = 0;
+  for (let i = 0; i < someAffix.mobs.length; i++) {
+    if (i % 3 === 0) { someAffix.mobs[i].affix = 2; affixN += 1; }
+  }
+  const bPlain = PB.encode(plainAffix, { key: true });
+  const bSome = PB.encode(someAffix, { key: true });
+  const dSome = PB.decode(bSome, null);
+  const affixKept = !!dSome && dSome.mobs.every(function (m, i) {
+    return m.affix === (i % 3 === 0 ? 2 : 0);
+  });
+  expect('★词缀 id 能原样过二进制协议（漏了字段 = 联机只有主机看得到光环）', affixKept,
+    dSome ? JSON.stringify({ n: dSome.mobs.length, a0: dSome.mobs[0].affix, a1: dSome.mobs[1].affix }) : 'decode null');
+  expect('★普通怪（affix=0）不多占字节（0 等于不发送）',
+    bPlain.length === stillBytes.length && bSome.length > bPlain.length,
+    '无词缀 ' + bPlain.length + 'B / 有词缀 ' + bSome.length + 'B（' + affixN + ' 只带词缀）');
+
   // 坏数据不能把页面搞崩：返回 null 就够了
   expect('magic 不对返回 null', PB.decode(new Uint8Array([0x7b, 0x22, 1, 2, 3, 4])) === null, 'should be null');
   expect('版本不对返回 null', PB.decode(new Uint8Array([PB.T_SNAP, 99, 0, 0, 0, 0, 0])) === null, 'should be null');
@@ -422,10 +448,27 @@ function testPool() {
   const chars = C.CHARACTERS || [];
   for (let i = 0; i < chars.length; i++) values.push(chars[i].id);
 
-  // kind：弹幕 / 掉落物 / 打击 / 区域 / 特效（sim.js 里的字面量）
-  ['arc', 'line', 'ring', 'homing', 'boomerang', 'parabola'].forEach(function (v) { values.push(v); });
-  ['exp', 'gold', 'heart'].forEach(function (v) { values.push(v); });
-  ['zone', 'strike', 'death', 'hitplayer', 'boom'].forEach(function (v) { values.push(v); });
+  // kind：**不再手写清单，直接从 shared/sim.js 的源码里捞**。
+  // 【为什么改成扫源码】原来这里是三行手写数组，结果 'hit'（弹幕撞墙）、'revive'（复活圈）、
+  //   'chest'（宝箱，第二十八轮才加的地图宝箱）三个值一直漏在池外没人发现 ——
+  //   因为手写清单是「人记得的」，源码才是「真的用的」。
+  //   现在凡是 sim 里出现的 kind 字面量 / spawnPickup 的 kind 参数，一律要求进池。
+  //   ★这条断言还配了一条「扫到的数量」下限：正则写坏了（扫出 0 个）也必须变红，
+  //     否则「没扫到任何值」会让整块断言变成永远绿的假断言。
+  const simSrc = fs.readFileSync(path.join(__dirname, '../shared/sim.js'), 'utf8');
+  const kindSeen = [];
+  function scanInto(re) {
+    let mm = re.exec(simSrc);
+    while (mm) {
+      if (kindSeen.indexOf(mm[1]) < 0) kindSeen.push(mm[1]);
+      mm = re.exec(simSrc);
+    }
+  }
+  scanInto(/kind:\s*'([a-z_]+)'/g);          // 弹幕 / 区域 / 打击 / 特效
+  scanInto(/spawnPickup\(\s*w\s*,\s*'([a-z_]+)'/g);   // 掉落物
+  kindSeen.forEach(function (v) { values.push(v); });
+  expect('从 sim.js 源码里捞到了足够多的 kind（正则失效会让下面那条变成假绿）',
+    kindSeen.length >= 10, kindSeen.length + ' 个：' + kindSeen.join(','));
 
   // 用 mobs 列表承载这批字符串（defId 字段就是 str 类型），一次编码全测到
   const snap = fakeSnapshot(0, false);
@@ -597,6 +640,24 @@ function testBandwidth() {
     }
     m.stepOnce();
 
+    // ★★确定性升级（第四十四轮修判据）：让这一整局的带宽样本**可复现**。
+    // 【为什么必须做】联机的升级三选一有个「超时自动代选第一项」的兜底，
+    //   而它的超时是按 `Date.now()` 算的真实时间（见 match.autoChoose）。
+    //   测试里没人点面板，于是「什么时候代选」取决于机器快慢和负载 ——
+    //   同一份代码连跑两次，世界会在不同帧分叉，带宽峰值在 **283 ~ 396 KB/s** 之间乱跳
+    //   （实测同一份配置两次分别是 283.3 与 394.3），350 那条硬线就变成了抽签。
+    //   这里每帧主动把停在面板上的人按「选第一项」处理掉：世界从此与真实时间无关，
+    //   同样的 seed 一定得到同样的样本。★这是修判据，不是放宽阈值。
+    for (let guard = 0; guard < 8; guard++) {
+      const ps = m.world.players;
+      let stuck = null;
+      for (let k = 0; k < ps.length; k++) {
+        if (ps[k] && ps[k].alive && ps[k].state === 'levelup') { stuck = ps[k]; break; }
+      }
+      if (!stuck) break;
+      SIM.chooseLevelUp(m.world, 0, stuck);
+    }
+
     const alive = SIM.countAliveMobs(m.world);
     if (alive > maxAlive) maxAlive = alive;
 
@@ -679,6 +740,15 @@ function testBandwidth() {
     '（这是圆裁剪的老毛病：玩家偏到屏幕边角，圆的远端就不够远了）');
 
   expect('真跑一整局里世界确实在刷怪', maxAlive > 50, 'maxAlive=' + maxAlive);
+  // ★★★钉「不该发生的事」（第四十四轮）：一整局真实对局不该把怪堆到 MAX_MOBS 上限。
+  // 【为什么这条比带宽阈值更要紧】堆到上限只有一个原因：**玩家卡在升级面板上不打了**。
+  //   而「什么时候自动代选」是按真实时间算的 —— 一旦这段兜底失控（或测试忘了处理），
+  //   整局就会退化成「4 个人挂机看着 1200 只怪堆在视野里」，
+  //   带宽数字随之从 47 KB/s 暴涨到 390 KB/s，**但代码没有任何问题**。
+  //   断言钉在这里，等于把「样本是不是真实对局」这件事本身守住 ——
+  //   比放宽/收紧那条 KB/s 的线有用得多。
+  expect('★★真跑一整局不该把怪堆到上限（堆满 = 有人在升级面板上挂机，样本已经失真）',
+    maxAlive < C.MAX_MOBS, 'maxAlive=' + maxAlive + ' / 上限 ' + C.MAX_MOBS);
   expect('世界模拟跑得动 20Hz（整局耗时远小于游戏时长）', wallMs < C.MATCH_SEC * 200,
     wallMs + 'ms / ' + C.MATCH_SEC + 's');
   expect('开局两分钟单人下行 < 20 KB/s（规划里的 13 KB/s 量级就在这一段）',
