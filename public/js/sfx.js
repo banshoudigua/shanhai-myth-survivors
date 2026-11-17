@@ -171,6 +171,13 @@
     // 拒绝**刻意不出声**：提示条已经说明白了，再响一下就成了「你失败了」的额外惩罚。
     else if (t === 'pact') play('story', { gap: 400 });
     else if (t === 'pact_taken') play('boom', { gap: 600, vary: false });
+    // 歧路双碑（第四十八轮）：立起用提示音（「抬头，地上有两座，快选」）；
+    // 取走用**低频冲击**（boom）—— 和血祭坛成交同一个语气：
+    // 它不是"白拿了东西"，而是"我做了决定，另一样永远没了"。
+    // ★碎裂那一下**刻意不出声**：它与"取走"是同一帧的两件事，
+    //   两声叠在一起只会糊成一记闷响（双生妖的复生也是这个处理）。
+    else if (t === 'boon') play('story', { gap: 400 });
+    else if (t === 'boon_taken') play('boom', { gap: 600, vary: false });
     // 双生妖（第四十五轮）：现身用提示音（抬头注意）；
     // 倒下一只用**低频冲击**（「它倒下了」这件事发生了，但还没结束）；
     // 全灭用开箱音（这一对终于解决了）；
@@ -179,6 +186,32 @@
     else if (t === 'twins') play('story', { gap: 400 });
     else if (t === 'twin_half') play('boom', { gap: 600, vary: false });
     else if (t === 'twin_slain') play('chest', { gap: 400 });
+    // 引魂灯（第四十六轮）：亮起用提示音（「抬头看地上，有三个方向」）；
+    // 点着一盏用**短促的一声**（buy：它只是一个"叮"，不是奖励 —— 26 秒里可能连响两次，
+    //   用开箱音会把"还差两盏"听成"已经拿到了"）；
+    // 点齐用开箱音（这才是真正拿到了东西的时刻）。
+    // ★限流 300ms：三盏灯挨得近时，两次点亮可能只隔一两秒，别叠成一记闷响。
+    else if (t === 'lantern') play('story', { gap: 400 });
+    else if (t === 'lantern_lit') play('buy', { gap: 300 });
+    else if (t === 'lantern_done') play('chest', { gap: 400 });
+    // 饕餮（第四十七轮）：现身用提示音（「抬头看，有东西在动你的东西」）；
+    // 击杀用开箱音（精魄吐回来了，是一份"拿回来了"的语气）；
+    // 逃跑用**低频冲击**（boom）——它是这一轮唯一的失败分支，而且代价是实打实的损失，
+    //   该有一记闷响让玩家记住「下次早点回头」。
+    else if (t === 'devourer') play('story', { gap: 400 });
+    else if (t === 'devourer_down') play('chest', { gap: 400 });
+    else if (t === 'devourer_flee') play('boom', { gap: 600, vary: false });
+    // 镇妖钟（第四十九轮）：立起用提示音（「地上有一口钟，抬头找」）；
+    // 敲响用**低频冲击**（boom）—— 它就是一记钟声，而且这一下同时是
+    //   「妖群开始转向」的起手式，该有实打实的重量感。
+    // ★不新做音效：音效资源越少越不容易在手机上加载失败（历来的口径）。
+    else if (t === 'bell') play('story', { gap: 400 });
+    else if (t === 'bell_toll') play('boom', { gap: 700, vary: false });
+    // 影傀浮现用 story（与镇妖钟"现世"同一个提示音：都是"场上有新东西了"），
+    // 合体成功用 boom —— 那是「赌赢/赌输都已经落地」的一记重击。
+    // ★不新做音效：音效资源越少越不容易在手机上加载失败（历来的口径）。
+    else if (t === 'merge_pair') play('story', { gap: 400 });
+    else if (t === 'wangliang') play('boom', { gap: 600, vary: false });
     else if (t === 'evolve' || t === 'combo_new' || t === 'combo') play('chest');
     else if (t === 'weapon_new' || t === 'passive_new' ||
              t === 'weapon_up' || t === 'passive_up' || t === 'fallback') play('buy');

@@ -1127,7 +1127,10 @@
     //   而颜色是玩家第一眼分辨它们的依据，所以只在颜色上分开。
     // ★比表里的 #b03a3a 再亮一点（#c2463c）：石台本体在暗红地面上本来就暗一档，
     //   直接拿表里的值上色，截图里会糊成一坨深褐（实测第一版就是这样）。
-    pact: '#c2463c'
+    pact: '#c2463c',
+    // 引魂灯（第四十六轮）：同一张石灯笼素材（原本是地图上的障碍物"石灯笼"），
+    // 换成暖金色 —— 它是"一盏点着的灯"，与冷灰的神龛、暗红的祭坛一眼分开。
+    lantern: '#c9a253'
   };
 
   function paintGoldOrb(g, cx, cy, r) {
@@ -1812,6 +1815,15 @@
         //   所以这里按颜色分流：暖底 + 琥珀虚线环 + 不铺涟漪贴花。
         //   ★颜色仍然是数据（z.color），不是在这里写死一个隐形的 if (kind === ...)。
         const isFire = z.color === '#ff8c42';
+        // ---------- 镇妖钟的钟声圈（第四十九轮）----------
+        // 【为什么也按颜色分流】zones 的字段表里没有 kind（只有 color），
+        //   所以「这是哪一种区域」只能从颜色读出来 —— 与上面星火那条完全同一条路子。
+        // 【为什么必须单独一支】钟声圈是**声场**，不是水洼也不是火：
+        //   走圣水那一套（涟漪贴花 + 三道同心圆 + 中心亮斑）会被读成
+        //   「地上有一滩水，踩上去大概会掉血」—— 而这个圈恰恰是**安全**的
+        //   （它只牵引妖物，对玩家一点伤害都没有）。语义反了比不好看严重得多。
+        const isBellRing = !!(C && C.BELL && z.color === C.BELL.ringColor);
+        const bellCol = (C && C.BELL && C.BELL.ringColor) || '#e8d9b8';
         // 剩余时间越少画得越淡，给玩家「快没了」的提示
         const fade = Math.min(1, z.life / Math.max(0.001, z.maxLife));
         const pulse = 1 + Math.sin(t * 4 + i * 1.7) * 0.035;
@@ -1824,7 +1836,7 @@
         //   效果只是表现，区域的伤害/范围/寿命一概没变。
         //   库没加载或没就绪时这里返回 false，下面那套三同心圆照常画，等于自动降级。
         const PR = window.VS.PropLayer;
-        if (!isFire && PR && PR.drawDecal) {
+        if (!isFire && !isBellRing && PR && PR.drawDecal) {
           PR.drawDecal(ctx, {
             key: 'zone' + z.id,
             kind: 'ripples',
@@ -1844,6 +1856,14 @@
           fg.addColorStop(0.55, 'rgba(214,88,42,0.30)');
           fg.addColorStop(1, 'rgba(120,32,18,0.05)');
           ctx.fillStyle = fg;
+        } else if (isBellRing) {
+          // 钟声：**中间几乎全透、只在外沿发亮** —— 它是一片"声场"，不是一摊东西。
+          // 铺满的实心圆会把这一整片地面压暗，玩家会以为踩进去要掉血。
+          const g2 = ctx.createRadialGradient(z.x, z.y, z.r * 0.55, z.x, z.y, z.r * pulse);
+          g2.addColorStop(0, rgbaOf(bellCol, 0.02));
+          g2.addColorStop(0.75, rgbaOf(bellCol, 0.10));
+          g2.addColorStop(1, rgbaOf(bellCol, 0.03));
+          ctx.fillStyle = g2;
         } else {
           ctx.fillStyle = evolved ? COLOR.zoneFillEvolved : COLOR.zoneFill;
         }
@@ -1852,28 +1872,58 @@
         ctx.fill();
 
         // 旋转虚线环：save/restore 把 setLineDash 一起还原，避免漏出去影响后续描边
-        ctx.strokeStyle = isFire ? '#ffcf5c' : (evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge);
+        ctx.strokeStyle = isFire ? '#ffcf5c'
+          : (isBellRing ? bellCol : (evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge));
         ctx.lineWidth = 2;
         ctx.save();
+        // 钟声的虚线走得慢一点（声波不像水在流）：钟声用 4/-10 的低速偏移
         ctx.setLineDash([7, 5]);
-        ctx.lineDashOffset = -t * 22;
+        ctx.lineDashOffset = isBellRing ? -t * 8 : -t * 22;
         ctx.beginPath();
         ctx.arc(z.x, z.y, z.r * pulse, 0, TAU);
         ctx.stroke();
         ctx.restore();
 
+        // ---------- 钟声：一圈一圈往外推的声波 ----------
+        // ★这一支是「还在响」的唯一表现。只画一条边界环的话，
+        //   "正在牵引"与"马上要消失"在画面上分不出来（双碑那轮也是靠单独一记特效解决的）。
+        if (isBellRing) {
+          for (let k = 0; k < 3; k++) {
+            const ph = ((t * 0.55 + k / 3) % 1);
+            const rr = z.r * (0.25 + ph * 0.72);
+            ctx.globalAlpha = (1 - ph) * 0.34 * fade;
+            ctx.strokeStyle = bellCol;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(z.x, z.y, rr, 0, TAU);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 0.42 + 0.5 * fade;
+        }
+
         // 内圈待机环：与外圈反相呼吸（一个涨一个缩），看起来像在「转」
-        ctx.globalAlpha = 0.3 * fade;
-        ctx.beginPath();
-        ctx.arc(z.x, z.y, z.r * 0.6 * (2 - pulse), 0, TAU);
-        ctx.stroke();
+        // ★钟声圈不画这一环：它自己已经有那三道外推的声波了，再叠一条反相呼吸的环
+        //   会读成「水在打旋」（这一支本来就是圣水那套语言的残留）。
+        if (!isBellRing) {
+          ctx.globalAlpha = 0.3 * fade;
+          ctx.beginPath();
+          ctx.arc(z.x, z.y, z.r * 0.6 * (2 - pulse), 0, TAU);
+          ctx.stroke();
+        }
 
         // 中心亮斑
-        ctx.globalAlpha = 0.5 * fade;
-        ctx.fillStyle = isFire ? '#ffcf5c' : (evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge);
-        ctx.beginPath();
-        ctx.arc(z.x, z.y, Math.max(3, z.r * 0.14) * pulse, 0, TAU);
-        ctx.fill();
+        // ★★钟声圈**不许画这个亮斑**：它的半径是 r×0.14，而钟声圈的 r 是 460 ——
+        //   换算下来是一个半径 64px 的实心素白圆盘，正好把钟本身糊掉
+        //   （截图里钟身、碑名全被那块浅色圆盘盖住，看着像"地上有一洼水"）。
+        //   圣水那种 zone 的 r 只有 60~120，0.14 倍才是一个小亮点，这里不是同一个量级。
+        if (!isBellRing) {
+          ctx.globalAlpha = 0.5 * fade;
+          ctx.fillStyle = isFire ? '#ffcf5c'
+            : (evolved ? COLOR.zoneEdgeEvolved : COLOR.zoneEdge);
+          ctx.beginPath();
+          ctx.arc(z.x, z.y, Math.max(3, z.r * 0.14) * pulse, 0, TAU);
+          ctx.fill();
+        }
 
         ctx.globalAlpha = 1;
       }
@@ -1894,6 +1944,12 @@
       let nChest = 0;
       let nShrine = 0;
       let nPact = 0;
+      let nLantern = 0;
+      let nBoon = 0;
+      let nBell = 0;
+      let nEscort = 0;
+      let nMarket = 0;
+      let nCauldron = 0;
       for (let i = 0; i < list.length; i++) {
         const it = list[i];
         if (!visible(it.x, it.y, 12)) continue;
@@ -1901,9 +1957,33 @@
         else if (it.kind === 'chest') nChest += 1;
         else if (it.kind === 'shrine') nShrine += 1;
         else if (it.kind === 'pact') nPact += 1;
+        // ★引魂灯必须单独计数：漏了它就会掉进下面的 nOther，
+        //   而 nOther 那一支只画 gold / heart —— 于是三盏灯**一盏都画不出来**，
+        //   玩家收到"引魂灯亮起"的提示却看不见地上有东西（静默级坑）。
+        else if (it.kind === 'lantern') nLantern += 1;
+        // ★歧路双碑同理（第四十八轮）：掉进 nOther 就一座碑都不画，
+        //   而它恰恰是"你必须在两座之间选一座" —— 看不见等于这个机制不存在。
+        else if (it.kind === 'boon') nBoon += 1;
+        // ★镇妖钟同理（第四十九轮）：它是「走过去踩一下」的开关，
+        //   掉进 nOther 就一口钟都不画 —— 玩家收到"镇妖钟立于此处"的提示，
+        //   却看不见地上有东西，只能对着空地乱走（引魂灯那轮踩过的同一个坑）。
+        else if (it.kind === 'bell') nBell += 1;
+        // ★精卫（第五十一轮）同理：掉进 nOther 就一只都不画 ——
+        //   而她是"你必须跟住的那个目标"，看不见就等于这个机制从不发生
+        //   （引魂灯 / 双碑 / 钟都踩过这同一个坑）。
+        else if (it.kind === 'escort') nEscort += 1;
+        // ★大人之市（第五十二轮）同理：掉进 nOther 就一座摊子都不画 ——
+        //   它是"你要走过去掏钱"的东西，看不见的话玩家只会收到一条
+        //   "大人之市开市"的提示，然后在空地上走两圈（引魂灯/双碑/钟/精卫
+        //   四个都已经踩过这同一个坑，这是第五次）。
+        else if (it.kind === 'market') nMarket += 1;
+        // ★炼魂鼎（第五十三轮）同理：掉进 nOther 就一座鼎都不画 ——
+        //   它是"你要走过去拿修为换命"的东西，看不见就等于这个机制不存在
+        //   （引魂灯/双碑/钟/精卫/大市都已经踩过这同一个坑，这是第六次）。
+        else if (it.kind === 'cauldron') nCauldron += 1;
         else nOther += 1;
       }
-      if (!nExp && !nExpBig && !nOther && !nChest && !nShrine && !nPact) return;
+      if (!nExp && !nExpBig && !nOther && !nChest && !nShrine && !nPact && !nLantern && !nBoon && !nBell && !nEscort && !nMarket && !nCauldron) return;
 
       // ---------- 血祭坛（第四十三轮）----------
       // 【为什么与神龛分开画】两者用的是同一张石台素材（见 pixel-sprites 的说明），
@@ -2072,6 +2152,880 @@
           ctx.strokeStyle = 'rgba(16,10,10,0.75)';
           ctx.lineWidth = 1.5;
           ctx.stroke();
+        }
+      }
+
+      // ---------- 引魂灯（第四十六轮）----------
+      // 【为什么必须与神龛 / 血祭坛明显不同】三者在机制上是同一类（走上去才生效的地面物件），
+      //   但引魂灯是**一组三盏、还要靠「地上还剩几盏」判断进度**的 ——
+      //   它必须是一盏"单独站着、远远就能数出来"的灯，而不是又一座石台。
+      //   所以：石灯笼本体（复用地图上那张石灯笼素材，塔形、细高）+ 灯心火苗 + 脚下金晕。
+      // 三层：脚下金晕（半径**就是**点亮判定半径，让玩家知道走到哪里算数）
+      //   → 石灯笼本体 → 灯心火苗（跳动，表示它是活的）。
+      if (nLantern) {
+        const LN = (C && C.LANTERN) || { color: '#ffcf5c', lightRadius: 34 };
+        const LNc = LN.color || '#ffcf5c';
+        const ring = LN.lightRadius || 34;
+        const pulse = 0.5 + 0.5 * Math.sin((R._animT || 0) * 3.0);
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'lantern') continue;
+          if (!visible(it.x, it.y, 60)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          // 最后 3 秒整体淡出（★联机快照里的掉落物不带 life → fade 恒为 1，
+          //   与血祭坛同一条处理：宁可少这个预告，也不为了它往协议里加字段）
+          const fade = it.life === undefined ? 1 : Math.max(0.2, Math.min(1, it.life / 3));
+
+          // ① 脚下光环：**半径就等于点亮判定**。这是这一轮唯一需要"看得见的数值"——
+          //   灯的判定半径是写死的 34（不吃磁石），不画出来的话玩家会按拾取半径去估，
+          //   走到 60px 处以为点了、其实没点着。
+          // ★★这一层必须是「从灯心往外衰减的一团光」，不能是一块平铺的低透明度椭圆：
+          //   平铺出来只是"一块颜色不同的圆盘"，在暗红地面上一眼读成
+          //   「灯下面挖了个坑」（第一版截图就是这样，越调越低反而越像阴影）。
+          //   径向渐变 + lighter 才是"地面被照亮"。
+          const prevOpFill = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.save();
+          ctx.translate(x, y + 6);
+          ctx.scale(1, 0.42);                 // 压扁成地面透视椭圆（不然是个正圆，像悬在空中）
+          const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, ring);
+          grd.addColorStop(0, 'rgba(255,214,110,' + (0.30 * fade).toFixed(3) + ')');
+          grd.addColorStop(0.6, 'rgba(255,190,70,' + (0.12 * fade).toFixed(3) + ')');
+          grd.addColorStop(1, 'rgba(255,180,60,0)');
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, ring, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+          ctx.globalCompositeOperation = prevOpFill;
+          // 边界那一圈细环：渐变末端趋于 0，没有这条线就看不出"走进去才算"的具体位置
+          ctx.globalAlpha = (0.42 + pulse * 0.25) * fade;
+          ctx.strokeStyle = LNc;
+          ctx.lineWidth = 1.6;
+          ctx.beginPath();
+          ctx.ellipse(x, y + 6, ring, ring * 0.42, 0, 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // ② 石灯笼本体（像素素材，px=2 → 40px 高）。
+          //   ★往下偏 8px：素材顶部是"灯顶盖"、底部留了空白当落地阴影，
+          //     按中心画会看着飘在地面上方（神龛那张是同款处理，偏 4px）。
+          const sp = R.lanternSprite || (R.lanternSprite = makePixelSprite('lantern', 'lantern', 2));
+          if (sp) {
+            ctx.globalAlpha = fade;
+            ctx.drawImage(sp.cv, Math.round(x - sp.hw), Math.round(y - sp.hh) + 8,
+              sp.hw * 2, sp.hh * 2);
+            ctx.globalAlpha = 1;
+          }
+
+          // ③ 灯心火苗：画在**灯室里**，不是灯顶盖上。
+          //   【第一版把火苗画在 y-6、光晕半径 13】截图里那团白光把整个灯头糊成一团，
+          //   看着像「顶盖烧起来了」、也看不出是盏灯。
+          //   素材 20 行、按 px=2 画成 40px、顶部在 y-12 —— 灯室（那几行 '+'）大约在
+          //   y-6 ~ y+4，所以：光晕半径压到 7（只够照亮灯室）、火心放 y-4、
+          //   火尖只探出 5px。**火要小，灯才看得见** —— 火画大了，灯就没了。
+          //   ★加法混合：暗红地面上直接叠金色会被压灰，加法才是"发光"。
+          const fy = y - 4 - pulse * 1.2;
+          const prevOp = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'lighter';
+          const g = ctx.createRadialGradient(x, fy, 0.5, x, fy, 7);
+          g.addColorStop(0, 'rgba(255,248,214,' + (0.62 * fade).toFixed(3) + ')');
+          g.addColorStop(0.5, 'rgba(255,207,92,' + (0.34 * fade).toFixed(3) + ')');
+          g.addColorStop(1, 'rgba(255,190,60,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(x, fy, 7, 0, TAU);
+          ctx.fill();
+          // 火苗尖：一个上窄下宽的小三角，跳动的幅度就是"活着"的暗示
+          ctx.globalAlpha = (0.7 + pulse * 0.25) * fade;
+          ctx.fillStyle = '#fff3c4';
+          ctx.beginPath();
+          ctx.moveTo(x, fy - 4 - pulse * 1.6);
+          ctx.lineTo(x + 1.8, fy + 2);
+          ctx.lineTo(x - 1.8, fy + 2);
+          ctx.closePath();
+          ctx.fill();
+          ctx.globalCompositeOperation = prevOp;
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ---------- 歧路双碑（第四十八轮）----------
+      // 【为什么是两块**立着**的方碑，而不是又一座石台】
+      //   神龛（石龛）/ 血祭坛（暗红石台）/ 引魂灯（石灯笼）已经把"地上的点位"
+      //   占了三种造型。这一轮的核心是「两座并排、只能取一座」，
+      //   所以造型必须能**并排站住**：两块瘦高的碑并排时，"旁边还有一块"
+      //   一眼就能看到；两张石台并排则会读成一整块台子。
+      //   ★两块的差别靠**符文形状**做（立刃 / 龟甲六边形），不靠颜色：
+      //     颜色在暗红地面上会被压暗，形状不会（引魂灯那轮的经验）。
+      if (nBoon) {
+        const BN = (C && C.BOON) || null;
+        const pulse = 0.5 + 0.5 * Math.sin((R._animT || 0) * 3.2);
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'boon') continue;
+          if (!visible(it.x, it.y, 56)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          // ★哪一座由 value 决定（1 = 兵主碑 / 2 = 玄龟碑），服务端与这里同一份表
+          const oi = it.value === 2 ? 1 : 0;
+          const def = BN ? BN.options[oi] : null;
+          const col = (def && def.color) || '#c9963a';
+          // 最后 3 秒淡出（★联机快照里的掉落物不带 life → fade 恒为 1，
+          //   与血祭坛 / 引魂灯同一条处理：宁可少这个预告，也不往协议里加字段）
+          const fade = it.life === undefined ? 1 : Math.max(0.2, Math.min(1, it.life / 3));
+
+          // ① 脚下光池：径向渐变 + 压扁成地面透视椭圆。
+          //   ★不能是平铺的低透明度椭圆 —— 在暗红地面上会被读成"碑下面挖了个坑"
+          //   （引魂灯第一版就是这么错的，越调越低反而越像阴影）。
+          const prevOpFill = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.save();
+          ctx.translate(x, y + 4);
+          ctx.scale(1, 0.40);
+          const grd = ctx.createRadialGradient(0, 0, 1, 0, 0, 34);
+          grd.addColorStop(0, rgbaOf(col, 0.26 * fade));
+          grd.addColorStop(0.65, rgbaOf(col, 0.10 * fade));
+          grd.addColorStop(1, rgbaOf(col, 0));
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, 34, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+          ctx.globalCompositeOperation = prevOpFill;
+          ctx.globalAlpha = 1;
+
+          // ② 落地阴影 + 碑体（上窄下宽的梯形，两块碑用同一副身子 ——
+          //    区别只在符文，这样"它们是一类东西"这件事不用解释）
+          const bw = 9;              // 半宽
+          const bh = 30;             // 碑高
+          ctx.beginPath();
+          ctx.ellipse(x, y + 6, 13, 4.5, 0, 0, TAU);
+          ctx.fillStyle = 'rgba(8,5,5,0.45)';
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.moveTo(x - bw, y + 4);
+          ctx.lineTo(x - bw + 1.5, y - bh + 6);
+          ctx.lineTo(x - bw + 4, y - bh);        // 左肩切角
+          ctx.lineTo(x + bw - 4, y - bh);        // 顶面
+          ctx.lineTo(x + bw - 1.5, y - bh + 6);
+          ctx.lineTo(x + bw, y + 4);
+          ctx.closePath();
+          ctx.fillStyle = '#2b2422';             // 暗石本体
+          ctx.fill();                            // ★必须真的填一次：下面那段是"受光面"，
+          //   只画受光面的话碑身是半透明的（渐变里有全透明的一档），叠在暗红地面上像块玻璃。
+          // 受光面：左上打一道类型色的光，碑才不是一块纯剪影
+          ctx.save();
+          ctx.clip();
+          const bg = ctx.createLinearGradient(x - bw, y - bh, x + bw, y + 4);
+          bg.addColorStop(0, rgbaOf(col, 0.30 * fade));
+          bg.addColorStop(0.55, 'rgba(0,0,0,0)');
+          bg.addColorStop(1, 'rgba(0,0,0,0.26)');
+          ctx.fillStyle = bg;
+          ctx.fillRect(x - bw, y - bh, bw * 2, bh + 4);
+          ctx.restore();
+          // 描边：暗石叠在暗红地面上，不描边只剩一团黑（碑的形状就没了）
+          ctx.globalAlpha = fade * 0.85;
+          ctx.strokeStyle = rgbaOf(col, 0.62);
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.globalAlpha = fade;
+
+          // ③ 符文：两块碑**唯一**的区别。用亮色描（混白 35%），
+          //    不然类型色本身在暗石上几乎看不出笔迹。
+          const cy = y - bh * 0.56;
+          ctx.strokeStyle = mixRgba(col, '#ffffff', 0.35, 0.92 * fade);
+          ctx.lineWidth = 2;
+          ctx.lineJoin = 'miter';
+          ctx.beginPath();
+          if (oi === 0) {
+            // 兵主碑：一柄立刃（中线 + 上端收成尖）
+            ctx.moveTo(x, cy - 9);
+            ctx.lineTo(x, cy + 8);
+            ctx.moveTo(x - 5, cy - 3);
+            ctx.lineTo(x, cy - 9);
+            ctx.lineTo(x + 5, cy - 3);
+          } else {
+            // 玄龟碑：龟甲（六边形）
+            for (let k = 0; k <= 6; k++) {
+              const a2 = -Math.PI / 2 + (k * Math.PI) / 3;
+              const rx = x + Math.cos(a2) * 6.5;
+              const ry = cy + Math.sin(a2) * 6.5;
+              if (k === 0) ctx.moveTo(rx, ry);
+              else ctx.lineTo(rx, ry);
+            }
+          }
+          ctx.stroke();
+
+          // ④ 顶上的菱形符文（与神龛 / 血祭坛同一个造型语言：这是一类"能领"的点位）
+          const by = y - bh - 12 + Math.sin((R._animT || 0) * 3.0) * 1.8;
+          ctx.globalAlpha = 0.85 * fade;
+          ctx.beginPath();
+          ctx.moveTo(x, by - 6);
+          ctx.lineTo(x + 5, by);
+          ctx.lineTo(x, by + 6);
+          ctx.lineTo(x - 5, by);
+          ctx.closePath();
+          ctx.fillStyle = col;
+          ctx.fill();
+          ctx.globalAlpha = 1;
+          ctx.strokeStyle = 'rgba(16,10,10,0.75)';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // ⑤ 名字：**这一轮必须让碑自己说出身份**。
+          //   两块碑的区别只有符文与名字，玩家在 40px 的实际尺寸下未必读得出符文；
+          //   而"哪一块给伤害、哪一块给上限"正是他要做的那个决定本身。
+          //   ★不写"淡到一定程度就不画"的阈值（血祭坛踩过：剩 1.5 秒时名字会啪一下消失）。
+          ctx.save();
+          ctx.globalAlpha = 0.9 * fade;
+          ctx.font = '11px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const label = (def && def.name) || '石碑';
+          ctx.fillStyle = 'rgba(0,0,0,0.66)';
+          ctx.fillText(label, x + 1, by - 10 + 1);
+          ctx.fillStyle = col;
+          ctx.fillText(label, x, by - 10);
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ---------- 镇妖钟（第四十九轮）----------
+      // 【为什么必须与神龛/血祭坛/引魂灯/双碑都长得不一样】它们全是「走上去」的地面物件，
+      //   但钟是唯一一个**踩一下会被敲响、响完就没了**的东西：
+      //   造型上必须是「一口挂在架子上的铜钟」，而不是又一座石台或一盏灯 ——
+      //   石台读成「领东西的」，钟才能读成「敲一下的」。
+      // 五层：脚下光池（青铜）→ 挂架横梁 + 钟钮 → 钟身（上窄下宽）→ 钟口（压扁的空心口）
+      //   → 在响时额外加「声波弧」（这是唯一能表达"它正在发声"的图形）。
+      if (nBell) {
+        const BL = (C && C.BELL) || { color: '#b0793a', name: '镇妖钟' };
+        const col = BL.color || '#b0793a';
+        const ivory = BL.ringColor || '#e8d9b8';
+        const at = R._animT || 0;
+        const pulse = 0.5 + 0.5 * Math.sin(at * 3.0);
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'bell') continue;
+          if (!visible(it.x, it.y, 64)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          // 最后 3 秒淡出（★联机快照里的掉落物不带 life → fade 恒为 1，
+          //   与血祭坛 / 引魂灯 / 双碑同一条处理：宁可少这个预告，也不往协议里加字段）
+          const fade = it.life === undefined ? 1 : Math.max(0.2, Math.min(1, it.life / 3));
+          // value 1 = 正在响（服务端敲响时写进去的，见 sim 的 tollBell）
+          const ringing = it.value === 1;
+
+          // ① 脚下光池：径向渐变 + 压扁成地面透视椭圆。
+          //   ★不能是平铺的低透明度椭圆 —— 在暗红地面上会被读成"钟下面挖了个坑"
+          //   （引魂灯第一版就是这么错的，越调越低反而越像阴影）。
+          const prevOp = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.save();
+          ctx.translate(x, y + 4);
+          ctx.scale(1, 0.40);
+          const grd = ctx.createRadialGradient(0, 0, 1, 0, 0, 36);
+          grd.addColorStop(0, rgbaOf(col, (ringing ? 0.34 : 0.22) * fade));
+          grd.addColorStop(0.65, rgbaOf(col, 0.09 * fade));
+          grd.addColorStop(1, rgbaOf(col, 0));
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, 36, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+          ctx.globalCompositeOperation = prevOp;
+          ctx.globalAlpha = 1;
+
+          // ② 落地阴影
+          ctx.beginPath();
+          ctx.ellipse(x, y + 5, 12, 4, 0, 0, TAU);
+          ctx.fillStyle = 'rgba(8,5,5,0.45)';
+          ctx.fill();
+
+          // ③ 挂架：一根横梁 + 钟钮。★有横梁它才读成「挂着的钟」，
+          //   没有的话就是一个铜色的碗 —— 40px 的实际尺寸下这两个形状差得很远。
+          //   ★★横梁第一版用了 rgba(58,44,30)（深木色），在暗红地面上**完全看不见**
+          //   （3 倍截图里钟头上方一片平），等于白画。改成「深色描边 + 暖木高光」两层，
+          //   才真的读得出来。
+          const bh = 26;             // 钟高
+          const bw = 10;             // 钟口半宽
+          ctx.globalAlpha = fade;
+          ctx.strokeStyle = '#20160f';
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(x - 14, y - bh - 8);
+          ctx.lineTo(x + 14, y - bh - 8);
+          ctx.stroke();
+          ctx.strokeStyle = rgbaOf('#8a6a3e', 0.95);
+          ctx.lineWidth = 2.4;
+          ctx.beginPath();
+          ctx.moveTo(x - 13, y - bh - 9);
+          ctx.lineTo(x + 13, y - bh - 9);
+          ctx.stroke();
+          // 钟钮（顶上一个环）
+          ctx.strokeStyle = rgbaOf(col, 0.9);
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(x, y - bh - 4, 3.4, Math.PI * 0.15, Math.PI * 0.85 * 2.6);
+          ctx.stroke();
+
+          // ④ 钟身：上窄下宽（两侧外扩的弧线），这是"钟"与"鼎/钵"的唯一区别
+          ctx.beginPath();
+          ctx.moveTo(x - bw, y);
+          ctx.quadraticCurveTo(x - bw + 1, y - bh * 0.52, x - 6.2, y - bh * 0.74);
+          ctx.quadraticCurveTo(x - 3.6, y - bh, x, y - bh);
+          ctx.quadraticCurveTo(x + 3.6, y - bh, x + 6.2, y - bh * 0.74);
+          ctx.quadraticCurveTo(x + bw - 1, y - bh * 0.52, x + bw, y);
+          ctx.closePath();
+          // 本体先填一次暗铜：下面那段"受光面"的渐变里有全透明档，
+          // 只画受光面的话钟身是半透明的（双碑那轮踩过同一个坑）。
+          ctx.fillStyle = '#3d2c1c';
+          ctx.fill();
+          ctx.save();
+          ctx.clip();
+          const bg = ctx.createLinearGradient(x - bw, y - bh, x + bw, y);
+          bg.addColorStop(0, rgbaOf(col, 0.55 * fade));
+          bg.addColorStop(0.5, 'rgba(0,0,0,0)');
+          bg.addColorStop(1, 'rgba(0,0,0,0.30)');
+          ctx.fillStyle = bg;
+          ctx.fillRect(x - bw, y - bh - 2, bw * 2, bh + 4);
+          ctx.restore();
+          // 描边：暗铜叠在暗红地面上，不描边就只剩一团黑（钟的形状会糊掉）
+          ctx.globalAlpha = fade * 0.9;
+          ctx.strokeStyle = rgbaOf(col, 0.75);
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+
+          // ⑤ 钟口：压扁的空心椭圆 + 一圈亮唇线 —— 空口朝下，玩家才看得出"能敲"
+          ctx.beginPath();
+          ctx.ellipse(x, y, bw, 3.6, 0, 0, TAU);
+          ctx.fillStyle = 'rgba(12,8,6,0.88)';
+          ctx.fill();
+          ctx.globalAlpha = fade;
+          ctx.strokeStyle = mixRgba(col, '#ffffff', 0.45, 0.9 * fade);
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+
+          // ⑥ 正在响：钟身泛暖白光 + 两道外扩的声波弧。
+          //   ★声波是这一整轮唯一的"状态表达"：钟敲没敲，只有它能说清 ——
+          //   只看钟身的话，"还没敲"和"正在响"长得一模一样。
+          if (ringing) {
+            const glow = 0.5 + 0.5 * Math.sin(at * 9.0);
+            ctx.globalAlpha = (0.16 + glow * 0.14) * fade;
+            ctx.fillStyle = ivory;
+            ctx.beginPath();
+            ctx.ellipse(x, y - bh * 0.45, bw * 1.25, bh * 0.55, 0, 0, TAU);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            // 两圈声波：相位差半个周期，看起来是"一波接一波"而不是一次性扩散
+            for (let k = 0; k < 2; k++) {
+              const ph = ((at * 0.9 + k * 0.5) % 1);
+              const rr = 15 + ph * 30;
+              ctx.globalAlpha = (1 - ph) * 0.42 * fade;
+              ctx.strokeStyle = ivory;
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              // 只画上半圈：整圈的圆环会和地上那个 460 的钟声圈混成两层圈
+              ctx.arc(x, y - 6, rr, Math.PI * 1.12, Math.PI * 1.88);
+              ctx.stroke();
+            }
+            ctx.globalAlpha = 1;
+          }
+
+          // ⑦ 名牌：不写字的话「这口钟是干什么的」只能靠提示条记，
+          //   而玩家第一次见到它时提示条多半已经滚过去了。
+          ctx.save();
+          ctx.globalAlpha = 0.9 * fade;
+          ctx.font = '11px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const label = (BL && BL.name) || '镇妖钟';
+          ctx.fillStyle = 'rgba(0,0,0,0.66)';
+          ctx.fillText(label, x + 1, y - bh - 17 + 1);
+          ctx.fillStyle = col;
+          ctx.fillText(label, x, y - bh - 17);
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ---------- 精卫（第五十一轮）----------
+      // 【为什么她必须有"航迹"这一层】她是全项目唯一**会自己离开你**的目标。
+      //   没有航迹的话，玩家看到的只是"一只白鸟在飘" —— 而这一整段玩法的前提是
+      //   「她要去那边，你得跟上」。航迹本身就是那句提示（提示条只滚一次，跟不上就忘了）。
+      //   ★方向取「上一帧 → 这一帧」的位移（pickups 的 px/py 本来就是干这个的），
+      //     不额外往协议里加字段：位移每帧约 3.4px，够定方向。
+      // 【为什么血环画在脚下而不是头顶】她的头顶是"翅尖"，画上去会和翅膀糊在一起；
+      //   脚下那圈是唯一稳定的空地（也正好是玩家看血量的习惯位置）。
+      if (nEscort) {
+        const ES = (C && C.ESCORT) || {
+          name: '精卫', color: '#eaf2f8', hpColor: '#ffd166', trailColor: '#8fd3e8'
+        };
+        const at = R._animT || 0;
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'escort') continue;
+          if (!visible(it.x, it.y, 70)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          const fade = 1;      // 她是"飞走"而不是"淡出"，所以不做寿命淡出
+
+          // ① 航迹：沿飞行方向往前点 5 个渐隐的小点
+          const pdx = (typeof it.px === 'number') ? (it.x - it.px) : 0;
+          const pdy = (typeof it.py === 'number') ? (it.y - it.py) : 0;
+          const plen = Math.sqrt(pdx * pdx + pdy * pdy);
+          if (plen > 0.35) {
+            const ux = pdx / plen;
+            const uy = pdy / plen;
+            // ★第一版是 5 个渐隐小点（alpha 0.34 / 半径 2.1）：3 倍特写里那几个点
+            //   在暗红地面上是**灰色**的，读成"地上有几粒灰"而不是"她往那边飞"。
+            //   改成一条虚线 + 加法混合（lighter）之后海青才会"发光"，
+            //   而且虚线本身就带着方向感 —— 这是玩家唯一能读出"她要去哪"的东西。
+            //   ★只画 110px：画整条 700px 会在屏幕上拉出一根横贯全场的线，
+            //     反而盖住战场（提示要够读，不能变成新的干扰）。
+            const prevOp2 = ctx.globalCompositeOperation;
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.strokeStyle = ES.trailColor;
+            ctx.globalAlpha = 0.5 * fade;
+            ctx.lineWidth = 2.4;
+            ctx.setLineDash([5, 9]);
+            ctx.beginPath();
+            ctx.moveTo(x + ux * 16, y + uy * 16 - 10);
+            ctx.lineTo(x + ux * 110, y + uy * 110 - 10);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            // 航迹尽头一个亮点：它是"箭头"的替代品（虚线自己说不出往哪个方向）
+            ctx.globalAlpha = 0.75 * fade;
+            ctx.fillStyle = mixRgba(ES.trailColor, '#ffffff', 0.45, 1);
+            ctx.beginPath();
+            ctx.arc(x + ux * 114, y + uy * 114 - 10, 2.6, 0, TAU);
+            ctx.fill();
+            ctx.globalCompositeOperation = prevOp2;
+            ctx.globalAlpha = 1;
+          }
+
+          // ② 脚下影子：她在飞，影子必须和她**分开**（不然读成"地上走的一只鸡"）
+          const bob = Math.sin(at * 3.2) * 2.2;
+          ctx.beginPath();
+          ctx.ellipse(x, y + 11, 10, 3.4, 0, 0, TAU);
+          ctx.fillStyle = 'rgba(8,5,5,0.42)';
+          ctx.fill();
+
+          // ③ 本体：**几何绘制**（不走 16×16 像素矩阵）
+          //   【为什么这一只不做成像素素材】她只有 48px，而这一整段要表达的是"她在飞"。
+          //     像素矩阵里翅膀只能是几格死像素 —— 前两版实测在 3 倍特写下被读成
+          //     "两根触角的小虫"，看截图才发现的（断言全绿完全看不出这件事）。
+          //     几何翅膀能跟着相位扇动，而"会扇"才是"鸟"这个身份的唯一证明。
+          //     （镇妖钟也是几何绘制的：会动的、会响的东西不适合做成一格一格的静态图。）
+          const flap = Math.sin(at * 7.5);          // -1 → 1：翅膀上下扇
+          const bx = x;
+          const by = y - 16 + bob;                  // 身体中心：比脚下高 16px = 在飞
+          const bodyCol = ES.color || '#eaf2f8';
+
+          // 尾羽（左后方三片，明暗各一档 —— 深浅是这里唯一能表达前后关系的手段）
+          ctx.fillStyle = mixRgba(bodyCol, '#9fb4c6', 0.35, 1);
+          ctx.beginPath();
+          ctx.moveTo(bx - 9, by + 1);
+          ctx.lineTo(bx - 21, by - 5);
+          ctx.lineTo(bx - 20, by + 1);
+          ctx.lineTo(bx - 10, by + 5);
+          ctx.closePath();
+          ctx.fill();
+
+          // 远翅（在身体之后，压暗一档）
+          ctx.fillStyle = mixRgba(bodyCol, '#8fa8bd', 0.6, 1);
+          ctx.beginPath();
+          ctx.moveTo(bx - 5, by - 1);
+          ctx.quadraticCurveTo(bx - 14, by - 15 - flap * 5, bx - 3, by - 21 - flap * 7);
+          ctx.quadraticCurveTo(bx + 1, by - 9, bx + 1, by - 1);
+          ctx.closePath();
+          ctx.fill();
+
+          // 身体（略前倾的椭圆）
+          ctx.fillStyle = bodyCol;
+          ctx.beginPath();
+          ctx.ellipse(bx, by, 11, 7.4, -0.12, 0, TAU);
+          ctx.fill();
+
+          // 近翅（在身体之前，最亮 —— 三层叠出"翅膀在身前扇"的层次）
+          ctx.beginPath();
+          ctx.moveTo(bx + 1, by - 1);
+          ctx.quadraticCurveTo(bx + 5, by - 17 - flap * 6, bx + 16, by - 20 - flap * 8);
+          ctx.quadraticCurveTo(bx + 12, by - 6, bx + 9, by + 1);
+          ctx.closePath();
+          ctx.fill();
+
+          // 头 + 赤喙 + 眼（喙是唯一不是白的部分：白鸟靠它一眼认出是鸟而不是一团光）
+          ctx.beginPath();
+          ctx.arc(bx + 10, by - 5, 5.6, 0, TAU);
+          ctx.fill();
+          ctx.fillStyle = '#d94a4a';
+          ctx.beginPath();
+          ctx.moveTo(bx + 14, by - 7.2);
+          ctx.lineTo(bx + 21.5, by - 4.6);
+          ctx.lineTo(bx + 14, by - 2.4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#241c18';
+          ctx.beginPath();
+          ctx.arc(bx + 12, by - 6, 1.5, 0, TAU);
+          ctx.fill();
+
+          // 爪下那块石头（她的身份：衔石填海）。
+          // ★必须与身体之间留出缝隙 + 两根细腿：贴着身体的话，它就成了"鸟的肚子"。
+          ctx.strokeStyle = 'rgba(20,14,12,0.6)';
+          ctx.lineWidth = 1.2;
+          ctx.beginPath();
+          ctx.moveTo(bx - 3, by + 6);
+          ctx.lineTo(bx - 3, by + 11);
+          ctx.moveTo(bx + 4, by + 6);
+          ctx.lineTo(bx + 4, by + 11);
+          ctx.stroke();
+          ctx.save();
+          ctx.translate(bx + 1, by + 14);
+          ctx.rotate(-0.18);
+          ctx.fillStyle = ES.stoneColor || '#9aa7b3';
+          ctx.fillRect(-5.5, -3.6, 11, 7.2);
+          ctx.strokeStyle = 'rgba(20,14,12,0.55)';
+          ctx.lineWidth = 1.2;
+          ctx.strokeRect(-5.5, -3.6, 11, 7.2);
+          ctx.restore();
+
+          // ④ 血量：**压扁的地面环**（椭圆弧），画在影子的位置。
+          //   ★为什么不用正圆环套在她身上（第一版就是那样）：3 倍特写里正圆会横穿她半个身子，
+          //     把白鸟切成"金框里的一团"，玩家反而看不清精灵。压扁贴地之后，
+          //     它与"脚下那一圈"是同一套语言（钟声圈 / 灵泉圈都贴地），不抢主体。
+          //   ★底色环一定要画：只画进度弧的话，"满血"与"这个 kind 不认识 value"
+          //     在画面上长得一模一样（看不出她到底是不是在掉血）。
+          const pct = (typeof it.value === 'number' && it.value > 0) ? (it.value / 100) : 0;
+          ctx.globalAlpha = 0.85 * fade;
+          ctx.strokeStyle = 'rgba(10,6,6,0.72)';
+          ctx.lineWidth = 4.2;
+          ctx.beginPath();
+          ctx.ellipse(x, y + 11, 16, 6.2, 0, 0, TAU);
+          ctx.stroke();
+          if (pct > 0) {
+            ctx.strokeStyle = pct > 0.3 ? ES.hpColor : '#e0553c';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            // 从正上方开始顺时针：0 在 12 点方向，满血刚好绕回 12 点
+            ctx.ellipse(x, y + 11, 16, 6.2, 0, -Math.PI / 2, -Math.PI / 2 + TAU * pct);
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+
+          // ⑤ 名牌：不写名字的话，玩家只能靠"白色"猜她是谁 ——
+          //   而 40px 尺寸下一只白鸟和一团白色特效分不开。
+          //   ★必须画在血环**下面**（第一版画在 y+28，正好压在环上：3 倍特写里
+          //     「精卫」两个字被金环横穿，两个都读不清）。
+          ctx.save();
+          ctx.globalAlpha = 0.92 * fade;
+          ctx.font = '11px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const label = ES.name || '精卫';
+          ctx.fillStyle = 'rgba(0,0,0,0.66)';
+          ctx.fillText(label, x + 1, y + 34 + 1);
+          ctx.fillStyle = ES.color || '#eaf2f8';
+          ctx.fillText(label, x, y + 34);
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ---------- 大人之市（第五十二轮）----------
+      // 【为什么它不是又一张「石台 + 光柱」】前面六件（神龛/血祭坛/双碑/引魂灯/镇妖钟）
+      //   全是"地上一个点位"，靠颜色区分的空间已经用完了：玩家看到"发光的台子"
+      //   只会想起"走上去领东西"，不会想起"走上去**付钱**"。
+      //   所以这一件画成**一顶带布幡的摊子**：两根木杆 + 一顶梯形布篷 + 摊板上的货匣
+      //   + 地上的钱堆。摊子这个形状自带"交易"这件事，不需要一个字的解释。
+      // ★它必须有名字与价钱：摊上只摆一件货，玩家必须能在走过去之前就知道
+      //   「这摊卖什么、多少钱」—— 否则"买还是不买"这个决定根本无从做起。
+      if (nMarket) {
+        const MK = (C && C.MARKET) || { color: '#ffd166', clothColor: '#e8d9b8', offers: [] };
+        const gold = MK.color || '#ffd166';
+        const cloth = MK.clothColor || '#e8d9b8';
+        const wood = MK.woodColor || '#b0793a';
+        const at = R._animT || 0;
+        const wave = Math.sin(at * 2.4);
+        const offers = (MK.offers && MK.offers.length) ? MK.offers : [];
+        const shopItems = (C && C.SHOP && C.SHOP.items) || [];
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'market') continue;
+          if (!visible(it.x, it.y, 72)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          // 最后 3 秒淡出（★联机快照里的掉落物不带 life → fade 恒为 1，
+          //   与血祭坛/引魂灯/双碑/钟同一条处理：宁可少这个预告，也不往协议里加字段）
+          const fade = it.life === undefined ? 1 : Math.max(0.2, Math.min(1, it.life / 3));
+
+          // 卖的是哪件货：value 是 offers 的下标（服务端写进去的，见 sim 的 spawnMarket）
+          const oi = Math.max(0, Math.min(offers.length - 1, Math.round(it.value || 0)));
+          const oid = offers.length ? offers[oi] : '';
+          let itemName = '山货';
+          let itemPrice = 0;
+          for (let k = 0; k < shopItems.length; k++) {
+            if (shopItems[k].id === oid) {
+              itemName = shopItems[k].name;
+              itemPrice = Math.max(1, Math.round(shopItems[k].price * (MK.discount || 0.7)));
+              break;
+            }
+          }
+
+          // ① 地面上的光池：金 + 加法混合（低 alpha 的金在暗红地面上是"土黄"，
+          //   必须走 lighter 才像"灯火照着的一块地"—— 精卫的航迹踩过这条）
+          const prevOp = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.save();
+          ctx.translate(x, y + 4);
+          ctx.scale(1, 0.40);
+          const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 46);
+          grd.addColorStop(0, 'rgba(255,209,102,0.34)');
+          grd.addColorStop(0.55, 'rgba(255,209,102,0.12)');
+          grd.addColorStop(1, 'rgba(255,209,102,0)');
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, 46, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+          ctx.globalCompositeOperation = prevOp;
+
+          ctx.globalAlpha = fade;
+
+          // ② 两根木杆（摊子的"骨架"）
+          ctx.fillStyle = wood;
+          ctx.fillRect(x - 22, y - 38, 3.2, 40);
+          ctx.fillRect(x + 19, y - 38, 3.2, 40);
+          // 杆头各一枚金色的榫头（细看时才知道这不是两根木棍）
+          ctx.fillStyle = gold;
+          ctx.fillRect(x - 23, y - 40, 5.2, 3);
+          ctx.fillRect(x + 17.8, y - 40, 5.2, 3);
+
+          // ③ 布篷：前宽后窄的梯形（透视），素白布 + 金色滚边
+          ctx.beginPath();
+          ctx.moveTo(x - 30, y - 38);
+          ctx.lineTo(x + 30, y - 38);
+          ctx.lineTo(x + 21, y - 52);
+          ctx.lineTo(x - 21, y - 52);
+          ctx.closePath();
+          ctx.fillStyle = cloth;
+          ctx.fill();
+          ctx.strokeStyle = gold;
+          ctx.lineWidth = 1.6;
+          ctx.stroke();
+
+          // ④ 篷前沿的挂边：三道小三角（布篷才不像一块板）
+          ctx.fillStyle = gold;
+          for (let k = -1; k <= 1; k++) {
+            ctx.beginPath();
+            ctx.moveTo(x + k * 16 - 5, y - 38);
+            ctx.lineTo(x + k * 16 + 5, y - 38);
+            ctx.lineTo(x + k * 16, y - 33);
+            ctx.closePath();
+            ctx.fill();
+          }
+
+          // ⑤ 布幡：从布篷左前角垂下来，一直挂到摊板下方，随风摆。
+          //   ★它是"开市"这件事唯一的动态 —— 静止的摊子会被读成"一间小屋"。
+          //   第一版只从篷下垂 20px、颜色与篷同色，3 倍特写里读成"篷上的一块污渍"；
+          //   改到篷外、挂到摊板以下（26px 高）+ 金色滚边 + 尖端一枚小坠子，才认得出是布幡。
+          const bx = x - 29 + wave * 2.5;
+          const byTop = y - 38;
+          const byBot = y - 12 + Math.abs(wave) * 2;
+          ctx.beginPath();
+          ctx.moveTo(bx - 6, byTop);
+          ctx.lineTo(bx + 1, byTop);
+          ctx.quadraticCurveTo(bx + 5 + wave * 3, (byTop + byBot) / 2, bx + 1 + wave * 4, byBot);
+          ctx.lineTo(bx - 6 + wave * 4, byBot - 3);
+          ctx.quadraticCurveTo(bx - 3 + wave * 3, (byTop + byBot) / 2, bx - 6, byTop);
+          ctx.closePath();
+          ctx.globalAlpha = 0.92 * fade;
+          ctx.fillStyle = cloth;
+          ctx.fill();
+          ctx.strokeStyle = gold;
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+
+          // ⑥ 摊板 + 板上的货匣（这只匣子就是"要买的那件东西"）
+          ctx.fillStyle = wood;
+          ctx.fillRect(x - 24, y - 16, 48, 5);
+          ctx.fillStyle = 'rgba(20,14,12,0.45)';
+          ctx.fillRect(x - 24, y - 12, 48, 2);
+          // 货匣：素白布包 + 一道金绳（不画具体货品：货品每次都不一样，
+          //   画死一个形状反而会让玩家以为"这摊永远卖那个"）
+          ctx.fillStyle = cloth;
+          ctx.beginPath();
+          ctx.moveTo(x - 8, y - 16);
+          ctx.lineTo(x + 8, y - 16);
+          ctx.lineTo(x + 6, y - 28);
+          ctx.lineTo(x - 6, y - 28);
+          ctx.closePath();
+          ctx.fill();
+          ctx.strokeStyle = gold;
+          ctx.lineWidth = 1.8;
+          ctx.beginPath();
+          ctx.moveTo(x - 7.4, y - 22);
+          ctx.lineTo(x + 7.4, y - 22);
+          ctx.stroke();
+
+          // ⑦ 地上的钱堆：三枚金币（"这摊收钱"这件事的第二重提示）
+          ctx.fillStyle = gold;
+          for (let k = 0; k < 3; k++) {
+            const cx = x + 12 + (k % 2) * 6;
+            const cy = y - 5 - k * 3.2;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 4.2, 2.6, 0, 0, TAU);
+            ctx.fill();
+          }
+          ctx.strokeStyle = 'rgba(20,14,12,0.5)';
+          ctx.lineWidth = 1;
+          for (let k = 0; k < 3; k++) {
+            const cx = x + 12 + (k % 2) * 6;
+            const cy = y - 5 - k * 3.2;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 4.2, 2.6, 0, 0, TAU);
+            ctx.stroke();
+          }
+
+          // ⑧ 名牌：一行写清「摊名 · 卖什么 · 多少钱」
+          //   ★不写"淡到某个阈值就不画"的阈值（血祭坛踩过：剩 1.5 秒名字会啪一下消失）
+          ctx.save();
+          ctx.globalAlpha = 0.94 * fade;
+          ctx.font = '11px "Microsoft YaHei", "PingFang SC", system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const label = (MK.name || '大人之市') + ' · ' + itemName +
+            (itemPrice ? ' ' + itemPrice + ' 金' : '');
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillText(label, x + 1, y - 55 + 1);
+          ctx.fillStyle = gold;
+          ctx.fillText(label, x, y - 55);
+          ctx.restore();
+          ctx.globalAlpha = 1;
+        }
+      }
+
+      // ---------- 炼魂鼎（第五十三轮）----------
+      // 【为什么几何绘制、不用像素矩阵】鼎口腾起的魂火要 `sin` 跳动、底火要呼吸 ——
+      //   项目纪律：能动/会响的东西不做成一格一格的静态图（精卫/镇妖钟都踩过）。
+      // 【配色】三色全部复用已有串池值：火橙 #ff8c42（底火）/ 地脉玉青 #5fe0b0（魂火）/
+      //   琥珀金 #ffd166（成交光）。不用紫、不新增色值 —— 一个色都没往协议里加。
+      if (nCauldron) {
+        const CD = (C && C.CAULDRON) || { color: '#ff8c42', soulColor: '#5fe0b0', healColor: '#ffd166', name: '炼魂鼎' };
+        const fire = CD.color || '#ff8c42';
+        const soul = CD.soulColor || '#5fe0b0';
+        const at = R._animT || 0;
+        for (let i = 0; i < list.length; i++) {
+          const it = list[i];
+          if (it.kind !== 'cauldron') continue;
+          if (!visible(it.x, it.y, 64)) continue;
+          const x = lerp(it.px, it.x, alpha);
+          const y = lerp(it.py, it.y, alpha);
+          // 最后 3 秒淡出（联机快照不带 life → fade 恒 1，与其余点位同一条处理）
+          const fade = it.life === undefined ? 1 : Math.max(0.2, Math.min(1, it.life / 3));
+          const breath = 0.5 + 0.5 * Math.sin(at * 3.2);
+          ctx.save();
+          ctx.globalAlpha = fade;
+
+          // ① 地面火光：火橙 + 加法混合（暗红地面上低 alpha 的橙会读成土黄，
+          //    必须 lighter 才像"底下真有一炉火"—— 大市的金光池同一条）。
+          const prevOp = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.save();
+          ctx.translate(x, y + 6);
+          ctx.scale(1, 0.42);
+          const grd = ctx.createRadialGradient(0, 0, 2, 0, 0, 40);
+          grd.addColorStop(0, 'rgba(255,140,66,0.34)');
+          grd.addColorStop(0.55, 'rgba(255,140,66,0.12)');
+          grd.addColorStop(1, 'rgba(255,140,66,0)');
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, 40, 0, TAU);
+          ctx.fill();
+          ctx.restore();
+          ctx.globalCompositeOperation = prevOp;
+
+          // ② 三足：两根前脚 + 一根后脚，外撇的梯形。
+          //   ★第一版用暗铜 #b0793a、只露到 y+15，3 倍特写里三足完全沉进暗红地面，
+          //     整座鼎被读成"一个橙色碗"（截图才发现，断言永远发现不了）。
+          //     改成更亮的金铜 #c9963a（池里已有）+ 延长外撇到 y+19 + 一道高光边 ——
+          //     三足是"鼎"与"碗"唯一的区别，必须一眼看得出。
+          ctx.fillStyle = '#c9963a';
+          ctx.strokeStyle = 'rgba(255,209,102,0.55)';
+          ctx.lineWidth = 1;
+          function leg(x0, x1, x2, x3) {
+            ctx.beginPath();
+            ctx.moveTo(x + x0, y + 2); ctx.lineTo(x + x1, y + 2);
+            ctx.lineTo(x + x2, y + 19); ctx.lineTo(x + x3, y + 19); ctx.closePath();
+            ctx.fill(); ctx.stroke();
+          }
+          leg(-16, -9, -6, -15);     // 左脚：向外撇
+          leg(9, 16, 15, 6);         // 右脚：向外撇
+          leg(-4, 4, 3, -3);         // 后脚：正中稍短视觉差
+
+          // ③ 鼎腹：宽口收腰的梯形，火橙描边 + 深铜填充（深色在暗红地面上靠描边才看得出）
+          ctx.fillStyle = 'rgba(60,42,26,0.95)';
+          ctx.strokeStyle = fire;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x - 20, y - 10); ctx.lineTo(x + 20, y - 10);
+          ctx.lineTo(x + 14, y + 6); ctx.lineTo(x - 14, y + 6); ctx.closePath();
+          ctx.fill(); ctx.stroke();
+          // 双耳
+          ctx.beginPath();
+          ctx.moveTo(x - 20, y - 10); ctx.lineTo(x - 24, y - 17); ctx.lineTo(x - 17, y - 15);
+          ctx.moveTo(x + 20, y - 10); ctx.lineTo(x + 24, y - 17); ctx.lineTo(x + 17, y - 15);
+          ctx.stroke();
+
+          // ④ 鼎腹上的火纹：随呼吸明灭的一道横纹（告诉玩家"这炉子烧着呢"）
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = 'rgba(255,140,66,' + (0.30 + 0.35 * breath) + ')';
+          ctx.fillRect(x - 12, y - 3, 24, 2);
+          ctx.globalCompositeOperation = prevOp;
+
+          // ⑤ 鼎口魂火：玉青的火苗从口里腾起、随 sin 摆动（这是"经验被炼化"的视觉）
+          ctx.globalCompositeOperation = 'lighter';
+          for (let k = 0; k < 3; k++) {
+            const fx = x - 9 + k * 9;
+            const fh = 10 + 7 * (0.5 + 0.5 * Math.sin(at * 4 + k * 1.7));
+            ctx.fillStyle = 'rgba(95,224,176,' + (0.30 + 0.22 * breath) + ')';
+            ctx.beginPath();
+            ctx.moveTo(fx - 3, y - 11);
+            ctx.quadraticCurveTo(fx + Math.sin(at * 3 + k) * 3, y - 11 - fh * 0.6, fx, y - 11 - fh);
+            ctx.quadraticCurveTo(fx + 2, y - 11 - fh * 0.5, fx + 3, y - 11);
+            ctx.closePath();
+            ctx.fill();
+          }
+          ctx.globalCompositeOperation = prevOp;
+
+          // ⑥ 三颗上浮的魂点：从鼎口升起又淡出，暗示"经验会变成血"
+          ctx.fillStyle = soul;
+          for (let k = 0; k < 3; k++) {
+            const ph = (at * 0.7 + k / 3) % 1;
+            const py = y - 14 - ph * 22;
+            const pa = (1 - ph) * 0.7;
+            ctx.globalAlpha = fade * pa;
+            ctx.beginPath();
+            ctx.arc(x - 8 + k * 8 + Math.sin(at * 2 + k) * 2, py, 1.6, 0, TAU);
+            ctx.fill();
+          }
+          ctx.globalAlpha = fade;
+
+          // ⑦ 名牌：鼎名 + "修为换血"（把这条玩法一句话写在它身上，不必读提示条）
+          ctx.font = '11px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
+          const label = (CD.name || '炼魂鼎') + ' · 修为换血';
+          ctx.fillStyle = 'rgba(0,0,0,0.7)';
+          ctx.fillText(label, x + 1, y - 42 + 1);
+          ctx.fillStyle = soul;
+          ctx.fillText(label, x, y - 42);
+          ctx.restore();
         }
       }
 
@@ -2329,6 +3283,63 @@
         ctx.fill();
       }
 
+      // ---------- 第一遍半：影傀之间的魂丝（第五十轮） ----------
+      // 【为什么必须有这条线】这个机制的玩法是「趁现在点掉一只，还是放它们合体」，
+      //   而这个决定的前提是**看得出它们正在靠拢、还差多远**。
+      //   没有这根线，两只朝彼此走的怪和两只朝你走的怪在画面上完全一样 ——
+      //   玩家根本不知道自己正在被给一个选择。
+      // 【为什么用"亮度"表示进度】距离越近线越亮、越粗，最后接上时是一道实线；
+      //   玩家不需要任何文字说明就能读出"快合上了"。
+      // ★它画在怪身下（第一遍半），不能盖住精灵本体 —— 精灵是像素图，压一条线上去
+      //   会让"谁是罔两、谁是影傀"变得难认（合体后那一对本来就会消失）。
+      const mergeRule = (C && C.MERGE) || null;
+      if (mergeRule && list.length) {
+        // 先建一次 id → 怪的索引：一对影傀要互相找到对方，逐只线性找是 O(n²)，
+        // 后期场上千只怪时这一遍会变成主循环里最贵的一段。
+        let pairIdx = null;
+        for (let i = 0; i < list.length; i++) {
+          const m = list[i];
+          if (!m.alive || !m.def || !m.def.mergeSoul) continue;
+          if (!pairIdx) pairIdx = {};
+          pairIdx[m.id] = m;
+        }
+        if (pairIdx) {
+          const md = mergeRule.mergeDist || 52;
+          for (let i = 0; i < list.length; i++) {
+            const m = list[i];
+            if (!m.alive || !m.def || !m.def.mergeSoul || !m.mateId) continue;
+            const o = pairIdx[m.mateId];
+            if (!o) continue;
+            if (m.id > o.id) continue;          // 一对只画一次
+            const ax = lerp(m.px, m.x, alpha);
+            const ay = lerp(m.py, m.y, alpha);
+            const bx = lerp(o.px, o.x, alpha);
+            const by = lerp(o.py, o.y, alpha);
+            const dx = bx - ax;
+            const dy = by - ay;
+            const d = Math.sqrt(dx * dx + dy * dy) || 1;
+            // 0 = 刚浮现（相距四百多像素）→ 1 = 已经贴住
+            const near = Math.max(0, Math.min(1, 1 - (d - md) / 420));
+            if (near <= 0.02) continue;         // 太远就不画，免得满屏都是淡线
+            const pulse = 0.72 + 0.28 * Math.sin((R._frame || 0) * 0.22);
+            ctx.save();
+            ctx.strokeStyle = mergeRule.markColor || '#dfe6ef';
+            // ★亮度从 (0.1 + 0.55n) 提到 (0.16 + 0.6n)：第一版在 220px 间距上只有
+            //   0.37 的不透明度，3 倍截图中那条线被玩家自己挡住之后几乎读不出来。
+            ctx.globalAlpha = (0.16 + 0.6 * near) * (0.65 + 0.35 * pulse);
+            ctx.lineWidth = 1 + 1.6 * near;
+            ctx.setLineDash([5, 7]);
+            ctx.lineDashOffset = -((R._frame || 0) * 0.7) % 12;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(bx, by);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.restore();
+          }
+        }
+      }
+
       // ---------- 第二遍：词缀标记环（只给变异怪画） ----------
       // 【为什么用脚下的环，而不是给精灵染色】精灵是烘好的像素图，染色会糊掉细节；
       //   而且后期同屏几百只怪，整屏泛红等于没标记 —— 一个亮色环在暗红地面上最扎眼。
@@ -2378,13 +3389,26 @@
         const m = list[i];
         if (!m.alive || !m.def) continue;
         // 挑战者 = 琥珀金「值得掉头去收的宝箱」；山魈 = 暗红偏橙「必须点掉的靶子」；
-        // 双生妖（第四十五轮）= 冷青灰「这一对必须一起收」——
-        //   它的标记必须和另外两个都不同色，否则玩家会把「先打死它」当成正常打法。
+        // 双生妖（第四十五轮）= 冷青灰「这一对必须一起收」；
+        // 饕餮（第四十七轮）= 墨绿「它正在把你的东西搬走」——
+        //   四色必须两两拉得开，否则玩家会把「回头去收它」当成和别的精英一样的顺手事。
         const mkColor = m.def.challenger ? '#f2c14e'
-          : (m.def.summoner ? '#e0673f' : (m.def.twins ? '#8fb6c8' : null));
+          : (m.def.summoner ? '#e0673f'
+          : (m.def.twins ? '#8fb6c8'
+          : (m.def.devourer ? '#8f9d5f'
+          // ★影傀与罔两**同色**：它们是同一族（罔两就是两只影傀叠出来的），
+          //   用同一个冷白环，玩家一眼能把「那一对 + 它合出来的那只」归成一类。
+          //   代价是「罔两值 2 个宝箱」这条信息读不出来 —— 那靠合体播报与名牌，
+          //   不靠环色（环色只回答"它是不是事件怪"）。
+          : ((m.def.mergeSoul || m.def.wangliang)
+              ? ((mergeRule && mergeRule.markColor) || '#dfe6ef') : null))));
         if (!mkColor) continue;
         const mkLabel = m.def.challenger ? '挑战者'
-          : (m.def.summoner ? (m.def.name || '山魈') : (m.def.twins ? '双生' : (m.def.name || '')));
+          : (m.def.summoner ? (m.def.name || '山魈')
+          : (m.def.twins ? '双生'
+          : (m.def.devourer ? (m.def.name || '饕餮')
+          : (m.def.mergeSoul ? (m.def.name || '影傀')
+          : (m.def.wangliang ? (m.def.name || '罔两') : (m.def.name || ''))))));
         const pack = art[m.defId];
         if (!pack) continue;
         if (!visible(m.x, m.y, m.def.r + 40)) continue;
@@ -2479,6 +3503,46 @@
           ctx.drawImage(s.cv, Math.round(x - s.hw + dx), Math.round(y - s.hh + dy), s.hw * 2, s.hh * 2);
         }
 
+        // ---------- 饕餮的肚子（第四十七轮） ----------
+        // 【为什么画在这里、画在精灵之后】它吞了多少只能靠「肚子鼓起来 + 里面发亮」表达。
+        //   服务端每吃一份会把 m.r 长 0.5（最多 +7），r 本来就在快照里 ——
+        //   所以「几份」这个数字不用新开协议字段，用半径差就够读了（协议零改动）。
+        // 【为什么是贴地的暗金光而不是描边】它说的是「肚子里的东西在发光」，
+        //   画成轮廓线会和上面那道标记环抢眼睛，两圈叠在一起谁也读不清。
+        if (m.def.devourer) {
+          const grown = Math.max(0, m.r - m.def.r);
+          if (grown > 0.4) {
+            // ★上限从表里读（不写死 7）：它同时决定「吃满时长到多大」，
+            //   写死的话以后调 growMax，画面的光了就永远停在旧比例上。
+            const gmax = (C.DEVOURER && C.DEVOURER.growMax) || 12;
+            const k = Math.min(1, grown / gmax);
+            // ★尺寸跨度要够大（0.30 → 0.85 倍身宽）：第一版 0.42→0.76 在 3 倍截图里
+            //   两只「吃了 7 份 / 13 份」的饕餮看起来一模一样 —— 那这个提示就等于没有。
+            const br = pack.body.hw * (0.30 + 0.55 * k);
+            const gy = y + pack.body.hh * 0.2;
+            const prevOp2 = ctx.globalCompositeOperation;
+            ctx.globalCompositeOperation = 'lighter';
+            const gBelly = ctx.createRadialGradient(x, gy, br * 0.06, x, gy, br);
+            gBelly.addColorStop(0, 'rgba(255,214,120,' + (0.5 * k).toFixed(3) + ')');
+            gBelly.addColorStop(0.5, 'rgba(226,182,84,' + (0.3 * k).toFixed(3) + ')');
+            gBelly.addColorStop(1, 'rgba(160,120,40,0)');
+            ctx.fillStyle = gBelly;
+            ctx.beginPath();
+            ctx.arc(x, gy, br, 0, TAU);
+            ctx.fill();
+            ctx.globalCompositeOperation = prevOp2;
+            // 再补一道很淡的**边界**：光晕本身没有轮廓，光靠亮度玩家分不清「肥了多少」
+            // （与灵泉/引魂灯同一条：判定范围要靠一条环说清楚）
+            ctx.globalAlpha = 0.35 * k;
+            ctx.strokeStyle = '#ffe9b0';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.arc(x, gy, br * 0.92, 0, TAU);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+          }
+        }
+
         // ---------- 血条 + 伤害采样（只对精英及以上做） ----------
         const tier = m.def.tier;
         if (tier === 'elite' || tier === 'commander' || tier === 'boss') {
@@ -2496,7 +3560,11 @@
             : (tier === 'commander' ? '#d9642f'
             // 双生妖（第四十五轮）：血条跟着它自己的标记色走 ——
             // 冷蓝的环配琥珀金的血条会让人以为是两只不同的怪。
-            : (m.def.challenger ? '#f2c14e' : (m.def.twins ? '#8fb6c8' : '#e08a3a')));
+            // 饕餮（第四十七轮）同一口径：血条 = 标记色（墨绿），
+            // 否则「绿色标记 + 橙色血条」的精英看起来像是两条不同的东西叠在一起。
+            : (m.def.challenger ? '#f2c14e'
+            : (m.def.twins ? '#8fb6c8'
+            : (m.def.devourer ? '#8f9d5f' : '#e08a3a'))));
           ctx.fillRect(x - bw / 2, top, bw * ratio, bh);
 
           // 掉血了就飘一个数（渲染层自己比对上一帧血量，不改世界数据）
@@ -3004,6 +4072,156 @@
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.arc(e.x, e.y, e.r * (0.2 + 0.8 * k), 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
+        if (e.kind === 'feathers') {
+          // 精卫折翼（第五十一轮）。
+          // 【为什么必须自绘】借 `boom` 会被 pixelfx 画成「天降金色雷击」——
+          //   那是"打赢了"的形状，而这里要的是"她没了"（语义正好相反）。
+          //   与 boonshatter / devour 是同一条判断：看不清的反馈不如不给。
+          // 【为什么不做成"一大团"】散开的三片羽毛比一团白光更能表达"掉下来"：
+          //   一团光会读成特效，三片会读成"有东西碎了"。
+          if (!visible(e.x, e.y, e.r + 12)) continue;
+          const kf = 1 - t;                       // 0 → 1：从生到灭
+          // 羽毛：叶形 + 中脉，一边打着转一边往下飘（kf² 让它越落越快）
+          // ★尺寸放大到 4.6×11（第一版 2.6×6.5 在 1 倍画面里只有 7px，像三粒灰）。
+          //   它是"她没了"的唯一解释，必须够读。
+          const fy = e.y - 5 * kf + 10 * kf * kf;
+          const fs = 1 - 0.35 * kf;
+          ctx.save();
+          ctx.translate(e.x, fy);
+          ctx.rotate(kf * 1.1);
+          ctx.globalAlpha = t * 0.95;
+          ctx.fillStyle = mixRgba(e.color || '#eaf2f8', '#ffffff', 0.35, 1);
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 4.6 * fs, 11 * fs, 0, 0, TAU);
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(30,24,20,0.55)';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(0, -10 * fs);
+          ctx.lineTo(0, 10 * fs);
+          ctx.stroke();
+          ctx.restore();
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
+        if (e.kind === 'boonshatter') {
+          // 歧路双碑：另一座当场碎裂（第四十八轮）。
+          // 【为什么必须自绘】借 `boom` 会被 pixelfx 画成「雷部神锤的金色雷击」——
+          //   那是"从天上打下来"的语义，而这里要的是"石头自己碎了"
+          //   （引魂灯那轮在 boom / ring 上各撞了一堵墙）。
+          // 【为什么要有这一下】它是这一整轮唯一的**代价**：没有碎裂的表现，
+          //   「另一座自己跑掉了」和「另一座被系统吃掉了」在画面上分不出来，
+          //   玩家下次就会以为这是个"走过去拿两份"的点位。
+          // ★颜色取碎掉那一座自己的色，但统一往灰白压 —— 碎裂是"失去"，不是"奖励"。
+          if (!visible(e.x, e.y, e.r)) continue;
+          const ks = 1 - t;                          // 0 → 1：从碑心往外散
+          // ① 贴地的半环：石头碎开时扬起来的尘
+          ctx.globalAlpha = t * 0.8;
+          ctx.strokeStyle = mixRgba(e.color, '#cfc7b8', 0.55, 1);
+          ctx.lineWidth = 2 + 3 * t;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y - 10, e.r * (0.25 + 0.9 * ks), 0.12 * Math.PI, 0.88 * Math.PI);
+          ctx.stroke();
+          // ② 四块碎片往外飞并翻倒（方向按角度等分，**不取随机数**：渲染层也不该抽签，
+          //    否则联机时同一个特效在两个人屏幕上长得不一样）
+          ctx.globalAlpha = t * 0.85;
+          ctx.fillStyle = mixRgba(e.color, '#d8d2c4', 0.5, 1);
+          for (let s = 0; s < 4; s++) {
+            const a2 = (s / 4) * TAU + 0.5;
+            const dr = e.r * (0.35 + 1.0 * ks);
+            const sx = e.x + Math.cos(a2) * dr;
+            const sy = e.y - 10 + Math.sin(a2) * dr * 0.5 - 8 * ks;
+            const sz = 4 * (1 - 0.55 * ks);
+            ctx.save();
+            ctx.translate(sx, sy);
+            ctx.rotate(a2 + ks * 1.4);
+            ctx.fillRect(-sz / 2, -sz / 2, sz, sz);
+            ctx.restore();
+          }
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
+        if (e.kind === 'devour') {
+          // 饕餮吞下一份精魄（第四十七轮）：一圈**向内收**的光。
+          // 【为什么不借 lanterncore / ring】它们是「往外炸」的语义（灯火炸开 / 作用边界），
+          //   而这里要的是「被吸进去」—— 方向反过来，玩家才能一眼读出因果
+          //   （是那只怪在吃我的球，不是地上又炸了什么）。
+          // ★这个 kind 在 pixelfx 里没有对应名字，effectFor 返回 null，所以一定落到这一支。
+          if (!visible(e.x, e.y, e.r)) continue;
+          const kd = 1 - t;                        // 0 → 1：半径从满收到很小
+          ctx.globalAlpha = t * 0.9;
+          // ★比 e.color（#55663c 墨绿）亮一档：暗绿叠在暗红地面上会被压成一条灰线，
+          //   「在吸」这件事就看不出来了。
+          ctx.strokeStyle = '#d8e08a';
+          ctx.lineWidth = 2 + 3 * t;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (1 - 0.75 * kd), 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = t * 0.5;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (0.75 - 0.55 * kd), 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
+        if (e.kind === 'lanterncore') {
+          // 引魂灯的暖光爆闪（第四十六轮）。
+          // 【为什么要自己画，不借 boom / ring】两者都试过，都被真浏览器截图推翻：
+          //   · 琥珀金的 `boom` 在 pixelfx 里是「雷部神锤的金色雷击」→ 一道天降雷柱；
+          //   · `ring` 是库里的贴地符文阵，r=240 换算成 scale 2.67 → 一圈巨大的
+          //     **白色线框**铺满半个屏幕，战场直接看不见。
+          //   自己画的好处是颜色、尺寸、衰减全在手里，也不会被库的调色板改写。
+          // ★尺寸只到判定半径的 0.62：它是"灯火炸开"，不是"把 240 填满"——
+          //   240 这件事由 lanternring 那条边界说清楚。
+          if (!visible(e.x, e.y, e.r)) continue;
+          const k = 1 - t;                        // 0 → 1：从中心往外推
+          const rr = e.r * (0.28 + 0.34 * k);      // 0.28r → 0.62r
+          const prevOp = ctx.globalCompositeOperation;
+          ctx.globalCompositeOperation = 'lighter';
+          const g = ctx.createRadialGradient(e.x, e.y, rr * 0.05, e.x, e.y, rr);
+          // 暖白核心 → 琥珀 → 透明：三级就够，级数多了会糊成一团
+          g.addColorStop(0, 'rgba(255,251,232,' + (0.85 * t).toFixed(3) + ')');
+          g.addColorStop(0.42, 'rgba(255,207,92,' + (0.55 * t).toFixed(3) + ')');
+          g.addColorStop(1, 'rgba(255,180,60,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, rr, 0, TAU);
+          ctx.fill();
+          ctx.globalCompositeOperation = prevOp;
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
+        if (e.kind === 'lanternring') {
+          // 引魂灯「三盏齐了」那一下的**作用边界**（第四十六轮）。
+          // 【为什么必须单独画一个 kind】与地脉灵泉同一条理由：pixelfx 库里
+          //   贴地符文阵的缩放上限换算下来只铺到百来像素，而这一下真的打到 240 ——
+          //   边界画不出来，玩家就不会理解「为什么站在 241px 处没被扫到」。
+          // ★pixelfx 里没有这个 kind，effectFor 返回 null，所以一定落到这一支。
+          if (!visible(e.x, e.y, e.r)) continue;
+          const k = 1 - t;                       // 0 → 1：环从内往外推开
+          ctx.globalAlpha = t * 0.9;
+          // ★比 e.color 更亮（#fff0bb）：0.9 的 alpha 叠在暗红地面上，
+          //   直接用 #ffcf5c 会被压成一条土黄细线，「边界」就看不出来了。
+          ctx.strokeStyle = '#fff0bb';
+          ctx.lineWidth = 3 + 5 * t;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (0.4 + 0.6 * k), 0, TAU);
+          ctx.stroke();
+          // 内圈一道细环跟着走：两道一起推，扩散感比单环明显得多（同 leyring）
+          ctx.globalAlpha = t * 0.4;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (0.25 + 0.75 * k), 0, TAU);
           ctx.stroke();
           ctx.globalAlpha = 1;
           continue;

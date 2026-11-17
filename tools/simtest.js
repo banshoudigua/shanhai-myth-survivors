@@ -11,6 +11,10 @@ const SIM = require('../shared/sim.js');
 // 第四十一轮：山魈那条「关卡池里不许有它」要扫剧情模组的关卡表，
 // 所以这里直接引 campaign（与 sim.js 内部是同一个模块实例，不额外开销）。
 const CP = require('../shared/campaign.js');
+// 第四十六轮：引魂灯那条「表里不许有死字段」需要直接扫 sim.js 源码 ——
+// 这类断言（"写了却没人读的数值"）没别的办法验，只能看源码里还有没有引用。
+const FS = require('fs');
+const PATH = require('path');
 
 let pass = 0;
 let fail = 0;
@@ -1384,6 +1388,15 @@ testSummoner();console.log('');
 testLey();console.log('');
 testPact();console.log('');
 testTwins();console.log('');
+testLantern();console.log('');
+testDevourer();console.log('');
+testBoon();console.log('');
+testBell();console.log('');
+testMerge();console.log('');
+testEscort();console.log('');
+
+testMarket();console.log('');
+testCauldron();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -4818,4 +4831,3330 @@ function testTwins() {
   expect('★★step 里真的会推进同命倒计时并让那只站起来（updateTwins 漏挂的话逻辑全对但永远不复活）',
     twinMobs(wH).length === 2 && evs(wH, 'twin_revive').length === 1,
     '只数=' + twinMobs(wH).length + ' 复活事件=' + evs(wH, 'twin_revive').length);
+}
+
+// ============================================================
+// 第四十六轮：引魂灯（三盏一组的路线规划）
+// ============================================================
+//
+// 【这一轮为什么值得新增三十多条断言】前面十一个玩法增量各自只需要**一个决定**
+// （先打哪只 / 去不去 / 停不停 / 付不付），而引魂灯第一次要求**一条路线**：
+// 三盏灯散在三个方向、只有 26 秒，跑不完全部。
+// 于是「三点必须真的铺满 360°」「灯不许被磁石吸过来」「点齐才给奖励」
+// 这三件事一旦破掉，玩法会**悄悄退化**成「地上多了三个小神龛」——
+// 数值全对、断言全绿、手感为零。所以这里每一条都钉「不该发生的事」。
+function testLantern() {
+  console.log('[第四十六轮] 引魂灯：三盏一组的路线规划');
+  const L = C.LANTERN;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(L.startSec * HZ);
+  // 扫源码：用于钉「表里不许有死字段」（本轮删掉 drawLift、把 lightRadius 接上真实判定）
+  const SRC = FS.readFileSync(PATH.join(__dirname, '..', 'shared', 'sim.js'), 'utf8');
+
+  // 干净世界：清武器（免得顺手把摆好的靶子打死）、锁经验（免得升级面板冻住 step）、
+  // 其它事件排期全部推到很远（本轮只验引魂灯）。
+  function lanternWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function lamps(w) {
+    return w.pickups.filter(function (x) { return x.kind === 'lantern'; });
+  }
+  function kinds(w, k) {
+    return w.pickups.filter(function (x) { return x.kind === k; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  // 把玩家搬到离某一盏灯 dist 远的位置（同一条水平线上，好算）
+  function stand(w, it, dist) {
+    const p = w.player;
+    p.x = it.x + dist;
+    p.y = it.y;
+    SIM.setSelf(w, p);
+    return p;
+  }
+  // 到点刷一组
+  function spawn(w) {
+    w.tick = startTick;
+    w.lanternNextTick = 0;
+    return SIM.maybeSpawnLanterns(w);
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★引魂灯不许落在 30 秒波次网格上（startSec % 30 !== 0）：'
+    + '压在波次那一帧时，刚刷的怪还在 700px 外（陨星为此被推迟过 95 秒）',
+    L.startSec % 30 !== 0, 'startSec=' + L.startSec);
+  const others = [
+    ['挑战者', C.CHALLENGER.startSec], ['灵泉', C.LEYLINE.startSec],
+    ['血祭坛', C.BLOODPACT.startSec], ['赤月', C.BLOOD_MOON.startSec],
+    ['山魈', C.SUMMONER.startSec], ['陨星', C.METEOR.startSec],
+    ['双生妖', C.TWINS.startSec]
+  ];
+  const sameTick = others.filter(function (o) { return o[1] === L.startSec; });
+  expect('★不许与另一个事件的**首发帧**落在同一 tick（同一帧两件事一起弹，玩家只会读一条）',
+    sameTick.length === 0, sameTick.length ? '撞了：' + sameTick[0][0] : '无冲突');
+  expect('★★一次必须正好三盏（count === 3）：两盏只构成一条线（走到底再折回，几乎不用规划），'
+    + '五盏在 26 秒里跑不完（等于把奖励变成抽签）',
+    L.count === 3, 'count=' + L.count);
+  expect('★环带必须落在「抬头看得见、又跑得过去」的区间（ringMin ≥ 280 且跨度 ≥ 120）：'
+    + '太近等于白送，太远就是「根本来不及」',
+    L.ringMin >= 280 && (L.ringMax - L.ringMin) >= 120,
+    'ring=' + L.ringMin + '~' + L.ringMax);
+  expect('★★★点亮半径必须**小于**默认拾取半径（lightRadius < PLAYER.pickupRadius）：'
+    + '它代替了拾取半径（否则磁石被动一开，灯在 100px 外就被"吸着点亮"，路线规划整个消失）',
+    L.lightRadius < C.PLAYER.pickupRadius && L.lightRadius >= 20,
+    'lightRadius=' + L.lightRadius + ' pickupRadius=' + C.PLAYER.pickupRadius);
+  expect('★存在时长必须够跑三盏、又不够"打完这一波再慢慢去"（20 ≤ lifeSec ≤ 40）',
+    L.lifeSec >= 20 && L.lifeSec <= 40, 'lifeSec=' + L.lifeSec);
+  expect('★★收尾冲击必须**小于**灵泉的冲击半径（不许变成"第二个灵泉"）：'
+    + '它的定位是「点灯顺手清一下身边的人」',
+    L.burstRadius < C.LEYLINE.burstRadius,
+    'lantern=' + L.burstRadius + ' ley=' + C.LEYLINE.burstRadius);
+  expect('★收尾冲击的伤害必须随波次成长（后期的灯下不该打出开局的白字伤害）',
+    C.lanternDmgAt(20) > C.lanternDmgAt(2),
+    'wave2=' + fmt(C.lanternDmgAt(2), 1) + ' wave20=' + fmt(C.lanternDmgAt(20), 1));
+  expect('★★配色是跨层契约（渲染的灯火 / 光晕 / 边界环都按这个值）：必须是琥珀金 #ffcf5c',
+    L.color === '#ffcf5c', L.color);
+  expect('★★引魂灯不许出现在怪物表里（它是地面点位，不是怪：进了 MOBS 就会被刷怪、被击杀、进图鉴）',
+    C.MOBS.filter(function (m) { return m.name === L.name; }).length === 0,
+    'MOBS 里出现了同名条目');
+  // ★死字段检查：表里每个键都必须在 sim.js 里被真正读到。
+  //   本轮就是靠这条发现 `lightRadius` 从来没被用过（判定一直在吃拾取半径）、
+  //   以及 `drawLift: 0` 是个纯装饰的死字段（已删）。
+  const dead = [];
+  const keys = Object.keys(L);
+  for (let i = 0; i < keys.length; i++) {
+    const k = keys[i];
+    if (k === 'name') continue;              // 展示名，不参与逻辑
+    if (k === 'burstDmgBase') {              // 它由 const.js 的 lanternDmgAt 消费
+      if (SRC.indexOf('lanternDmgAt') < 0) dead.push(k);
+      continue;
+    }
+    if (SRC.indexOf('.' + k) < 0) dead.push(k);
+  }
+  expect('★★表里不许有死字段（写了却没人读的数值 = 调了也没用，下次有人改它只会以为自己改错了）',
+    dead.length === 0, dead.length ? '没人读：' + dead.join(',') : '全部被引用');
+
+  // ---------- 1. 到点前一帧一盏都不许有 ----------
+  const wA = lanternWorld(9600);
+  wA.tick = startTick - 1;
+  wA.lanternNextTick = 0;
+  SIM.maybeSpawnLanterns(wA);
+  expect('★到点前一帧一盏都不许出现（早一帧 = 时间没到就先给了奖励）',
+    lamps(wA).length === 0 && evs(wA, 'lantern').length === 0,
+    '盏数=' + lamps(wA).length);
+
+  // ---------- 2. 到点三盏、只播一条 ----------
+  const wB = lanternWorld(9601);
+  spawn(wB);
+  const lampsB = lamps(wB);
+  const evB = evs(wB, 'lantern');
+  expect('★到点必须正好三盏，而且只播一条（三条会让人以为来了三组）',
+    lampsB.length === 3 && evB.length === 1,
+    '盏数=' + lampsB.length + ' 事件=' + evB.length);
+  expect('★★现身事件必须带上「几盏」和「多少秒」（这是整套规则唯一的说明书：'
+    + '不写秒数，玩家会以为它能一直挂着）',
+    evB.length === 1 && evB[0].count === 3 && evB[0].sec === L.lifeSec,
+    evB.length ? 'count=' + evB[0].count + ' sec=' + evB[0].sec : '无事件');
+  expect('★现身事件必须是**全局**事件（不带 slot）：联机时四个人都该知道有三个方向要跑',
+    evB.length === 1 && evB[0].slot === undefined,
+    evB.length ? 'slot=' + evB[0].slot : '无事件');
+
+  // ---------- 3. 三点必须真的铺满 360° ----------
+  // 【判据】按「相对玩家」的方位角排序，取相邻夹角（含跨 0° 那一段），
+  //   每条都必须 ≥ 60°。散列抖动是 ±0.28 弧度（约 ±16°），基准 120°，
+  //   所以正常情况最小夹角约 88°。如果三点挤在同一侧，最小夹角会掉到 20° 以下。
+  const anchorB = wB.player;
+  const angs = lampsB.map(function (it) { return Math.atan2(it.y - anchorB.y, it.x - anchorB.x); })
+    .sort(function (a, b) { return a - b; });
+  let minGapDeg = 360;
+  for (let i = 0; i < angs.length; i++) {
+    const next = i === angs.length - 1 ? angs[0] + Math.PI * 2 : angs[i + 1];
+    const deg = (next - angs[i]) * 180 / Math.PI;
+    if (deg < minGapDeg) minGapDeg = deg;
+  }
+  expect('★★★三盏灯必须铺满三个方向（相邻夹角 ≥ 60°）：挤在同一侧的话'
+    + '「先跑哪一盏」就退化成「顺着走一遍」，这一轮唯一的新东西就没了',
+    lampsB.length === 3 && minGapDeg >= 60, '最小夹角=' + fmt(minGapDeg, 1) + '°');
+  // 两两直线距离也要真的拉开
+  let minDist = 1e9;
+  for (let i = 0; i < lampsB.length; i++) {
+    for (let k = i + 1; k < lampsB.length; k++) {
+      const dd = Math.sqrt(Math.pow(lampsB[i].x - lampsB[k].x, 2) + Math.pow(lampsB[i].y - lampsB[k].y, 2));
+      if (dd < minDist) minDist = dd;
+    }
+  }
+  expect('★三盏之间必须真的拉开距离（≥ 环带跨度的 40%）：贴在一起的三盏等于一盏',
+    minDist >= (L.ringMax - L.ringMin) * 0.4, '最近两盏=' + fmt(minDist, 0) + 'px');
+  // 环带
+  let badRing = 0;
+  for (let i = 0; i < lampsB.length; i++) {
+    const dd = Math.sqrt(Math.pow(lampsB[i].x - anchorB.x, 2) + Math.pow(lampsB[i].y - anchorB.y, 2));
+    if (dd < L.ringMin - 1 || dd > L.ringMax + 1) badRing += 1;
+  }
+  expect('★三盏都必须落在 ringMin~ringMax 的环带上（太近白送、太远来不及）',
+    badRing === 0, '越界盏数=' + badRing);
+
+  // ---------- 4. 场上还有灯时，排期到了也不许多刷 ----------
+  // ★这一条原来写成「连推 5 个 everySec」，结果测出来是 3 条播报 —— 不是代码错，
+  //   是**判据错**：一次推 132 秒早就越过 26 秒的寿命，于是每一轮都会
+  //   「先作废上一组、再刷下一组」，播报当然会多。真正要钉的是**同一组还活着的时候**：
+  const wC = lanternWorld(9602);
+  spawn(wC);
+  wC.tick = startTick + Math.round(10 * HZ);   // 组内第 10 秒（还剩 16 秒）
+  wC.lanternNextTick = wC.tick;                // 假装排期到了
+  for (let k = 0; k < 5; k++) SIM.maybeSpawnLanterns(wC);
+  expect('★★★★场上那三盏还没点完时，排期到了也一盏都不许多刷（同屏闸）：'
+    + '而且只**短等 2 秒**重试，不许顺延整个 132 秒（陨星踩过这个坑：一顺延就等于这一组永远不来了）',
+    lamps(wC).length === 3 && evs(wC, 'lantern').length === 1
+      && wC.lanternNextTick === wC.tick + Math.round(2 * HZ),
+    '盏数=' + lamps(wC).length + ' 事件=' + evs(wC, 'lantern').length
+      + ' 重试差 ' + fmt((wC.lanternNextTick - wC.tick) / HZ, 1) + ' 秒');
+
+  // ---------- 5. 剧情关一盏都没有 ----------
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 9603, modId: 'myth', stageId: 'ch1' });
+  wS.player.expNext = 1e9;
+  wS.tick = startTick;
+  wS.lanternNextTick = 0;
+  SIM.maybeSpawnLanterns(wS);
+  for (let i = 0; i < 5; i++) SIM.step(wS, { mx: 0, my: 0 });
+  expect('★★剧情关（《补天纪》ch1）永远没有引魂灯，连播报都没有'
+    + '（与挑战者/神龛/赤月/陨星/山魈/灵泉/血祭坛/双生妖同一条纪律）',
+    !!wS.storyStage && lamps(wS).length === 0 && evs(wS, 'lantern').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null') + ' 盏数=' + lamps(wS).length);
+
+  // ---------- 6. 不消费主随机流 ----------
+  const r1 = lanternWorld(9604);
+  const r2 = lanternWorld(9604);
+  r1.lanternNextTick = 0;
+  for (let k = startTick - 5; k <= startTick + Math.round(L.everySec * HZ) + 20; k += 7) {
+    r1.tick = k;
+    // 每次都把上一组清掉，让它能反复生成（否则会被同屏闸挡住）
+    r1.pickups = r1.pickups.filter(function (x) { return x.kind !== 'lantern'; });
+    r1.lanternRound = null;
+    SIM.maybeSpawnLanterns(r1);
+  }
+  expect('★★引魂灯的生成（含三盏的方向与半径）不消费主随机流'
+    + '（随机数状态必须与从没生成过的世界完全一致，否则后面每一波的落点整体错位）',
+    r1.rngState === r2.rngState && r1.lanternSpawned >= 2,
+    'rng=' + r1.rngState + '/' + r2.rngState + ' 刷了 ' + r1.lanternSpawned + ' 组');
+
+  // ---------- 7. 差一点点不算点着 ----------
+  const wD = lanternWorld(9605);
+  spawn(wD);
+  const lampD = lamps(wD)[0];
+  stand(wD, lampD, L.lightRadius + 2);
+  SIM.step(wD, { mx: 0, my: 0 });
+  expect('★距离多 2px 就不算点着（判定半径写死 34：玩家按脚下那圈金环估距离才对得上）',
+    lamps(wD).length === 3 && wD.lanternRound.lit === 0,
+    '盏数=' + lamps(wD).length + ' lit=' + wD.lanternRound.lit);
+
+  // ---------- 8. 走进去就点着，且只报进度 ----------
+  stand(wD, lampD, L.lightRadius - 2);
+  SIM.step(wD, { mx: 0, my: 0 });
+  const litEvD = evs(wD, 'lantern_lit');
+  expect('★走到判定半径内就点着（灯被吃掉、剩 2 盏），并播一条进度',
+    lamps(wD).length === 2 && wD.lanternRound.lit === 1 && litEvD.length === 1,
+    '盏数=' + lamps(wD).length + ' lit=' + wD.lanternRound.lit + ' 事件=' + litEvD.length);
+  expect('★★进度必须带「已亮 / 总数 / 还差几盏」：只说「点亮一盏」，'
+    + '玩家要靠自己数地上还剩几个，在怪堆里根本数不清',
+    litEvD.length === 1 && litEvD[0].lit === 1 && litEvD[0].total === 3 && litEvD[0].left === 2,
+    litEvD.length ? 'lit=' + litEvD[0].lit + ' total=' + litEvD[0].total
+      + ' left=' + litEvD[0].left : '无事件');
+  expect('★点着的那一盏必须**被我吃掉**（不许留在场上：留着就会被反复点亮，'
+    + '进度一口气涨到 3/3 —— 那是白送奖励）',
+    lamps(wD).filter(function (x) { return x.x === lampD.x && x.y === lampD.y; }).length === 0,
+    '同一坐标还有灯');
+
+  // ---------- 9. ★★磁石不许影响点灯 ----------
+  // 【这条是本轮改代码的直接原因】原来那一支走的是 `d <= pickupR`，
+  //   而 pickupR 会被磁石被动放大到 120 —— 灯在 100px 外就"自己亮了"。
+  const wM = lanternWorld(9606);
+  spawn(wM);
+  const lampM = lamps(wM)[0];
+  wM.player.passives = [{ id: 'magnet', level: 5 }];     // 拾取范围 ×2 → 120
+  SIM.recalcAttrs(wM);
+  const pickR = wM.player.attrs.pickupRadius;
+  stand(wM, lampM, 60);                                   // 60 < 120（旧逻辑会亮）、> 34（新逻辑不亮）
+  SIM.step(wM, { mx: 0, my: 0 });
+  expect('★★★磁石把拾取半径放大到 120 之后，60px 处仍然**不许**点着'
+    + '（旧逻辑就是在这一支吃 pickupR，等于"磁石顺手把三盏灯全点了"）',
+    pickR > 100 && lamps(wM).length === 3 && wM.lanternRound.lit === 0,
+    '拾取半径=' + Math.round(pickR) + ' 盏数=' + lamps(wM).length
+      + ' lit=' + wM.lanternRound.lit);
+
+  // ---------- 10. 灯不被磁石吸走 ----------
+  const wN = lanternWorld(9607);
+  spawn(wN);
+  const lampN = lamps(wN)[0];
+  const nx0 = lampN.x, ny0 = lampN.y;
+  stand(wN, lampN, 200);
+  for (let i = 0; i < 20; i++) SIM.step(wN, { mx: 0, my: 0 });
+  const lampN2 = lamps(wN).filter(function (x) {
+    return Math.abs(x.x - nx0) < 0.01 && Math.abs(x.y - ny0) < 0.01;
+  });
+  expect('★★灯不许被磁石吸过来（1 秒后坐标一动不动）：被吸过来就等于「路过自动点亮」，'
+    + '三盏之间的路线规划会整个消失',
+    lampN2.length === 1, '原坐标上还剩 ' + lampN2.length + ' 盏');
+
+  // ---------- 11. 只点两盏：一分钱都不许给 ----------
+  const wE = lanternWorld(9608);
+  spawn(wE);
+  const chest0 = kinds(wE, 'chest').length;
+  const gold0 = kinds(wE, 'gold').length;
+  const lampsE = lamps(wE);
+  stand(wE, lampsE[0], 4);
+  SIM.step(wE, { mx: 0, my: 0 });
+  stand(wE, lampsE[1], 4);
+  SIM.step(wE, { mx: 0, my: 0 });
+  expect('★★只点着两盏时，一个宝箱、一枚金币都不许掉（差一盏 = 还没完成）',
+    lamps(wE).length === 1 && kinds(wE, 'chest').length === chest0
+      && kinds(wE, 'gold').length === gold0 && evs(wE, 'lantern_done').length === 0,
+    '剩灯=' + lamps(wE).length + ' 宝箱+' + (kinds(wE, 'chest').length - chest0)
+      + ' 金币+' + (kinds(wE, 'gold').length - gold0));
+
+  // ---------- 12. 第三盏：奖励 + 冲击 + 边界 ----------
+  // 先在最后一盏灯的位置摆两只靶子：一只贴着圆心（必须被打到），一只在 240 之外（一滴血都不许掉）
+  const lastE = lamps(wE)[0];
+  const inMob = SIM.spawnMob(wE, 'bat', lastE.x, lastE.y, 1, 0, 0.3);
+  const outMob = SIM.spawnMob(wE, 'bat', lastE.x + L.burstRadius + 140, lastE.y, 1, 0, 0.6);
+  const inHp0 = inMob.hp;
+  const outHp0 = outMob.hp;
+  // ★奖励落在**灯脚下**，而玩家正站在灯上（4px）—— 两个宝箱与八枚金币会在**同一帧**被吃掉。
+  //   所以判据不能数地上的掉落物（数出来永远是 0），要看真正兑现到身上的东西：
+  //   等级 / 待选次数 / 金币收入。这也正是玩家能感知到的三个数字。
+  const lvE0 = wE.player.level;
+  const pendE0 = wE.player.pendingLevels;
+  const goldE0 = wE.stats.gold;
+  stand(wE, lastE, 4);
+  SIM.step(wE, { mx: 0, my: 0 });
+  expect('★★点齐三盏才掉奖励：+2 宝箱（= 2 次免费升级）、+8 金币（与表里写的一致，不许"少给一个"）',
+    wE.player.level - lvE0 >= L.chest && wE.player.pendingLevels - pendE0 >= L.chest
+      && wE.stats.gold - goldE0 >= L.goldDrops,
+    '等级+' + (wE.player.level - lvE0) + ' 待选+' + (wE.player.pendingLevels - pendE0)
+      + ' 金币+' + (wE.stats.gold - goldE0));
+  const doneEv = evs(wE, 'lantern_done');
+  expect('★点齐必须播一条 lantern_done（不播的话"三盏齐了"只能靠玩家自己发现）',
+    doneEv.length === 1 && doneEv[0].chest === L.chest && doneEv[0].gold === L.goldDrops,
+    doneEv.length ? 'chest=' + doneEv[0].chest + ' gold=' + doneEv[0].gold : '无事件');
+  expect('★★这一组结束后必须把服务端状态清干净（lanternRound = null）：'
+    + '否则下一组点灯时会「凭空多出一盏的进度」，而中间没有任何报错',
+    wE.lanternRound === null && lamps(wE).length === 0,
+    'round=' + (wE.lanternRound ? 'still' : 'null') + ' 剩灯=' + lamps(wE).length);
+  const ringFx = wE.effects.filter(function (e) { return e.kind === 'lanternring'; });
+  expect('★★作用边界必须画到**判定半径**（lanternring.r === burstRadius）：'
+    + 'pixelfx 库的贴地法阵只铺到百来像素，不单独画边界，'
+    + '玩家就不理解「为什么站在 241px 处没被扫到」',
+    ringFx.length >= 1 && Math.abs(ringFx[ringFx.length - 1].r - L.burstRadius) < 0.01,
+    ringFx.length ? 'r=' + ringFx[ringFx.length - 1].r : '没有边界特效');
+  // ★★★这条是「被截图推翻两次」的记录：核心**必须**是自绘的 lanterncore。
+  //   用 boom（琥珀金）会被 pixelfx 画成天降的雷柱；用 ring 会被画成铺满半屏的白色符文线框。
+  //   两个都在真浏览器里看过，都不对 —— 所以这里把 kind 钉死，防止以后有人"顺手复用"。
+  const coreFx = wE.effects.filter(function (e) { return e.kind === 'lanterncore'; });
+  const badCore = wE.effects.filter(function (e) {
+    return (e.kind === 'boom' || e.kind === 'ring') && e.r >= L.burstRadius - 1;
+  });
+  expect('★★★收尾冲击的火光必须是自绘的 lanterncore，且半径等于判定半径；'
+    + '**不许**复用 boom（=金色雷柱）或 ring（=铺满半屏的白色符文线框），两个都试过错',
+    coreFx.length >= 1 && Math.abs(coreFx[coreFx.length - 1].r - L.burstRadius) < 0.01
+      && badCore.length === 0,
+    'core=' + coreFx.length + ' boom/ring=' + badCore.length);
+  expect('★★收尾冲击必须真的伤到圈内的妖物',
+    inMob.hp < inHp0, '圈内 hp=' + fmt(inHp0, 0) + '→' + fmt(inMob.hp, 0));
+  expect('★★圈外的妖物一滴血都不许掉（判定半径写 240，多 140px 还挨打就说明半径没生效）',
+    Math.abs(outMob.hp - outHp0) < 0.01, '圈外 hp=' + fmt(outHp0, 0) + '→' + fmt(outMob.hp, 0));
+
+  // ---------- 13. 26 秒到点：剩下的灯一起消失，且不惩罚 ----------
+  const wF = lanternWorld(9609);
+  spawn(wF);
+  const lampsF = lamps(wF);
+  stand(wF, lampsF[0], 4);
+  SIM.step(wF, { mx: 0, my: 0 });          // 先点着一盏
+  const hpF = wF.player.hp;
+  const maxHpF = wF.player.maxHp;
+  const dmgF = wF.player.attrs.dmgMul;
+  wF.events.length = 0;
+  wF.tick = wF.lanternRound ? wF.lanternRound.expireTick : 0;
+  SIM.maybeSpawnLanterns(wF);
+  expect('★★到点（26 秒）时，没点着的灯必须**一起**消失（不是各自到期）：'
+    + '「一组作废」是一个事件，三盏灯零散地先后消失会被读成"我点着了"',
+    lamps(wF).length === 0 && wF.lanternRound === null,
+    '剩灯=' + lamps(wF).length + ' round=' + (wF.lanternRound ? 'still' : 'null'));
+  expect('★★没点齐**不许**有任何惩罚（血、上限、伤害一分都不能变）：'
+    + '「奖励没拿到」本身就是代价 —— 与灵泉 16 秒到点同一条口径',
+    Math.abs(wF.player.hp - hpF) < 0.01 && Math.abs(wF.player.maxHp - maxHpF) < 0.01
+      && Math.abs(wF.player.attrs.dmgMul - dmgF) < 1e-6,
+    'hp=' + fmt(wF.player.hp, 0) + '/' + fmt(hpF, 0)
+      + ' dmgMul=' + fmt(wF.player.attrs.dmgMul, 2));
+  expect('★作废时不许额外播报（不给奖励也不宣布失败：失败该由"地上灯没了"自己表达）',
+    wF.events.length === 0,
+    '事件=' + wF.events.map(function (e) { return e.type; }).join(','));
+  expect('★作废之后不许在同一帧补一组（排期仍是「上一组刷出后 +132 秒」：'
+    + '此刻距下一次还有 132-26=106 秒。要是这里把排期改成"马上再来一组"，'
+    + '"没点完"就变成了"地上一直有灯"，这一组也就没有任何紧迫感了）',
+    wF.lanternNextTick >= wF.tick + Math.round((L.everySec - L.lifeSec - 1) * HZ)
+      && lamps(wF).length === 0,
+    '下一次差 ' + fmt((wF.lanternNextTick - wF.tick) / HZ, 1) + ' 秒');
+
+  // ---------- 14. 整条链路：真的走 step ----------
+  // 【为什么还要这一条】上面全是手调 maybeSpawnLanterns / onLanternLit ——
+  //   「函数写好了却没在 step 里被调用」是这个项目反复出现过的静默失败（双生妖那轮踩过）。
+  const wG = lanternWorld(9610);
+  wG.tick = startTick - 1;
+  wG.lanternNextTick = 0;
+  SIM.step(wG, { mx: 0, my: 0 });
+  expect('★★走 step 的整条链路真的会在 startSec 刷出三盏（防「函数写好了但没被调用」）',
+    lamps(wG).length === 3, '盏数=' + lamps(wG).length);
+  const lampsG = lamps(wG);
+  stand(wG, lampsG[0], 4);
+  SIM.step(wG, { mx: 0, my: 0 });
+  expect('★★走 step 走到灯上真的能点亮（判定挂在 updatePickups 里，不是只挂在导出函数上）',
+    lamps(wG).length === 2 && evs(wG, 'lantern_lit').length === 1,
+    '剩灯=' + lamps(wG).length + ' 事件=' + evs(wG, 'lantern_lit').length);
+  // ★同一条道理：玩家就站在灯上，宝箱会在同一帧被吃掉 —— 数地上的箱子永远是 0，
+  //   要看等级涨没涨（一次免费升级 = 等级 +1）。
+  const lvG0 = wG.player.level;
+  const restG = lamps(wG);
+  for (let i = 0; i < restG.length; i++) {
+    stand(wG, restG[i], 4);
+    SIM.step(wG, { mx: 0, my: 0 });
+  }
+  expect('★★走 step 点齐三盏真的会给奖励（奖励写在导出函数里、却在链路里没跑到，是这类功能最常见的死法）',
+    wG.player.level - lvG0 >= L.chest && evs(wG, 'lantern_done').length === 1,
+    '等级+' + (wG.player.level - lvG0)
+      + ' 事件=' + evs(wG, 'lantern_done').length);
+}
+
+// ============================================================
+// 第四十七轮：饕餮（专吃地上精魄的窃贼）
+// ============================================================
+// 【这一块要钉住什么】它是全项目第一个「会拿走你**已经到手**的东西」的机制，
+// 也是最容易悄悄坏掉的一类：坏掉的时候游戏照常跑、一条报错都没有。
+//   ① 它开始吃宝箱 / 神龛 / 祭坛 / 灯 / 红心 → 玩家觉得这机制在阴人；
+//   ② 吃满 / 到点之后不跑 → 它退化成一只「迟早会被打死的储蓄罐」，取舍消失；
+//   ③ 打死它只吐一半 → 「回头去收它」永远不如「当没看见」，正解变成不玩它；
+//   ④ 逃跑走了 killMob → 击杀数、血怒、掉落、图鉴全都凭空多一份；
+//   ⑤ 生成或吞吃时取 nextRand → 之后每一波的落点整体错位（词缀/挑战者那一轮踩过）。
+// 所以下面每条都写成「不该发生的事」，且尽量配一个「另一侧必须发生」的对照。
+function testDevourer() {
+  console.log('[第四十七轮] 饕餮：专吃地上精魄的窃贼');
+  const D = C.DEVOURER;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(D.startSec * HZ);
+
+  // 干净世界：清武器（免得顺手把它打死）、锁经验（免得升级面板冻住 step）、
+  // 其它事件排期全部推到很远（本轮只验饕餮）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function devs(w) {
+    return w.mobs.filter(function (m) { return m.defId === 'taotie'; });
+  }
+  function of(w, k) {
+    return w.pickups.filter(function (x) { return x.kind === k; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function sumExp(w) {
+    const l = of(w, 'exp');
+    let s = 0;
+    for (let i = 0; i < l.length; i++) s += l[i].value || 0;
+    return s;
+  }
+  // 把玩家挪到地图角落：否则经验球会被磁石吸走（magnetAttractDist=200），
+  // 测出来的「被吃了几份」随时会被玩家自己吃掉一颗。
+  function parkPlayer(w) {
+    const p = w.player;
+    p.x = 120; p.y = 120;
+    SIM.setSelf(w, p);
+    return p;
+  }
+  // 造一只并摆到指定位置（spawnDevourer 的落点在刷怪环外，坐标不受控）
+  function place(w, x, y) {
+    const m = SIM.spawnDevourer(w);
+    if (!m) return null;
+    m.x = x; m.y = y; m.px = x; m.py = y;
+    m.vx = 0; m.vy = 0;
+    return m;
+  }
+  // 直接推它自己的行为（不跑 step：step 会连带跑波次/拾取/武器，变量太多）
+  function tickN(w, m, n) {
+    for (let i = 0; i < n; i++) SIM.tickDevourer(w, m, 1 / HZ);
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★饕餮不许落在 30 秒波次网格上（startSec % 30 !== 0）：'
+    + '压在波次那一帧时，刚刷的怪还在 700px 外（陨星为此被推迟过 95 秒）',
+    D.startSec % C.WAVES.intervalSec !== 0,
+    'startSec=' + D.startSec + ' 余 ' + (D.startSec % C.WAVES.intervalSec));
+  const others = [
+    ['挑战者', C.CHALLENGER.startSec], ['灵泉', C.LEYLINE.startSec],
+    ['血祭坛', C.BLOODPACT.startSec], ['赤月', C.BLOOD_MOON.startSec],
+    ['山魈', C.SUMMONER.startSec], ['陨星', C.METEOR.startSec],
+    ['双生妖', C.TWINS.startSec], ['引魂灯', C.LANTERN.startSec]
+  ];
+  const sameTick = others.filter(function (o) { return o[1] === D.startSec; });
+  expect('★不许与另一个事件的**首发帧**落在同一 tick（同一帧两件事一起弹，玩家只读得到一条）',
+    sameTick.length === 0, sameTick.length ? '撞了：' + sameTick[0][0] : '无冲突');
+
+  // 在场时长：短了玩家走不开，长了就变成储蓄罐
+  expect('★在场时长必须落在 20~60 秒（短于 20 玩家被人堆围着走不开；长于 60 就退化成储蓄罐）',
+    D.holdSec >= 20 && D.holdSec <= 60, 'holdSec=' + D.holdSec);
+  // ★★「吃满就跑」这条分支必须真的走得到：吃满所需时间要明显短于在场时长。
+  //   （山魈那轮的教训：额度被「每次 2 只」整除时，那道闸是死代码，断言假绿。）
+  const fillSec = D.eatCap * D.eatIntervalSec;
+  expect('★★吃饱所需时间必须明显小于在场时长（否则「吃满就跑」永远走不到，'
+    + '那段分支就是死代码，断言也会假绿 —— 山魈那轮踩过）',
+    fillSec <= D.holdSec * 0.5,
+    '吃饱 ' + fmt(fillSec, 2) + 's / 在场 ' + D.holdSec + 's');
+  expect('★吸收半径必须远小于搜索半径（40 vs 620）：它是走过去吃，不是隔着半张图吸',
+    D.eatRadius * 4 < D.searchR, D.eatRadius + ' vs ' + D.searchR);
+  expect('★饱腹上限必须封顶且不大（不封顶它会把整张图的球搬空才走）',
+    D.eatCap > 0 && D.eatCap <= 30, 'eatCap=' + D.eatCap);
+  // 配色：项目硬规矩「禁紫 / 紫蓝」→ 蓝分量不许超过红分量
+  const cv = parseInt(D.color.slice(1), 16);
+  const cr = (cv >> 16) & 255, cg = (cv >> 8) & 255, cb = cv & 255;
+  expect('★配色不许偏紫蓝（蓝分量不许超过红分量）—— 项目硬规矩',
+    cb <= cr, D.color + ' r=' + cr + ' g=' + cg + ' b=' + cb);
+  expect('★配色必须与另外三只事件精英拉得开（挑战者琥珀金 / 山魈暗橙 / 双生冷青灰）',
+    D.color !== C.CHALLENGER.color && D.color !== C.TWINS.color
+      && D.color !== C.MOB_MAP.shanxiao.color,
+    D.color);
+
+  // ---------- 1. 关卡池里不许有它（只从事件入口来）----------
+  const inPool = [];
+  for (let i = 0; i < C.STAGES.length; i++) {
+    const pool = C.STAGES[i].pool || {};
+    if (pool[D.mobId]) inPool.push('STAGES[' + i + ']');
+  }
+  ['myth', 'magic'].forEach(function (modId) {
+    const mod = CP.MODS[modId];
+    if (!mod || !mod.stages) return;
+    for (let i = 0; i < mod.stages.length; i++) {
+      const pool = mod.stages[i].pool || {};
+      if (pool[D.mobId]) inPool.push(modId + '.' + mod.stages[i].id);
+    }
+  });
+  expect('★★关卡池（自由模式四段 + 两个剧情模组）里都不许出现饕餮（它只从事件入口来）',
+    inPool.length === 0, inPool.join(',') || '干净');
+
+  // 两个模组都必须有它的改名（campaigntest 也会逐个 id 核对，这里先钉一次）
+  const nameHit = ['myth', 'magic'].filter(function (id) {
+    const mod = CP.MODS[id];
+    return !(mod && mod.mobNames && mod.mobNames[D.mobId]);
+  });
+  expect('★两个剧情模组都必须有它的改名（漏了 HUD 里就会冒出英文 id）',
+    nameHit.length === 0, nameHit.join(',') || 'myth/magic 都有');
+
+  // 词缀：不许挂（坚壁 = 回头那几秒打不死它；狂暴 = 追不上它）
+  const SRC = FS.readFileSync(PATH.join(__dirname, '..', 'shared', 'sim.js'), 'utf8');
+  expect('★词缀闸必须真的写着（def.devourer → 0）：叠坚壁等于「回头那几秒打不死」，'
+    + '叠狂暴等于「追不上」，两种都把取舍变成运气',
+    SRC.indexOf('if (def.devourer) return 0;') >= 0);
+
+  // ---------- 2. 生成：零随机、从环外进来 ----------
+  const wR1 = cleanWorld(8801);
+  // ★站到地图正中再验「从环外来」：贴着地图角落时，落点会被裁到边界内，
+  //   距离自然短一截 —— 那是边界夹取的正确行为，不是「凭空出现」（挑战者那条同理）。
+  const pR1 = wR1.player;
+  pR1.x = wR1.map.w / 2; pR1.y = wR1.map.h / 2;
+  SIM.setSelf(wR1, pR1);
+  const rngBefore = wR1.rngState;
+  const mR1 = SIM.spawnDevourer(wR1);
+  expect('★★生成不许消费主随机流（rngState 必须一字不动）',
+    !!mR1 && wR1.rngState === rngBefore, 'rng=' + wR1.rngState + '/' + rngBefore);
+  expect('★出生点必须在常规刷怪环之外（在环内就是「凭空出现」）',
+    !!mR1 && Math.hypot(mR1.x - wR1.player.x, mR1.y - wR1.player.y) >= wR1.spawnRadius,
+    mR1 ? 'd=' + Math.round(Math.hypot(mR1.x - wR1.player.x, mR1.y - wR1.player.y))
+      + ' / 环 ' + wR1.spawnRadius : '没造出来');
+  expect('★出生时必须只播一条事件、且带上「多久之内收掉」与「能吃几份」',
+    evs(wR1, 'devourer').length === 1
+      && evs(wR1, 'devourer')[0].holdSec === D.holdSec
+      && evs(wR1, 'devourer')[0].eatCap === D.eatCap,
+    JSON.stringify(evs(wR1, 'devourer')[0] || null));
+  expect('★刚出生时肚子必须是空的（devourCount/eatenExp/eatenGold 全 0：'
+    + '带着上一只的账出生，第一帧就会「凭空吐出」一堆球）',
+    !!mR1 && mR1.devourCount === 0 && mR1.eatenExp === 0 && mR1.eatenGold === 0,
+    mR1 ? JSON.stringify({ n: mR1.devourCount, e: mR1.eatenExp, g: mR1.eatenGold }) : 'n/a');
+
+  // ---------- 3. 只吃经验球与金币 ----------
+  const wK = cleanWorld(8802);
+  parkPlayer(wK);
+  const mK = place(wK, 600, 600);
+  // 七类东西全摆在它嘴边（半径 24 < eatRadius 40）
+  SIM.spawnPickup(wK, 'exp', 612, 604, 9, 0);
+  SIM.spawnPickup(wK, 'gold', 588, 604, C.DROPS.goldValue);
+  SIM.spawnPickup(wK, 'chest', 600, 624, 1, C.DROPS.chest.life);
+  SIM.spawnPickup(wK, 'shrine', 600, 576, 0, 0);
+  SIM.spawnPickup(wK, 'pact', 576, 600, 0, 20);
+  SIM.spawnPickup(wK, 'lantern', 624, 600, 0, 26);
+  SIM.spawnPickup(wK, 'heart', 600, 588, C.DROPS.heartHeal);
+  tickN(wK, mK, 100);                     // 5 秒：足够吃光脚下的一切
+  expect('★★它只吃经验球与金币（这两个必须没了）',
+    of(wK, 'exp').length === 0 && of(wK, 'gold').length === 0 && mK.devourCount === 2,
+    '剩 exp=' + of(wK, 'exp').length + ' gold=' + of(wK, 'gold').length
+      + ' 吃了 ' + (mK.devourCount || 0) + ' 份');
+  expect('★★★宝箱 / 神龛 / 血祭坛 / 引魂灯 / 红心 一份都不许少：'
+    + '它们是「要专门走过去」或「救命」的东西，被偷走只会让玩家觉得这机制在阴人',
+    of(wK, 'chest').length === 1 && of(wK, 'shrine').length === 1
+      && of(wK, 'pact').length === 1 && of(wK, 'lantern').length === 1
+      && of(wK, 'heart').length === 1,
+    JSON.stringify({ chest: of(wK, 'chest').length, shrine: of(wK, 'shrine').length,
+      pact: of(wK, 'pact').length, lantern: of(wK, 'lantern').length,
+      heart: of(wK, 'heart').length }));
+  expect('★吃下去的经验值必须记准（球是 9 点：账上就得是 9，不是「一份」）',
+    mK.eatenExp === 9 && mK.eatenExpN === 1, 'eatenExp=' + mK.eatenExp + ' n=' + mK.eatenExpN);
+  expect('★越吃越肥：半径必须真的长大（它是客户端唯一能读出「吃了多少」的通道，'
+    + '只存在服务端字段里玩家完全看不见）',
+    mK.r > C.MOB_MAP.taotie.r + 0.4 && mK.r <= C.MOB_MAP.taotie.r + D.growMax,
+    'r=' + fmt(mK.r, 1) + ' / 底 ' + C.MOB_MAP.taotie.r);
+
+  // ---------- 4. 吃满就跑，且跑之前不许再吃 ----------
+  const wB = cleanWorld(8803);
+  parkPlayer(wB);
+  const mB = place(wB, 600, 600);
+  mB.devourCount = D.eatCap - 1;
+  mB.eatenExp = 100;
+  mB.eatenExpN = D.eatCap - 1;
+  mB.eatCd = 0;
+  SIM.spawnPickup(wB, 'exp', 612, 604, 9, 0);
+  SIM.spawnPickup(wB, 'exp', 588, 604, 9, 0);
+  // ★这里必须推够时间（0.6 秒 ≈ 3 个吞吃间隔），否则「第 15 份不许吃」是**假绿**：
+  //   只推 2 帧时第二颗还没到吞吃间隔，摘掉上限闸也是绿的（反向验证实测踩到）。
+  tickN(wB, mB, 12);
+  expect('★★吃到最后一刻：第 15 份（> 上限 14）一份都不许吃 —— 「吃满」不是一个数字，'
+    + '是一条必须真的挡住手的闸',
+    (mB.devourCount || 0) === D.eatCap && mB.eatenExp === 109,
+    '吃了 ' + (mB.devourCount || 0) + ' 份 / exp=' + mB.eatenExp);
+  expect('★★吃满必须立刻钻地跑掉（alive=false + fled 标记 + 一条播报）',
+    mB.alive === false && mB.fled === 1 && evs(wB, 'devourer_flee').length === 1,
+    'alive=' + mB.alive + ' fled=' + mB.fled + ' 事件=' + evs(wB, 'devourer_flee').length);
+  expect('★逃跑必须带走它吃掉的那一份（事件里写清几份 / 多少经验）',
+    evs(wB, 'devourer_flee').length === 1
+      && evs(wB, 'devourer_flee')[0].eaten === D.eatCap
+      && evs(wB, 'devourer_flee')[0].exp === 109,
+    JSON.stringify(evs(wB, 'devourer_flee')[0] || null));
+  expect('★逃跑之后**绝不许**再吃（地上还剩的那一颗必须还在）',
+    of(wB, 'exp').length === 1, '剩 ' + of(wB, 'exp').length + ' 颗');
+
+  // ---------- 5. 到点就跑（没吃满也一样）----------
+  const wT = cleanWorld(8804);
+  parkPlayer(wT);
+  const mT = place(wT, 600, 600);
+  mT.pocketT = D.holdSec - 0.02;
+  mT.eatCd = 0;
+  SIM.spawnPickup(wT, 'exp', 612, 604, 9, 0);
+  tickN(wT, mT, 1);
+  expect('★★到点（38 秒）必须钻地跑掉 —— 没吃满也一样：不跑的话它就是一只'
+    + '「迟早会被打死的储蓄罐」，玩家先清空球再回来收它，损失恒为零',
+    mT.alive === false && mT.fled === 1 && of(wT, 'exp').length === 1,
+    'alive=' + mT.alive + ' 剩球 ' + of(wT, 'exp').length);
+
+  // ---------- 6. 逃跑不许算击杀、不许掉东西、不许再咬人 ----------
+  const wF = cleanWorld(8805);
+  const pF = wF.player;
+  const mF = place(wF, pF.x + 8, pF.y);   // 贴着玩家
+  mF.pocketT = D.holdSec;                 // 这一帧就该钻地
+  mF.hitCd = 0;
+  const kills0 = wF.stats.kills;
+  const killsBy0 = wF.stats.killsBy.taotie || 0;
+  const pickN0 = wF.pickups.length;
+  const hp0 = pF.hp;
+  SIM.step(wF, { mx: 0, my: 0 });
+  expect('★★逃跑不是死亡：本局击杀数、图鉴击杀数都不许动',
+    wF.stats.kills === kills0 && (wF.stats.killsBy.taotie || 0) === killsBy0,
+    'kills ' + kills0 + '→' + wF.stats.kills + ' / byTaotie '
+      + killsBy0 + '→' + (wF.stats.killsBy.taotie || 0));
+  expect('★★逃跑只带走肚子里的东西：地上不许因为它凭空多出任何掉落物',
+    wF.pickups.length === pickN0, pickN0 + '→' + wF.pickups.length);
+  expect('★★刚刚钻地的那一帧不许再咬人一口（逃走的怪还能伤害玩家，是最像 bug 的那种小事）',
+    pF.hp === hp0, 'hp ' + fmt(hp0, 0) + '→' + fmt(pF.hp, 0));
+  expect('★钻地之后必须从场上消失（交给 compactMobs，不许留在数组里继续被渲染/被追打）',
+    devs(wF).length === 0, '场上 ' + devs(wF).length + ' 只');
+
+  // ---------- 7. 打死它：一分不少地吐回来 ----------
+  // 【★为什么要两个同种子的世界对比】killMob 自己会掉一颗精英经验球（大/小由随机决定），
+  //   直接数「地上的经验总和」会把那一颗算进来。同种子 → 两边的保底掉落完全一样，
+  //   差出来的那一份就精确等于它吃掉的东西。这同时证明了「吃不吃都不影响主随机流」。
+  const wA = cleanWorld(8806);
+  const wC = cleanWorld(8806);
+  parkPlayer(wA); parkPlayer(wC);
+  const mA = place(wA, 700, 700);
+  const mC = place(wC, 700, 700);
+  for (let i = 0; i < 6; i++) SIM.spawnPickup(wA, 'exp', 700, 700, 10, 0);
+  for (let i = 0; i < 2; i++) SIM.spawnPickup(wA, 'exp', 700, 700, 4, 0);
+  for (let i = 0; i < 3; i++) SIM.spawnPickup(wA, 'gold', 700, 700, C.DROPS.goldValue);
+  tickN(wA, mA, 80);                       // 3.5 秒：把 8 颗球 + 3 枚金币全吞了
+  expect('★连续吞 11 份都吃得下（上限 14 之内，一份都不许漏）',
+    (mA.devourCount || 0) === 11 && mA.eatenExp === 68 && mA.eatenGold === 3,
+    '吃了 ' + (mA.devourCount || 0) + ' 份 / exp=' + mA.eatenExp + ' / gold=' + mA.eatenGold);
+  expect('★★吞吃全程不许消费主随机流（两边的 rngState 必须一致；'
+    + '一旦它取走随机数，后面每一波的落点都会整体错位）',
+    wA.rngState === wC.rngState, 'rng=' + wA.rngState + '/' + wC.rngState);
+
+  SIM.damageMob(wA, mA, 1e9, 0, 0, 'test');
+  SIM.damageMob(wC, mC, 1e9, 0, 0, 'test');
+  // ★基线必须在**杀完之后**取：killMob 自己会掉一颗精英经验球（大小由随机决定），
+  //   在杀之前取基线就等于把那一颗也算成「它吐出来的」——第一版就是这么错的（多出 6 点）。
+  const baseExp = sumExp(wC);
+  const baseGold = of(wC, 'gold').length;
+  expect('★★打死它必须**一分不少**地吐回来（地上的经验总和之差 == 吃进去的 68）：'
+    + '吐一半的话，「回头去收它」永远不如「当没看见」，正解就变成不玩这个机制',
+    sumExp(wA) - baseExp === 68, '多出 ' + (sumExp(wA) - baseExp) + ' 点（期望 68）');
+  expect('★★金币也必须一枚不少地吐回来',
+    of(wA, 'gold').length - baseGold === 3,
+    '多出 ' + (of(wA, 'gold').length - baseGold) + ' 枚（期望 3）');
+  expect('★吐回来必须有一条「拿到了」的播报，且写清多少精魄',
+    evs(wA, 'devourer_down').length === 1
+      && evs(wA, 'devourer_down')[0].exp === 68
+      && evs(wA, 'devourer_down')[0].gold === 3,
+    JSON.stringify(evs(wA, 'devourer_down')[0] || null));
+
+  // 一只没吃过东西的：不许凭空吐任何东西（肚子是空的就该什么都不掉）
+  const wE = cleanWorld(8807);
+  parkPlayer(wE);
+  const mE = place(wE, 700, 700);
+  SIM.damageMob(wE, mE, 1e9, 0, 0, 'test');
+  expect('★★没吃过东西就不许吐（肚子空着还给奖励 = 变成一台刷球机）',
+    evs(wE, 'devourer_down')[0].exp === 0 && evs(wE, 'devourer_down')[0].gold === 0
+      && of(wE, 'exp').length <= 1,
+    JSON.stringify(evs(wE, 'devourer_down')[0] || null)
+      + ' 地上 exp=' + of(wE, 'exp').length);
+
+  // ---------- 8. 同屏只许一只 + 短等 2 秒（不顺延整个间隔）----------
+  const wM = cleanWorld(8808);
+  parkPlayer(wM);
+  wM.tick = startTick;
+  wM.devourerNextTick = 0;
+  SIM.maybeSpawnDevourer(wM);
+  const firstNext = wM.devourerNextTick;
+  for (let k = 0; k < 5; k++) {
+    wM.tick += Math.round(D.everySec * HZ);
+    SIM.maybeSpawnDevourer(wM);
+  }
+  expect('★★场上还有一只时，推 5 个间隔也不许多刷一只',
+    devs(wM).length === 1, '场上 ' + devs(wM).length + ' 只');
+  expect('★★被同屏闸挡住时只许**短等 2 秒**，不顺延整个 108 秒：'
+    + '否则玩家一直不去收它，后面的排期会被整体推到很久之后（陨星/引魂灯踩过）',
+    wM.devourerNextTick <= wM.tick + Math.round(2.5 * HZ),
+    '下一次差 ' + fmt((wM.devourerNextTick - wM.tick) / HZ, 1) + ' 秒');
+  expect('★第一只的排期确实是「刷出后 +108 秒」（不是被短等改坏了）',
+    firstNext === startTick + Math.round(D.everySec * HZ),
+    '差 ' + fmt((firstNext - startTick) / HZ, 1) + ' 秒');
+
+  // ---------- 9. 主线《补天纪》一只都不许有 ----------
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 517, modId: 'myth', stageId: 'ch1' });
+  wS.player.expNext = 1e9;
+  for (let k = 0; k < 4; k++) {
+    wS.tick = Math.round((D.startSec + k * 30) * HZ);
+    SIM.maybeSpawnDevourer(wS);
+    SIM.step(wS, { mx: 0, my: 0 });
+  }
+  const storyBad = wS.mobs.filter(function (m) { return m.defId === D.mobId; }).length;
+  expect('★★剧情关（《补天纪》ch1）一只饕餮都不该有，而且零播报：'
+    + '主线是逐关手工配平的，多一条「地上的东西会被偷」会破坏配好的压力曲线',
+    !!wS.storyStage && storyBad === 0 && evs(wS, 'devourer').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null')
+      + ' 怪 ' + storyBad + ' 只 / 播报 ' + evs(wS, 'devourer').length + ' 条');
+
+  // ---------- 10. 整条链路：真的走 step ----------
+  // 【为什么还要这一条】上面全是手调 spawnDevourer / tickDevourer ——
+  //   「函数写好了却没在 step 里被调用」是这个项目反复出现的静默失败（双生妖/引魂灯都踩过）。
+  const wG2 = cleanWorld(8809);
+  parkPlayer(wG2);
+  wG2.tick = startTick - 1;
+  wG2.devourerNextTick = 0;
+  SIM.step(wG2, { mx: 0, my: 0 });
+  expect('★★走 step 的整条链路真的会在 startSec 刷出饕餮（防「函数写好了但没被调用」）',
+    devs(wG2).length === 1 && evs(wG2, 'devourer').length === 1,
+    '怪 ' + devs(wG2).length + ' 只 / 播报 ' + evs(wG2, 'devourer').length + ' 条');
+  const mG2 = devs(wG2)[0];
+  mG2.x = 600; mG2.y = 600;
+  wG2.pickups.length = 0;
+  for (let i = 0; i < 5; i++) SIM.spawnPickup(wG2, 'exp', 612, 604, 7, 0);
+  for (let i = 0; i < 60; i++) SIM.step(wG2, { mx: 0, my: 0 });
+  expect('★★走 step 它真的会走到球边上吞下去（行为挂在 updateMobs 里才作数）',
+    (mG2.devourCount || 0) > 0 && of(wG2, 'exp').length < 5,
+    '吃了 ' + (mG2.devourCount || 0) + ' 份 / 剩 ' + of(wG2, 'exp').length + ' 颗');
+}
+
+
+// ============================================================
+// 歧路双碑（第四十八轮：两座只能取一座，一局只有五组）
+// ============================================================
+function testBoon() {
+  console.log('[第四十八轮] 歧路双碑：两座只能取一座，一局只有五组');
+  const B = C.BOON;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(B.startSec * HZ);
+  // 串池：颜色与 kind 都在池外的话，每一帧都会走长格式（不报错的带宽劣化）
+  const PB = require('../shared/proto_bin.js');
+  const pool = PB.STR_POOL || [];
+
+  // 干净世界：清武器（免得顺手把碑当怪打）、锁经验（免得升级面板冻住 step）、
+  // 其它事件排期全部推到很远（本轮只验双碑）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.mobs.length = 0;
+    w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function boons(w) {
+    return w.pickups.filter(function (x) { return x.kind === 'boon'; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  // 把玩家摆到地图正中：碑锚在玩家周围 205px，站在角落会被 clamp 贴边
+  // （虽然 sim 会把这一组换方向重立，但测试要的是"标准情况"，别去测墙角）。
+  function parkPlayer(w) {
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2); p.y = Math.round(w.map.h / 2);
+    SIM.setSelf(w, p);
+    return p;
+  }
+  function stepN(w, n) {
+    for (let i = 0; i < n; i++) SIM.step(w, { mx: 0, my: 0 });
+  }
+  // 直接把玩家摆到某座碑上（坐标由散列决定，不可预测 —— 所以先造再站上去）
+  function standOn(w, it) {
+    const p = w.player;
+    p.x = it.x; p.y = it.y;
+    SIM.setSelf(w, p);
+    return p;
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★歧路双碑不许落在 30 秒波次网格上（startSec % 30 !== 0）：'
+    + '压在波次那一帧时，刚刷的怪还在 700px 外（陨星为此被推迟过 95 秒）',
+    B.startSec % C.WAVES.intervalSec !== 0,
+    'startSec=' + B.startSec + ' 余 ' + (B.startSec % C.WAVES.intervalSec));
+  const others = [
+    ['挑战者', C.CHALLENGER.startSec], ['灵泉', C.LEYLINE.startSec],
+    ['血祭坛', C.BLOODPACT.startSec], ['赤月', C.BLOOD_MOON.startSec],
+    ['山魈', C.SUMMONER.startSec], ['陨星', C.METEOR.startSec],
+    ['双生妖', C.TWINS.startSec], ['引魂灯', C.LANTERN.startSec],
+    ['饕餮', C.DEVOURER.startSec]
+  ];
+  const sameTick = others.filter(function (o) { return o[1] === B.startSec; });
+  expect('★不许与另一个事件的**首发帧**落在同一 tick（同一帧两件事一起弹，玩家只读得到一条）',
+    sameTick.length === 0, sameTick.length ? '撞了：' + sameTick[0][0] : '无冲突');
+
+  // 节奏：一组还没消失时不该再来一组
+  expect('★间隔必须明显大于存在时长（否则上一组还没消失，下一组就立起来了）',
+    B.everySec >= B.lifeSec * 2, '间隔 ' + B.everySec + 's / 存在 ' + B.lifeSec + 's');
+  expect('★存在时长必须落在 12~30 秒（短于 12 秒来不及想；长于 30 秒玩家会先打完这一波）',
+    B.lifeSec >= 12 && B.lifeSec <= 30, 'lifeSec=' + B.lifeSec);
+  // ★总预算必须真的放得下：最长的一局（血月）里五组要能全部出现
+  const lastSec = B.startSec + (B.maxRounds - 1) * B.everySec;
+  const longestSec = Math.max.apply(null, C.DIFFICULTIES.map(function (d) { return d.matchSec; })) * 60;
+  expect('★★五组必须能在最长的一局里全部出现（否则"一局五次"是句空话，最后两组永远见不到）',
+    lastSec <= longestSec - B.lifeSec,
+    '最后一组在 ' + lastSec + ' 秒 / 最长一局 ' + longestSec + ' 秒');
+  expect('★maxRounds 必须封顶且不大（3~8）：不封顶的话"选错一次"的代价会被下一次抹平',
+    B.maxRounds >= 3 && B.maxRounds <= 8, 'maxRounds=' + B.maxRounds);
+  expect('★落点距离必须在一屏之内（150~300）：两座都要一眼看到，否则"只能取一座"看不见',
+    B.offset >= 150 && B.offset <= 300, 'offset=' + B.offset);
+  const gap = B.offset * B.spreadAngle;
+  expect('★两座间距落在 80~170（太近读成一块石头；太远只能看见一座）',
+    gap >= 80 && gap <= 170, '间距约 ' + fmt(gap, 0) + 'px');
+  // 必须正好两座：三座的话"只能取一座"就退化成"少拿两份"
+  expect('★★必须正好两个选项：三座的话"取一座"会退化成"少拿两份"，取舍就不成立了',
+    B.options.length === 2, 'options=' + B.options.length);
+
+  const o0 = B.options[0];
+  const o1 = B.options[1];
+  // 一攻一守：两个都在同一条线上（都是伤害）时玩家只需比数字，那不是取舍
+  expect('★★必须一攻一守（一项只给伤害、另一项只给生命上限）：'
+    + '两个都在同一条线上时，玩家只需要比大小，那不是取舍',
+    (o0.dmg > 0 && !o0.hpPct) && (!o1.dmg && o1.hpPct > 0),
+    'o0.dmg=' + o0.dmg + ' o0.hpPct=' + o0.hpPct + ' / o1.dmg=' + o1.dmg + ' o1.hpPct=' + o1.hpPct);
+  expect('★攻击项的加成落在 5%~30%（太小没人选，太大会直接决定 build）',
+    o0.dmg >= 0.05 && o0.dmg <= 0.30, 'dmg=' + o0.dmg);
+  expect('★防守项的上限加成落在 5%~25%（写成绝对值的话前后期价值差十倍）',
+    o1.hpPct >= 0.05 && o1.hpPct <= 0.25, 'hpPct=' + o1.hpPct);
+  expect('★防守项必须带当场回血（5%~50%）：这是它与攻击项在"当下"这件事上的分水岭',
+    o1.healPct >= 0.05 && o1.healPct <= 0.5, 'healPct=' + o1.healPct);
+  expect('★攻击项不许偷偷带回血（不然"残血选哪个"就没有代价了）',
+    !o0.healPct && !o1.dmg, 'o0.healPct=' + o0.healPct + ' o1.dmg=' + o1.dmg);
+  expect('★两个选项的 key 必须不同且非空（它们就是 p.boons 的键）',
+    !!o0.key && !!o1.key && o0.key !== o1.key, o0.key + ' / ' + o1.key);
+  expect('★两个选项都必须有名字（碑上要写字，玩家靠它做决定）',
+    !!o0.name && !!o1.name, (o0.name || '') + ' / ' + (o1.name || ''));
+  expect('★两座碑的颜色必须不同（同色的话两座并排分不出谁是谁）',
+    o0.color !== o1.color, o0.color + ' / ' + o1.color);
+  // ★配色与 kind 必须在串池里：池外字符串每帧走长格式，是一种「不报错的带宽劣化」
+  const poolMiss = [];
+  if (pool.indexOf('boon') < 0) poolMiss.push('boon');
+  if (pool.indexOf('boonshatter') < 0) poolMiss.push('boonshatter');
+  if (pool.indexOf(o0.color) < 0) poolMiss.push(o0.color);
+  if (pool.indexOf(o1.color) < 0) poolMiss.push(o1.color);
+  expect('★★kind 与两个配色都必须已在串池里（池外值每帧走长格式，带宽会悄悄退化）',
+    poolMiss.length === 0, '缺：' + poolMiss.join(','));
+
+  // ---------- 1. 生成 ----------
+  const w0 = cleanWorld(7101);
+  parkPlayer(w0);
+  w0.tick = startTick - 1;
+  w0.boonNextTick = 0;
+  SIM.maybeSpawnBoons(w0);
+  expect('★到点前一帧一座碑都不许有',
+    boons(w0).length === 0 && evs(w0, 'boon').length === 0,
+    '碑 ' + boons(w0).length + ' 座');
+
+  const w1 = cleanWorld(7101);
+  const p1 = parkPlayer(w1);
+  w1.tick = startTick;
+  w1.boonNextTick = 0;
+  const g1 = SIM.maybeSpawnBoons(w1);
+  const b1 = boons(w1);
+  expect('★★到点必须正好立起两座（不是一座、也不是三座）',
+    !!g1 && b1.length === 2, '碑 ' + b1.length + ' 座');
+  expect('★★两座必须分别是"哪一座"（value 1 与 2 各一）：两座同一种就没有取舍可言',
+    b1.length === 2 && b1[0].value !== b1[1].value
+      && [b1[0].value, b1[1].value].sort().join(',') === '1,2',
+    'value=' + b1.map(function (x) { return x.value; }).join(','));
+  expect('★两座必须同属一组（group 相同且非 0）：取一座时靠它把另一座找出来',
+    b1.length === 2 && b1[0].group > 0 && b1[0].group === b1[1].group,
+    'group=' + b1.map(function (x) { return x.group; }).join(','));
+  expect('★只许播一条播报，且写清存在秒数与第几组',
+    evs(w1, 'boon').length === 1 && evs(w1, 'boon')[0].sec === B.lifeSec
+      && evs(w1, 'boon')[0].round === 1 && evs(w1, 'boon')[0].maxRounds === B.maxRounds,
+    JSON.stringify(evs(w1, 'boon')[0] || null));
+  const d0 = Math.sqrt(Math.pow(b1[0].x - p1.x, 2) + Math.pow(b1[0].y - p1.y, 2));
+  const d1 = Math.sqrt(Math.pow(b1[1].x - p1.x, 2) + Math.pow(b1[1].y - p1.y, 2));
+  // ★贴边会被 clamp 夹回来，所以给 40px 的容差；夹得太多说明这一组立在了墙角
+  expect('★两座都必须立在 offset 附近（±40px）：丢到半张图外玩家只会看到提示却找不到碑',
+    Math.abs(d0 - B.offset) <= 40 && Math.abs(d1 - B.offset) <= 40,
+    '距离 ' + fmt(d0, 0) + ' / ' + fmt(d1, 0) + '（期望约 ' + B.offset + '）');
+  const gsep = Math.sqrt(Math.pow(b1[0].x - b1[1].x, 2) + Math.pow(b1[0].y - b1[1].y, 2));
+  expect('★两座的间距必须真的拉开（≥60px）：叠在一起的话"两座"这件事看不出来',
+    gsep >= 60, '间距 ' + fmt(gsep, 0));
+  expect('★两座都必须在地图内（贴边的碑跑不进去，等于这一组只剩一座）',
+    b1.every(function (x) { return x.x > 0 && x.y > 0 && x.x < w1.map.w && x.y < w1.map.h; }),
+    b1.map(function (x) { return Math.round(x.x) + ',' + Math.round(x.y); }).join(' | '));
+
+  // ★不消费主随机流：同种子的另一个世界从没生成过碑，两边的 rngState 必须一致
+  const wR = cleanWorld(7101);
+  parkPlayer(wR);
+  expect('★★立碑不许消费主随机流（否则后面每一波的落点都会整体错位）',
+    w1.rngState === wR.rngState, 'rng=' + w1.rngState + '/' + wR.rngState);
+
+  // ---------- 2. 排期：同屏一组 / 短等 2 秒 / 总预算 ----------
+  const w2 = cleanWorld(7102);
+  parkPlayer(w2);
+  w2.tick = startTick;
+  w2.boonNextTick = 0;
+  SIM.maybeSpawnBoons(w2);
+  const firstNext = w2.boonNextTick;
+  for (let k = 0; k < 3; k++) {
+    w2.tick += Math.round(B.everySec * HZ);
+    SIM.maybeSpawnBoons(w2);
+  }
+  expect('★★地上还留着上一次没取的两座时，推 3 个间隔也只许立一组（不然地上会站一排碑）',
+    boons(w2).length === 2, '碑 ' + boons(w2).length + ' 座');
+  expect('★★被同屏闸挡住时只许**短等 2 秒**，不顺延整个间隔：'
+    + '否则玩家一直不去取，后面的排期会被整体推到很久之后（陨星/引魂灯/饕餮踩过）',
+    w2.boonNextTick <= w2.tick + Math.round(2.5 * HZ),
+    '下一次差 ' + fmt((w2.boonNextTick - w2.tick) / HZ, 1) + ' 秒');
+  expect('★第一组的下一次排期确实是「立起后 +' + B.everySec + ' 秒」（不是被短等改坏的）',
+    firstNext === startTick + Math.round(B.everySec * HZ),
+    '差 ' + fmt((firstNext - startTick) / HZ, 1) + ' 秒');
+
+  // 总预算：立满 maxRounds 组之后，再推多少个间隔都不许再给
+  const w3 = cleanWorld(7103);
+  parkPlayer(w3);
+  w3.tick = startTick;
+  w3.boonNextTick = 0;
+  let spawnedRounds = 0;
+  for (let k = 0; k < B.maxRounds + 3; k++) {
+    if (k > 0) w3.tick = startTick + k * Math.round(B.everySec * HZ);
+    if (SIM.maybeSpawnBoons(w3)) spawnedRounds += 1;
+    w3.pickups.length = 0;       // 清空地面：绕开"同屏一组"那道闸，只验总预算
+  }
+  expect('★★一局最多只给 maxRounds 组（推满再加 3 个间隔，也只许 ' + B.maxRounds + ' 组）：'
+    + '不封顶的话"选错一次"的代价会被下一次抹平，这个机制就没有重量',
+    spawnedRounds === B.maxRounds && w3.boonSpawned === B.maxRounds,
+    '实际立了 ' + spawnedRounds + ' 组 / boonSpawned=' + w3.boonSpawned);
+
+  // ---------- 3. 取用：另一座必须当场碎掉 ----------
+  const w4 = cleanWorld(7104);
+  parkPlayer(w4);
+  w4.tick = startTick;
+  w4.boonNextTick = 0;
+  SIM.maybeSpawnBoons(w4);
+  const b4 = boons(w4);
+  const pick4 = b4[0];
+  const other4 = b4[1];
+  const p4 = w4.player;
+  const dmgBefore = p4.attrs.dmgMul;
+  const maxBefore = p4.maxHp;
+  const hpBefore = p4.hp;
+  standOn(w4, pick4);             // 站到第一座上
+  stepN(w4, 1);
+  expect('★★取走一座之后，地上不许还剩任何一座碑（另一座必须**当场**碎掉）：'
+    + '另一座还在的话，"只能取一座"就变成了"先取这个、回头再取那个"',
+    boons(w4).length === 0, '还剩 ' + boons(w4).length + ' 座');
+  const shards = w4.effects.filter(function (e) { return e.kind === 'boonshatter'; });
+  expect('★★另一座碎掉必须有**看得见的一下**（boonshatter 特效）：'
+    + '没有它的话，"另一座自己跑掉了"与"被系统吃掉了"在画面上分不出来',
+    shards.length === 1, '特效 ' + w4.effects.map(function (e) { return e.kind; }).join(','));
+  expect('★碎掉的那一下必须落在**另一座**的位置上（落在取走的那座上会让人以为取的那座碎了）',
+    shards.length === 1 && Math.abs(shards[0].x - other4.x) < 1
+      && Math.abs(shards[0].y - other4.y) < 1,
+    JSON.stringify(shards[0] || null));
+  expect('★碎掉那一下的配色必须取「碎掉那一座」自己的色',
+    shards.length === 1 && shards[0].color === (other4.value === 1 ? o0.color : o1.color),
+    (shards[0] && shards[0].color) + ' vs 期望 '
+      + (other4.value === 1 ? o0.color : o1.color));
+
+  expect('★层数必须记在**取走的那一项**上（value 1 → ' + o0.key + '）',
+    p4.boons && p4.boons[o0.key] === 1, JSON.stringify(p4.boons));
+  expect('★★另一项一层都不许有（取一座就该只有一座的收益）',
+    !p4.boons || !p4.boons[o1.key], JSON.stringify(p4.boons));
+  expect('★兵主碑的伤害加成必须真的进 dmgMul（+' + Math.round(o0.dmg * 100) + '%）',
+    Math.abs(p4.attrs.dmgMul - (dmgBefore + o0.dmg)) < 1e-9,
+    'dmgMul ' + fmt(dmgBefore, 3) + ' → ' + fmt(p4.attrs.dmgMul, 3));
+  expect('★★兵主碑不回血、也不加上限（hp 与 maxHp 都一点不动）：它给的是长期输出，不是当下保命',
+    p4.hp === hpBefore && p4.maxHp === maxBefore,
+    'hp ' + hpBefore + '→' + p4.hp + ' / max ' + maxBefore + '→' + p4.maxHp);
+  const tk = evs(w4, 'boon_taken');
+  expect('★必须播一条「取了哪座 + 失去哪座」（另一座的名字就是这一轮唯一的代价）',
+    tk.length === 1 && tk[0].label === o0.name && tk[0].other === o1.name && tk[0].level === 1,
+    JSON.stringify(tk[0] || null));
+  stepN(w4, 60);
+  const tot4 = Object.keys(p4.boons).reduce(function (s, k2) { return s + p4.boons[k2]; }, 0);
+  expect('★取走之后不许再给：再推 60 帧，层数仍是 1、地上仍是 0 座、播报不重复',
+    tot4 === 1 && boons(w4).length === 0 && evs(w4, 'boon_taken').length === 1,
+    '层数合计 ' + tot4 + ' / 地上 ' + boons(w4).length + ' 座 / 播报 ' + evs(w4, 'boon_taken').length);
+
+  // 玄龟碑：上限与回血
+  const w5 = cleanWorld(7105);
+  parkPlayer(w5);
+  w5.tick = startTick;
+  w5.boonNextTick = 0;
+  SIM.maybeSpawnBoons(w5);
+  const b5 = boons(w5).filter(function (x) { return x.value === 2; });
+  const p5 = w5.player;
+  p5.hp = Math.round(p5.maxHp * 0.4);       // 残血：才看得见回血
+  const max5 = p5.maxHp;
+  const hp5 = p5.hp;
+  const dmg5 = p5.attrs.dmgMul;
+  standOn(w5, b5[0]);
+  stepN(w5, 1);
+  expect('★玄龟碑必须真的抬生命上限（约 +' + Math.round(o1.hpPct * 100) + '%）',
+    Math.abs(p5.maxHp - Math.round(max5 * (1 + o1.hpPct))) <= 1,
+    'maxHp ' + max5 + ' → ' + p5.maxHp + '（期望约 ' + Math.round(max5 * (1 + o1.hpPct)) + '）');
+  expect('★玄龟碑必须当场回一截血（残血时选它等于当场活过来）',
+    p5.hp > hp5, 'hp ' + hp5 + ' → ' + p5.hp);
+  expect('★★玄龟碑一点伤害都不许给（一攻一守，不许两头都占）',
+    Math.abs(p5.attrs.dmgMul - dmg5) < 1e-9,
+    'dmgMul ' + fmt(dmg5, 3) + ' → ' + fmt(p5.attrs.dmgMul, 3));
+  expect('★取玄龟碑也要播一条「失去了兵主碑」',
+    evs(w5, 'boon_taken')[0] && evs(w5, 'boon_taken')[0].other === o0.name,
+    JSON.stringify(evs(w5, 'boon_taken')[0] || null));
+
+  // ---------- 4. 层数可叠加（取两次同一种就是两层） ----------
+  const w6 = cleanWorld(7106);
+  parkPlayer(w6);
+  w6.tick = startTick;
+  w6.boonNextTick = 0;
+  SIM.maybeSpawnBoons(w6);
+  const base6 = w6.player.attrs.dmgMul;
+  standOn(w6, boons(w6).filter(function (x) { return x.value === 1; })[0]);
+  stepN(w6, 1);
+  // 第二组：直接再立一组（绕过排期，只验层数）
+  w6.tick = startTick + Math.round(B.everySec * HZ);
+  w6.boonNextTick = 0;
+  w6.pickups.length = 0;
+  SIM.maybeSpawnBoons(w6);
+  standOn(w6, boons(w6).filter(function (x) { return x.value === 1; })[0]);
+  stepN(w6, 1);
+  expect('★同一项取两次必须是两层（不是覆盖成一层）：伤害加成 ×2',
+    w6.player.boons[o0.key] === 2
+      && Math.abs(w6.player.attrs.dmgMul - (base6 + o0.dmg * 2)) < 1e-9,
+    '层数 ' + w6.player.boons[o0.key] + ' / dmgMul ' + fmt(w6.player.attrs.dmgMul, 3));
+
+  // ---------- 5. 到点没取：两座一起消失，一分不给 ----------
+  const w7 = cleanWorld(7107);
+  parkPlayer(w7);
+  w7.tick = startTick;
+  w7.boonNextTick = 0;
+  SIM.maybeSpawnBoons(w7);
+  const p7 = w7.player;
+  const dmg7 = p7.attrs.dmgMul;
+  // 走到远处去（400px）：站在碑边上会在 20 秒里把它们全吃了，那就测不到"错过"
+  p7.x += 400;
+  SIM.setSelf(w7, p7);
+  stepN(w7, Math.round(B.lifeSec * HZ) + 5);
+  expect('★★到点没取的两座必须**一起**消失（不许留下一座在地上等玩家回头）',
+    boons(w7).length === 0, '还剩 ' + boons(w7).length + ' 座');
+  expect('★★错过不给任何补偿：层数、伤害一分不变，也不许有"你失去了它"的播报',
+    Object.keys(p7.boons).length === 0
+      && Math.abs(p7.attrs.dmgMul - dmg7) < 1e-9
+      && evs(w7, 'boon_taken').length === 0,
+    'boons=' + JSON.stringify(p7.boons) + ' / 播报 ' + evs(w7, 'boon_taken').length);
+
+  // ---------- 6. 不许被磁石吸走 ----------
+  const w8 = cleanWorld(7108);
+  parkPlayer(w8);
+  w8.tick = startTick;
+  w8.boonNextTick = 0;
+  SIM.maybeSpawnBoons(w8);
+  const b8 = boons(w8);
+  const p8 = w8.player;
+  // ★站到 120px 处：**必须落在「拾取半径(60) 之外、吸附半径(200) 之内」**这一环。
+  //   第一版写在 60px —— 那正好等于拾取半径，碑会被直接吃掉；而 b8 是 step 之前
+  //   filter 出来的**旧数组**，里面的对象还在，坐标也不会变 → 断言照样绿。
+  //   这是一个"假绿"：它测的根本不是"不被吸走"，而是"没有任何事发生"。
+  // ★方向必须沿"背离另一座"的轴走出去：两座只隔约 115px，随便往 +x 挪 120px
+  //   会正好撞到另一座身上（第二版就是这么踩的 —— taken=1、两座全没）。
+  const adx = b8[0].x - b8[1].x;
+  const ady = b8[0].y - b8[1].y;
+  const alen = Math.sqrt(adx * adx + ady * ady) || 1;
+  p8.x = b8[0].x + (adx / alen) * 120;
+  p8.y = b8[0].y + (ady / alen) * 120;
+  SIM.setSelf(w8, p8);
+  const bx = b8[0].x, by = b8[0].y;
+  stepN(w8, 20);
+  const b8after = boons(w8);
+  expect('★★碑不许被磁石吸过来（两座都还在原地、坐标一动不动）：'
+    + '两座只隔一百来像素，被吸到一起后"取的是哪一座"在画面上就说不清了',
+    b8after.length === 2
+      && Math.abs(b8after[0].x - bx) < 0.01 && Math.abs(b8after[0].y - by) < 0.01,
+    '还剩 ' + b8after.length + ' 座 / x ' + fmt(bx, 1) + '→' + fmt(b8after.length ? b8after[0].x : NaN, 1)
+      + ' / y ' + fmt(by, 1) + '→' + fmt(b8after.length ? b8after[0].y : NaN, 1));
+
+  // ---------- 7. 主线《补天纪》一座都不许有 ----------
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 519, modId: 'myth', stageId: 'ch1' });
+  wS.player.expNext = 1e9;
+  for (let k = 0; k < 4; k++) {
+    wS.tick = Math.round((B.startSec + k * 30) * HZ);
+    wS.boonNextTick = 0;
+    SIM.maybeSpawnBoons(wS);
+    SIM.step(wS, { mx: 0, my: 0 });
+  }
+  expect('★★剧情关（《补天纪》ch1）一座碑都不该有，而且零播报：'
+    + '主线是逐关手工配平的，凭空多一条"永久加伤害或上限"会破坏配好的血量曲线',
+    !!wS.storyStage && boons(wS).length === 0 && evs(wS, 'boon').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null')
+      + ' 碑 ' + boons(wS).length + ' 座 / 播报 ' + evs(wS, 'boon').length + ' 条');
+
+  // ---------- 8. 整条链路：真的走 step ----------
+  // 【为什么还要这一条】上面全是手调 maybeSpawnBoons / applyBoon ——
+  //   「函数写好了却没在 step 里被调用」是这个项目反复出现的静默失败
+  //   （双生妖 / 引魂灯 / 饕餮都踩过）。
+  const w9 = cleanWorld(7109);
+  parkPlayer(w9);
+  w9.tick = startTick - 1;
+  w9.boonNextTick = 0;
+  SIM.step(w9, { mx: 0, my: 0 });
+  expect('★★走 step 的整条链路真的会在 startSec 立起两座碑（防"函数写好了但没被调用"）',
+    boons(w9).length === 2 && evs(w9, 'boon').length === 1,
+    '碑 ' + boons(w9).length + ' 座 / 播报 ' + evs(w9, 'boon').length + ' 条');
+  const b9 = boons(w9);
+  standOn(w9, b9[0]);
+  stepN(w9, 2);
+  const tot9 = Object.keys(w9.player.boons).reduce(function (s, k2) { return s + w9.player.boons[k2]; }, 0);
+  expect('★★走 step 真的能取到（站上去两帧内生效），且另一座同帧消失',
+    tot9 === 1 && boons(w9).length === 0,
+    '层数合计 ' + tot9 + ' / 地上 ' + boons(w9).length + ' 座');
+}
+
+// ============================================================
+// 第四十九轮：镇妖钟（把妖群牵到你要的地方）
+// ============================================================
+//
+// 【这一轮真正要守的是什么】不是"钟会不会出现"，而是
+//   **「牵引只发生在圈内，而且只对三类以外的妖物」**。
+//   这类"全项目第一次"的机制最容易出的错从来不是崩，而是
+//   「不小心把所有东西都牵了」或者「牵了但一点用都没有」——
+//   所以下面绝大多数断言钉的都是「不该发生的事」。
+function testBell() {
+  console.log('[第四十九轮] 镇妖钟：把妖群牵到你要的地方');
+  const B = C.BELL;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(B.startSec * HZ);
+  const PB = require('../shared/proto_bin.js');
+  const pool = PB.STR_POOL || [];
+
+  // 干净世界：清武器（免得顺手把钟当怪打）、锁经验（免得升级面板冻住 step）、
+  // 其它事件排期全部推到很远（本轮只验钟）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
+    //   把影傀生成的 seed 摘掉之后，红的居然是**镇妖钟**那条「立钟不消费主随机流」
+    //   （这一段的 cleanWorld 从 0 推到 258 秒，会顺路刷出影傀）。
+    //   事件之间必须互相隔离，否则以后每条新机制的随机流断言都会被别的机制带红。
+    w.mergeNextTick = 1e9;
+    w.mobs.length = 0;
+    w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几口钟」才干净
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function bells(w) {
+    return w.pickups.filter(function (x) { return x.kind === 'bell'; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  // 把玩家摆到地图正中：钟锚在玩家 190px 处，站在角落会被 clamp 贴边
+  // （虽然 sim 会换方向重立，但测试要的是"标准情况"，别去测墙角）。
+  function parkPlayer(w) {
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2); p.y = Math.round(w.map.h / 2);
+    SIM.setSelf(w, p);
+    return p;
+  }
+  function stepN(w, n) {
+    for (let i = 0; i < n; i++) SIM.step(w, { mx: 0, my: 0 });
+  }
+  // 直接把玩家摆到钟上（坐标由散列决定，不可预测 —— 所以先造再站上去）
+  function standOn(w, it) {
+    const p = w.player;
+    p.x = it.x; p.y = it.y;
+    SIM.setSelf(w, p);
+    return p;
+  }
+  // 造一只怪。★必须传 seed：不传的话 spawnMob 会自己摇一次随机（相位/冷却），
+  // 下面那条「钟响期间主随机流一动不动」就会因为"测试自己动了随机流"而假红。
+  function mkMob(w, id, x, y) {
+    return SIM.spawnMob(w, id, x, y, 1, 0, 7001);
+  }
+  // 清掉障碍：下面几条量的是「位移**方向**」，撞一次石头就会滑一下，
+  // 那个 ±1px 的容差会被撞出来的滑动吃掉（不是失败，而是测不准）。
+  function clearObstacles(w) {
+    w.obstacles = [];
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★镇妖钟不许落在 30 秒波次网格上（startSec % 30 !== 0）：'
+    + '压在波次那一帧时，刚刷的怪还在 700px 外（陨星为此被推迟过 95 秒）',
+    B.startSec % C.WAVES.intervalSec !== 0,
+    'startSec=' + B.startSec + ' 余 ' + (B.startSec % C.WAVES.intervalSec));
+  const others = [
+    ['挑战者', C.CHALLENGER.startSec], ['灵泉', C.LEYLINE.startSec],
+    ['血祭坛', C.BLOODPACT.startSec], ['赤月', C.BLOOD_MOON.startSec],
+    ['山魈', C.SUMMONER.startSec], ['陨星', C.METEOR.startSec],
+    ['双生妖', C.TWINS.startSec], ['引魂灯', C.LANTERN.startSec],
+    ['饕餮', C.DEVOURER.startSec], ['歧路双碑', C.BOON.startSec]
+  ];
+  const sameTick = others.filter(function (o) { return o[1] === B.startSec; });
+  expect('★不许与另一个事件的**首发帧**落在同一 tick（同一帧两件事一起弹，玩家只读得到一条）',
+    sameTick.length === 0, sameTick.length ? '撞了：' + sameTick[0][0] : '无冲突');
+
+  expect('★钟声半径必须明显大于落点距离（radius > offset × 1.5）：'
+    + '半径比落点还小的话，敲响那一刻自己就站在圈外，等于什么都没发生',
+    B.radius > B.offset * 1.5, 'radius=' + B.radius + ' / offset=' + B.offset);
+  expect('★半径不许大过 620（再大就等于全屏牵引，「往哪躲」这件事整个消失）',
+    B.radius <= 620, 'radius=' + B.radius);
+  expect('★落点距离必须在一屏之内（150~300）：看不见的钟等于不存在',
+    B.offset >= 150 && B.offset <= 300, 'offset=' + B.offset);
+  expect('★站住的半径必须小于钟声半径的 1/6：不然「到钟下站住」会退化成「在远处就停」',
+    B.standRadius < B.radius / 6 && B.standRadius >= 16,
+    'standRadius=' + B.standRadius + ' / radius/6=' + fmt(B.radius / 6, 1));
+  expect('★钟声时长落在 4~12 秒（短于 4 秒牵不过来；长于 12 秒等于白送一段免伤）',
+    B.ringSec >= 4 && B.ringSec <= 12, 'ringSec=' + B.ringSec);
+  expect('★钟声时长必须小于钟的存在时长（写反了钟会在响的时候先消失）',
+    B.ringSec < B.lifeSec, 'ringSec=' + B.ringSec + ' / lifeSec=' + B.lifeSec);
+  expect('★间隔必须大于「存在时长 + 钟声时长」：上一口还在响时下一口不许立起来',
+    B.everySec >= B.lifeSec + B.ringSec,
+    '间隔 ' + B.everySec + ' / 共存 ' + (B.lifeSec + B.ringSec));
+  expect('★一局至少能见到 3 口（最短的一局 18 分钟 = 1080 秒）：'
+    + '排到第 3 口就已经超出最短局的话，「每 132 秒一次」是句空话',
+    B.startSec + 2 * B.everySec <= 1080,
+    '第三口在 ' + (B.startSec + 2 * B.everySec) + ' 秒');
+
+  function rgbOf(h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+  const cBody = rgbOf(B.color);
+  const cRing = rgbOf(B.ringColor);
+  expect('★钟身配色不许偏紫蓝（蓝分量必须低于红分量）',
+    cBody[2] < cBody[0], B.color + ' rgb=' + cBody.join(','));
+  expect('★钟声圈配色也不许偏紫蓝',
+    cRing[2] < cRing[0], B.ringColor + ' rgb=' + cRing.join(','));
+  expect('★钟身与钟声圈必须是两个颜色（同色的话地上的钟和它脚下的大圈会糊成一块）',
+    B.color !== B.ringColor, B.color + ' / ' + B.ringColor);
+  const poolMiss = [];
+  if (pool.indexOf('bell') < 0) poolMiss.push('bell');
+  if (pool.indexOf(B.color) < 0) poolMiss.push(B.color);
+  if (pool.indexOf(B.ringColor) < 0) poolMiss.push(B.ringColor);
+  expect('★★kind 与两个配色都必须已在串池里：'
+    + '池外值每帧走长格式，钟要活 26 秒 = 520 帧，是一段持续的、不报错的带宽劣化',
+    poolMiss.length === 0, poolMiss.length ? '缺：' + poolMiss.join(',') : '齐全');
+
+  // ---------- 1. 生成 ----------
+  const w0 = cleanWorld(4901);
+  parkPlayer(w0);
+  w0.tick = startTick - 2;
+  w0.bellNextTick = 0;
+  SIM.step(w0, { mx: 0, my: 0 });
+  expect('★到点**前一帧**地上零口钟、也零播报',
+    bells(w0).length === 0 && evs(w0, 'bell').length === 0,
+    '钟 ' + bells(w0).length + ' 口 / 播报 ' + evs(w0, 'bell').length + ' 条');
+
+  const w1 = cleanWorld(4901);
+  parkPlayer(w1);
+  w1.tick = startTick - 1;
+  w1.bellNextTick = 0;
+  const rngBefore = w1.rngState;
+  SIM.step(w1, { mx: 0, my: 0 });
+  const b1 = bells(w1);
+  const p1 = w1.player;
+  const d1 = b1.length ? Math.hypot(b1[0].x - p1.x, b1[0].y - p1.y) : -1;
+  expect('★到点正好立起一口钟', b1.length === 1, '钟 ' + b1.length + ' 口');
+  expect('★钟离玩家约 offset（±40px）：太近会被拾取半径直接吃掉，太远看不见',
+    b1.length === 1 && Math.abs(d1 - B.offset) <= 40, '距离 ' + fmt(d1, 0) + 'px');
+  expect('★★刚立起的钟离玩家必须还在 offset 的六成以上：'
+    + '被贴边 clamp 夹到脚下的钟等于「一抬手就敲了」，那个决定就没了',
+    b1.length === 1 && d1 >= B.offset * 0.6, '距离 ' + fmt(d1, 0) + 'px');
+  expect('★钟必须完整落在地图内（露出一半的钟玩家走不过去）',
+    b1.length === 1 && b1[0].x > 20 && b1[0].y > 20
+      && b1[0].x < w1.map.w - 20 && b1[0].y < w1.map.h - 20,
+    b1.length ? fmt(b1[0].x, 0) + ',' + fmt(b1[0].y, 0) + ' / 图 ' + w1.map.w + '×' + w1.map.h : '没有钟');
+  expect('★只播一条事件，且带着「存在时长」（提示条要念出这个数）',
+    evs(w1, 'bell').length === 1 && evs(w1, 'bell')[0].lifeSec === B.lifeSec,
+    '播报 ' + evs(w1, 'bell').length + ' 条');
+  expect('★★立钟不消费主随机流（否则后面每一波的落点整体错位 —— 事件型玩法的老坑）',
+    w1.rngState === rngBefore, 'rng=' + rngBefore + '→' + w1.rngState);
+  expect('★刚落地的钟是「没敲过」的状态（value 0），寿命等于 lifeSec',
+    b1.length === 1 && b1[0].value === 0 && Math.abs(b1[0].life - B.lifeSec) < 1,
+    b1.length ? 'value=' + b1[0].value + ' life=' + fmt(b1[0].life, 1) : '没有钟');
+
+  // 同屏最多一口：地上那一口一直不敲，推三个间隔也不许再立
+  const w2 = cleanWorld(4902);
+  parkPlayer(w2);
+  w2.tick = startTick - 1;
+  w2.bellNextTick = 0;
+  SIM.step(w2, { mx: 0, my: 0 });
+  const spawned1 = w2.bellSpawned;
+  const bx0 = bells(w2)[0] ? bells(w2)[0].x : 0;
+  for (let k = 0; k < 3; k++) {
+    w2.tick += Math.round(B.everySec * HZ);
+    w2.bellNextTick = 0;
+    SIM.step(w2, { mx: 0, my: 0 });
+  }
+  expect('★★地上还有一口（没敲）时，再推三个间隔也只许有一口：'
+    + '两口同时在场上，「先敲哪口」会盖过「现在敲不敲」',
+    w2.bellSpawned === spawned1 && bells(w2).length === 1,
+    '立过 ' + w2.bellSpawned + ' 口 / 地上 ' + bells(w2).length + ' 口');
+  expect('★被挡时只**短等** retrySec，不顺延整个间隔（陨星/引魂灯/饕餮/双碑都踩过）',
+    w2.bellNextTick <= w2.tick + Math.round(B.retrySec * HZ),
+    '下一个排期 ' + (w2.bellNextTick - w2.tick) + ' 帧之后（retrySec=' + B.retrySec + '）');
+  expect('★地上那一口一直没被挪走（坐标一动不动）',
+    bells(w2)[0] && Math.abs(bells(w2)[0].x - bx0) < 0.01,
+    bells(w2)[0] ? 'x ' + fmt(bx0, 1) + '→' + fmt(bells(w2)[0].x, 1) : '没有钟');
+
+  // 落点全被挤掉时：只短等 retrySec 重试（把地图临时缩到比 8 个候选点还小）
+  const w3 = cleanWorld(4903);
+  parkPlayer(w3);
+  const savedW = w3.map.w, savedH = w3.map.h;
+  w3.map.w = 200; w3.map.h = 200;
+  w3.player.x = 100; w3.player.y = 100;
+  SIM.setSelf(w3, w3.player);
+  w3.tick = startTick;
+  w3.bellNextTick = 0;
+  SIM.maybeSpawnBell(w3);
+  const blockedWait = w3.bellNextTick - w3.tick;
+  expect('★★八个方向都放不下时（贴边 clamp 把每口钟都挤到脚下）必须只短等 retrySec，'
+    + '不许把整串排期推到 132 秒之后',
+    bells(w3).length === 0 && blockedWait > 0 && blockedWait <= Math.round(B.retrySec * HZ),
+    '钟 ' + bells(w3).length + ' 口 / 等待 ' + blockedWait + ' 帧');
+  w3.map.w = savedW; w3.map.h = savedH;
+
+  // 主线《补天纪》一口都不许有
+  //
+  // ★★★这一条第一版是**假绿**，值得记下来：
+  //   当时用 ch1（240 秒上限）去验 258 秒的时刻 —— 那一刻这一关早就判定「赢了」，
+  //   step 在剧情收尾那一段就 return 了，2.43 的生成段根本没被走到，
+  //   「零口钟」当然成立。**摘掉剧情关闸，它照样全绿**（反向验证当场抓出来的）。
+  //   两条修法同时上：
+  //     ① 直接调事件入口（不经过 step 的早退），这一条测的才是那道闸本身；
+  //     ② 走 step 那一遍改用 ch2（300 秒上限，容得下 258 秒），
+  //        并且**断言那一刻世界还在跑** —— 世界已结束时，「什么都没有」不构成任何证据。
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 519, modId: 'myth', stageId: 'ch1' });
+  wS.player.expNext = 1e9;
+  wS.tick = startTick;
+  wS.bellNextTick = 0;
+  const directS = SIM.maybeSpawnBell(wS);
+  expect('★★直接调事件入口也必须被剧情关挡住（不依赖 step 会不会早退）：'
+    + '主线是逐关手工配平的，凭空多一个「群体牵引」会直接抹掉配好的走位难度',
+    !!wS.storyStage && directS === null
+      && bells(wS).length === 0 && evs(wS, 'bell').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null')
+      + ' 返回=' + (directS ? '有钟' : 'null')
+      + ' / 钟 ' + bells(wS).length + ' 口 / 播报 ' + evs(wS, 'bell').length + ' 条');
+
+  // 走 step 那一遍：用 ch2（300 秒 > 258 秒），并盯住「世界还在跑」
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 521, modId: 'myth', stageId: 'ch2' });
+  wS2.player.expNext = 1e9;
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((B.startSec + k * 30) * HZ);
+    wS2.bellNextTick = 0;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch2）走完整条 step 也没有钟，**而且那一刻世界确实还在跑**：'
+    + '不钉「世界还活着」的话，用超时的关卡验任何「不该出现的东西」都会假绿',
+    storyAlive && bells(wS2).length === 0 && evs(wS2, 'bell').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '）'
+      + ' / 钟 ' + bells(wS2).length + ' 口 / 播报 ' + evs(wS2, 'bell').length + ' 条');
+
+  // ---------- 2. 敲响 ----------
+  const w4 = cleanWorld(4904);
+  parkPlayer(w4);
+  SIM.spawnBell(w4);
+  const bell4 = bells(w4)[0];
+  standOn(w4, bell4);
+  stepN(w4, 1);
+  const after4 = bells(w4);
+  expect('★★踩上去就响：bellRing 里有圆心、有到期时刻',
+    !!w4.bellRing && w4.bellRing.until > w4.time,
+    w4.bellRing ? 'until=' + fmt(w4.bellRing.until, 2) + ' / time=' + fmt(w4.time, 2) : 'null');
+  expect('★★敲响之后钟**不能从地上消失**：它要一直画在钟声圈的中央（响完才没）',
+    after4.length === 1 && after4[0].value === 1,
+    '地上 ' + after4.length + ' 口 / value=' + (after4[0] ? after4[0].value : 'NA'));
+  expect('★敲响时落下一条钟声圈，半径**就是**判定半径、颜色是钟声圈配色',
+    w4.zones.length === 1 && Math.abs(w4.zones[0].r - B.radius) < 0.01
+      && w4.zones[0].color === B.ringColor,
+    w4.zones.length ? 'r=' + w4.zones[0].r + ' color=' + w4.zones[0].color : '没有圈');
+  expect('★只播一条 bell_toll、且**不带 slot**（钟声改变的是整个战场，队友也必须看得到）',
+    evs(w4, 'bell_toll').length === 1 && evs(w4, 'bell_toll')[0].slot === undefined,
+    '播报 ' + evs(w4, 'bell_toll').length + ' 条'
+      + (evs(w4, 'bell_toll').length ? ' slot=' + evs(w4, 'bell_toll')[0].slot : ''));
+  const until4 = w4.bellRing.until;
+  const tolls4 = w4.bellTolls;
+  stepN(w4, 3);
+  expect('★已经在响的钟再踩也不会重新计时、不会重复播报（否则站在钟上就一直续命）',
+    Math.abs(w4.bellRing.until - until4) < 0.001 && w4.bellTolls === tolls4,
+    'until ' + fmt(until4, 2) + '→' + fmt(w4.bellRing.until, 2)
+      + ' / 敲响次数 ' + tolls4 + '→' + w4.bellTolls);
+
+  // 磁石不许把钟吸走
+  const w5 = cleanWorld(4905);
+  const p5 = parkPlayer(w5);
+  SIM.spawnBell(w5);
+  const bell5 = bells(w5)[0];
+  // ★站在「拾取半径之外、吸附半径之内」这一环：否则测的其实是「什么都没发生」。
+  //   拾取半径放大到 60（默认三十几），站 120px 处 —— 正好落在吸附范围里。
+  p5.attrs.pickupRadius = 60;
+  p5.x = bell5.x + 120;
+  p5.y = bell5.y;
+  SIM.setSelf(w5, p5);
+  const bx5 = bell5.x, by5 = bell5.y;
+  stepN(w5, 20);
+  const b5 = bells(w5);
+  expect('★★钟不许被磁石吸过来（坐标一动不动）：'
+    + '走过去敲是它唯一的成本，隔着两百像素被吸过来就等于「路过自动敲响」',
+    b5.length === 1 && Math.abs(b5[0].x - bx5) < 0.01 && Math.abs(b5[0].y - by5) < 0.01
+      && b5[0].value === 0,
+    b5.length ? 'x ' + fmt(bx5, 1) + '→' + fmt(b5[0].x, 1)
+      + ' / y ' + fmt(by5, 1) + '→' + fmt(b5[0].y, 1) + ' / value=' + b5[0].value : '钟没了');
+
+  // ---------- 3. 牵引的方向 ----------
+  // 几何：钟在玩家**右边** 380px；被测的怪放在钟的**正上方**。
+  //   ★这样「追玩家」的方向是 -x（往左）、「被牵」的方向是 +y（往下）—— 两者正交，
+  //     一眼就能从位移分出来是哪一种。
+  //   ★第一版把怪放在钟的右侧（与玩家同一条线上）：那时「追玩家」与「朝钟」都指向 -x，
+  //     位移长得一模一样 —— 断言永远是绿的（假绿，等于什么都没测）。
+  function pullWorld(seed) {
+    const w = cleanWorld(seed);
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2); p.y = Math.round(w.map.h / 2);
+    p.hp = 1e9; p.maxHp = 1e9;      // 别让接触伤害打断观察
+    SIM.setSelf(w, p);
+    clearObstacles(w);
+    const bx = p.x + 380, by = p.y;
+    SIM.spawnPickup(w, 'bell', bx, by, 0, B.lifeSec);
+    const it = w.pickups[w.pickups.length - 1];
+    SIM.tollBell(w, p, it);
+    return { w: w, p: p, bx: bx, by: by, bell: it };
+  }
+
+  const A = pullWorld(4910);
+  const wa = A.w, pa = A.p;
+  const nearMob = mkMob(wa, 'corpse', A.bx, A.by - 400);   // 圈内（400 < 460），钟正上方
+  const farMob = mkMob(wa, 'corpse', A.bx, A.by - 600);    // 圈外（600 > 460）
+  const nStartX = nearMob.x, nStartY = nearMob.y;
+  const fStartX = farMob.x, fStartY = farMob.y;
+  const hpBefore = nearMob.hp;
+  stepN(wa, 10);
+  const nDx = nearMob.x - nStartX, nDy = nearMob.y - nStartY;
+  const fDx = farMob.x - fStartX, fDy = farMob.y - fStartY;
+  expect('★★圈内的妖物这一帧朝**钟**走（+y），不是朝玩家（-x）：'
+    + '这是整个机制唯一的效果，方向反了它就是「把怪往自己身上赶」',
+    nDy > 5 && Math.abs(nDx) < 1,
+    'dx=' + fmt(nDx, 1) + ' dy=' + fmt(nDy, 1));
+  expect('★★圈外的妖物一步都不许被牵：它照旧追玩家（-x）——'
+    + '否则「圈有多大」这件事在画面上完全没了意义',
+    fDx < -1, 'dx=' + fmt(fDx, 1) + ' dy=' + fmt(fDy, 1));
+  // 速度守恒：被牵的怪不许变快/变慢 —— 它借的是自己的速度，不是另一个数
+  const wantN = nearMob.def.speed * (10 / HZ);
+  const gotN = Math.hypot(nDx, nDy);
+  expect('★★被牵的妖物速度**不变**（位移 == 自己的速度 × 时间）：'
+    + '钟声是「换个方向」不是「吸飞过去」—— 吸飞会让这一圈怪瞬间叠到钟上',
+    Math.abs(gotN - wantN) <= wantN * 0.12,
+    '实测 ' + fmt(gotN, 1) + 'px / 应有 ' + fmt(wantN, 1) + 'px');
+  expect('★★牵引不许造成任何伤害（妖物血量不变、玩家血量不变）：'
+    + '它是位移机制，带伤害就变成「白给一个范围技能」',
+    nearMob.hp === hpBefore && pa.hp === pa.maxHp,
+    '怪 ' + fmt(nearMob.hp, 0) + '/' + fmt(nearMob.maxHp, 0) + ' / 人 ' + fmt(pa.hp, 0));
+  expect('★玩家本人不会被钟牵（位置只由输入决定）',
+    Math.abs(pa.x - (A.bx - 380)) < 0.01 && Math.abs(pa.y - A.by) < 0.01,
+    '玩家 ' + fmt(pa.x, 1) + ',' + fmt(pa.y, 1));
+
+  // 三类特殊妖物：**同一帧、同一个世界、只差一个钟声**，比较两只怪的位置。
+  // 【为什么不直接断言「y 不许变大」】山魈本来就在绕着玩家走、饕餮在走自己的路 ——
+  //   它们自己的 y 就可能上下动，那种断言只会测到它们自己的 AI，测不到钟声。
+  //   两个世界逐坐标对比才是真正在问「钟声有没有动它」。
+  function specialWorld(seed, withRing) {
+    const w = cleanWorld(seed);
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2); p.y = Math.round(w.map.h / 2);
+    p.hp = 1e9; p.maxHp = 1e9;
+    SIM.setSelf(w, p);
+    clearObstacles(w);
+    const bx = p.x + 380, by = p.y;
+    if (withRing) {
+      SIM.spawnPickup(w, 'bell', bx, by, 0, B.lifeSec);
+      SIM.tollBell(w, p, w.pickups[w.pickups.length - 1]);
+    }
+    return {
+      w: w,
+      bossM: mkMob(w, 'blood_lord', bx, by - 380),
+      summM: mkMob(w, 'shanxiao', bx + 30, by - 380),
+      devM: mkMob(w, 'taotie', bx - 30, by - 380),
+      normM: mkMob(w, 'corpse', bx, by - 380)
+    };
+  }
+  const R1 = specialWorld(4921, true);    // 有钟声
+  const R2 = specialWorld(4921, false);   // 没钟声（对照组）
+  stepN(R1.w, 10);
+  stepN(R2.w, 10);
+  const dOf = function (a, b) { return Math.hypot(a.x - b.x, a.y - b.y); };
+  expect('★★Boss 不许被钟牵着走：有钟声与没钟声两个世界里，它 10 帧后的位置必须**一模一样**'
+    + '（牵着走整场就变成遛狗）',
+    dOf(R1.bossM, R2.bossM) < 0.01,
+    '偏差 ' + fmt(dOf(R1.bossM, R2.bossM), 3) + 'px');
+  expect('★★山魈不许被钟牵着走（它整套玩法就是「保持距离」，拉过来等于抹掉它的身份）',
+    dOf(R1.summM, R2.summM) < 0.01 && SIM.bellPullable(R1.summM) === false,
+    '偏差 ' + fmt(dOf(R1.summM, R2.summM), 3) + 'px / pullable=' + SIM.bellPullable(R1.summM));
+  expect('★★饕餮不许被钟牵着走（它整套玩法就是「不追你、只吃地上的东西」）',
+    dOf(R1.devM, R2.devM) < 0.01 && SIM.bellPullable(R1.devM) === false,
+    '偏差 ' + fmt(dOf(R1.devM, R2.devM), 3) + 'px / pullable=' + SIM.bellPullable(R1.devM));
+  // ★对照组必须真的动起来：普通怪在两个世界里必须明显不同 ——
+  //   否则上面三条可能是「钟根本没生效」的假绿（这正是这一条存在的意义）。
+  expect('★★★同一次对比里普通怪必须明显不同（这条是上面三条的"对照组校验"）：'
+    + '如果连普通怪都没被动过，那三条"没被牵"测的是"钟根本没生效"',
+    dOf(R1.normM, R2.normM) > 10,
+    '普通怪偏差 ' + fmt(dOf(R1.normM, R2.normM), 1) + 'px');
+
+  // 定身的怪不许被牵（没有速度可借 → 不能凭空给它一个速度）
+  const T = pullWorld(4912);
+  const wt = T.w;
+  const stunM = mkMob(wt, 'corpse', T.bx, T.by - 400);
+  stunM.stun = 5;                 // 定身 5 秒（比这 10 帧长得多）
+  const sX0 = stunM.x, sY0b = stunM.y;
+  stepN(wt, 10);
+  expect('★定身中的妖物不许被钟「解定身并推走」（位移必须是 0）：'
+    + '钟声只借它自己的速度，而定身时它的速度就是 0',
+    Math.abs(stunM.x - sX0) < 0.01 && Math.abs(stunM.y - sY0b) < 0.01,
+    'dx=' + fmt(stunM.x - sX0, 2) + ' dy=' + fmt(stunM.y - sY0b, 2));
+
+  // 到钟下就站住（不许压到钟心叠成一坨）
+  const C2 = pullWorld(4913);
+  const wc = C2.w;
+  const atBell = mkMob(wc, 'corpse', C2.bx + 12, C2.by);
+  const aX0 = atBell.x, aY0 = atBell.y;
+  stepN(wc, 6);
+  expect('★走到钟下（standRadius 内）就站住：不设这一条它们会压到钟心叠成一团色块，'
+    + '玩家看不出「来了多少只」',
+    Math.abs(atBell.x - aX0) < 0.01 && Math.abs(atBell.y - aY0) < 0.01,
+    'dx=' + fmt(atBell.x - aX0, 2) + ' dy=' + fmt(atBell.y - aY0, 2));
+
+  // 钟声到期 → 立刻恢复追玩家
+  const D = pullWorld(4914);
+  const wd = D.w;
+  const backMob = mkMob(wd, 'corpse', D.bx, D.by - 400);
+  stepN(wd, 10);
+  const midDy = backMob.y - (D.by - 400);
+  wd.bellRing.until = wd.time;          // 直接把到期时刻拉到当前帧
+  const bxD = backMob.x;
+  stepN(wd, 6);
+  expect('★★钟声一停立刻回身：到期后必须重新追玩家（-x），'
+    + '而且 bellRing 要被清掉（否则「现在有没有钟在响」永远答"有"）',
+    midDy > 5 && wd.bellRing === null && (backMob.x - bxD) < -1,
+    '响时 dy=' + fmt(midDy, 1) + ' / 停后 dx=' + fmt(backMob.x - bxD, 1)
+      + ' / bellRing=' + (wd.bellRing ? '还在' : 'null'));
+
+  // ---------- 4. 整条链路（真的走 step） ----------
+  // 【为什么还要这一条】上面全是手调 maybeSpawnBell / tollBell ——
+  //   「函数写好了却没在 step 里被调用」是这个项目反复出现的静默失败
+  //   （双生妖 / 引魂灯 / 饕餮 / 双碑都踩过）。
+  const w9 = cleanWorld(4919);
+  const p9 = parkPlayer(w9);
+  w9.tick = startTick - 1;
+  w9.bellNextTick = 0;
+  SIM.step(w9, { mx: 0, my: 0 });
+  const bell9 = bells(w9)[0];
+  expect('★★走 step 的整条链路真的会在 startSec 立起一口钟（防"函数写好了但没被调用"）',
+    bells(w9).length === 1 && evs(w9, 'bell').length === 1,
+    '钟 ' + bells(w9).length + ' 口 / 播报 ' + evs(w9, 'bell').length + ' 条');
+
+  // 摆一只怪在钟的正上方（圈内），走过去敲响，看它在随后的帧里真的朝钟靠近
+  clearObstacles(w9);
+  const mob9 = mkMob(w9, 'corpse', bell9.x, bell9.y - 400);
+  const d9Before = Math.hypot(mob9.x - bell9.x, mob9.y - bell9.y);
+  const rng9 = w9.rngState;
+  standOn(w9, bell9);
+  stepN(w9, 1);
+  const rang9 = !!w9.bellRing;
+  stepN(w9, 10);
+  const d9After = Math.hypot(mob9.x - bell9.x, mob9.y - bell9.y);
+  const d9Player = Math.hypot(mob9.x - p9.x, mob9.y - p9.y);
+  expect('★★走 step 真的能敲响，而且之后那 10 帧里妖物真的朝钟靠近了'
+    + '（「钟响了但怪没动」是这个机制最可能的静默失败）',
+    rang9 && d9After < d9Before - 5,
+    '响=' + rang9 + ' 到钟 ' + fmt(d9Before, 0) + '→' + fmt(d9After, 0)
+      + ' / 到玩家 ' + fmt(d9Player, 0));
+  expect('★★钟响期间主随机流一动不动（牵引是纯几何：它一碰 nextRand，'
+    + '后面每一波的落点全部错位）',
+    w9.rngState === rng9, 'rng=' + rng9 + '→' + w9.rngState);
+  expect('★钟的寿命跟着钟声走（响完就消失，不许「圈没了、钟还杵在那儿」）',
+    bells(w9).length === 1 && Math.abs(bells(w9)[0].life - (B.ringSec - 10 / HZ)) < 0.25,
+    bells(w9).length
+      ? 'life=' + fmt(bells(w9)[0].life, 2) + ' / 应约 ' + fmt(B.ringSec - 10 / HZ, 2)
+      : '钟没了');
+}
+// ============================================================
+// 第五十轮：影傀 / 罔两（两只靠近就会合体的一对）
+// ============================================================
+// 【这一段在钉什么】
+//   ① 排期：不落波次网格、不撞别的首发帧、同屏上限只短等不顺延；
+//   ② 成对：一只配一只、**双向**指向、落单不算；
+//   ③ 合体：必须贴够 fuseSec；只从 id 小的那只推进；合完两只真的消失；
+//   ④ ★★「不该发生的事」（这一段真正的价值都在这里）：
+//      单只影傀永远不自行合体 / 罔两不再参与合体 / 影傀一个宝箱都不掉 / 剧情关一只都没有；
+//   ⑤ 随机流隔离：生成与合体都不许碰 nextRand。
+//
+// 【为什么每条都配一个正向对照】前几轮反复踩「机制根本没接上、断言却永远绿」——
+//   比如「剧情关没有影傀」这条，如果那一刻世界已经结束，零只什么都不证明（第 49 轮的血泪）。
+function testMerge() {
+  console.log('[第五十轮] 影傀 / 罔两：两只靠近就会合体的一对');
+  const M = C.MERGE;
+  const HZ = C.TICK_HZ;
+  const SOUL = C.MOB_MAP[M.soulId];
+  const BEAST = C.MOB_MAP[M.mobId];
+  const startTick = Math.round(M.startSec * HZ);
+  const everyTick = Math.round(M.everySec * HZ);
+  const retryTick = Math.round(M.retrySec * HZ);
+  const fuseTicks = Math.ceil(M.fuseSec * HZ);
+  const PB = require('../shared/proto_bin.js');
+  const pool = PB.STR_POOL || [];
+
+  function dist2(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  function rgbOf(h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+
+  // 干净世界：清武器（免得顺手把影傀打掉）、锁经验（免升级面板冻住 step）、
+  // 其它事件排期全部推到很远（这一段只验影傀）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 0;
+    w.mobs.length = 0;
+    w.pickups.length = 0;      // ★地图自带的宝箱/金币也清掉：数「掉几个宝箱」才干净
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function souls(w) {
+    return w.mobs.filter(function (m) { return m.alive && m.def && m.def.mergeSoul; });
+  }
+  function beasts(w) {
+    return w.mobs.filter(function (m) { return m.alive && m.def && m.def.wangliang; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function parkPlayer(w) {
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2);
+    p.y = Math.round(w.map.h / 2);
+    SIM.setSelf(w, p);
+    return p;
+  }
+  // 落点避障会让我们算不准间距，所以测试里先把障碍清空（同 testBell）
+  function clearObstacles(w) {
+    w.obstacles = [];
+  }
+  // 造一只影傀并**手动**指定配对（不经过事件入口：这一段测的是合体判定本身）
+  function mkSoul(w, x, y, seed) {
+    const m = SIM.spawnMob(w, M.soulId, x, y, 1, 0, seed || 9001);
+    if (m) { m.mateId = 0; m.fuseT = 0; }
+    return m;
+  }
+  // 把一对摆到指定间距上（坐标直接改，不走移动）
+  function placePair(w, a, b, d) {
+    const cy = w.map.h / 2;
+    const cx = w.map.w / 2;
+    a.x = cx - d / 2; a.y = cy;
+    b.x = cx + d / 2; b.y = cy;
+    a.px = a.x; a.py = a.y;
+    b.px = b.x; b.py = b.y;
+    a.mateId = b.id;
+    b.mateId = a.id;
+  }
+  function tickN(w, n) {
+    for (let i = 0; i < n; i++) SIM.tickMerge(w, 1 / HZ);
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★影傀与罔两必须是两只真实存在的怪（表里的 id 拼错时，事件会静默什么都不生成）',
+    !!SOUL && !!BEAST, M.soulId + ' / ' + M.mobId);
+  expect('★影傀必须是 kind=merge（不然它不会朝彼此走，两只各追各的）',
+    SOUL.kind === 'merge', SOUL.kind);
+  expect('★罔两必须是 kind=melee（合体之后就是一只普通强怪，不该再有花招）',
+    BEAST.kind === 'melee', BEAST.kind);
+  expect('★两只的身份靠 def 上的布尔标记（协议零改动就是靠它：defId 已经在快照里）',
+    SOUL.mergeSoul === true && BEAST.wangliang === true,
+    'mergeSoul=' + SOUL.mergeSoul + ' wangliang=' + BEAST.wangliang);
+  expect('★★罔两绝不许带 mergeSoul —— 带了它会和别的影傀再合一次，'
+    + '血越合越多（每合一次 ×1.15 且叠的是当前血量）',
+    !BEAST.mergeSoul, 'wangliang.mergeSoul=' + BEAST.mergeSoul);
+  expect('★影傀必须是 normal 档而不是 elite：elite 会「必掉一颗心」，'
+    + '那会把「阻止合体」这一侧的回报抬得比宝箱还高',
+    SOUL.tier === 'normal', 'tier=' + SOUL.tier);
+
+  expect('★不许落在 30 秒波次网格上（startSec % 30 !== 0）：'
+    + '压在波次那一帧时，刚刷的怪还在 700px 外（陨星为此被推迟过 95 秒）',
+    M.startSec % C.WAVES.intervalSec !== 0,
+    'startSec=' + M.startSec + ' 余 ' + (M.startSec % C.WAVES.intervalSec));
+
+  const otherStarts = [
+    ['挑战者', C.CHALLENGER.startSec], ['灵泉', C.LEYLINE.startSec],
+    ['血祭坛', C.BLOODPACT.startSec], ['赤月', C.BLOOD_MOON.startSec],
+    ['山魈', C.SUMMONER.startSec], ['陨星', C.METEOR.startSec],
+    ['双生妖', C.TWINS.startSec], ['引魂灯', C.LANTERN.startSec],
+    ['饕餮', C.DEVOURER.startSec], ['歧路双碑', C.BOON.startSec],
+    ['镇妖钟', C.BELL.startSec]
+  ];
+  const clash = otherStarts.filter(function (o) { return o[1] === M.startSec; });
+  expect('★不许与另一个事件的**首发帧**落在同一 tick'
+    + '（同一帧两件事一起弹，玩家只读得到一条）',
+    clash.length === 0, clash.length ? '撞了：' + clash[0][0] : '无冲突');
+
+  expect('★合体窗口必须 ≥ 1 秒（fuseSec）：0 就是「碰到即合体」，'
+    + '玩家没有阻止它的机会，机制退化成一只延迟变强的怪',
+    M.fuseSec >= 1, 'fuseSec=' + M.fuseSec);
+  expect('★合体血量倍率必须 > 1：正好 1.0 的话玩家会发现「分开打更划算」'
+    + '（两只分开打还能多两笔击杀经验）',
+    M.hpMul > 1, 'hpMul=' + M.hpMul);
+  expect('★罔两的宝箱数必须 ≥ 2：这是玩家赌这一把的价码；'
+    + '影傀那边一个宝箱都没有（由第 7 段的掉落断言钉住）',
+    M.rewardChest >= 2, 'rewardChest=' + M.rewardChest);
+  expect('★同屏上限必须是偶数（一对一对地来，奇数会让最后一对永远缺一只）',
+    M.maxAlive % 2 === 0, 'maxAlive=' + M.maxAlive);
+  expect('★一对张开的半角必须落在 20~70 度：太小出生就贴脸（来不及阻止），'
+    + '太大它们要在场上晃很久才碰头',
+    M.pairHalf >= 20 && M.pairHalf <= 70, 'pairHalf=' + M.pairHalf);
+  expect('★mergeDist 必须大于影傀直径（2r）：'
+    + '小于直径时两只圆会被碰撞互相挤开，永远进不了这个阈值（合体永远不触发）',
+    M.mergeDist > SOUL.r * 2, 'mergeDist=' + M.mergeDist + ' / 直径 ' + SOUL.r * 2);
+  expect('★落点距离必须在一屏之内（240~480）：看不见的影傀等于不存在，'
+    + '玩家也就没法选「趁现在点掉它」',
+    M.offset >= 240 && M.offset <= 480, 'offset=' + M.offset);
+  expect('★一局至少能见到 3 对（最短的一局 18 分钟 = 1080 秒）',
+    M.startSec + 2 * M.everySec <= 1080,
+    '第三对在 ' + (M.startSec + 2 * M.everySec) + ' 秒');
+
+  // 配色：禁紫 / 紫蓝。判据是「红与蓝**同时**高于绿」——那才是紫/紫蓝。
+  // ★不能简单写 b < r：项目里的冷灰档（双生妖 #8fb6c8）本来就是蓝多于红，
+  //   那一条会把自己人判红（第 49 轮写钟的断言时差点复制过来）。
+  const cSoul = rgbOf(SOUL.color);
+  const cBeast = rgbOf(BEAST.color);
+  expect('★影傀配色不许偏紫（判据：红与蓝同时高于绿才是紫）',
+    !(cSoul[0] > cSoul[1] && cSoul[2] > cSoul[1]), SOUL.color + ' rgb=' + cSoul.join(','));
+  expect('★罔两配色不许偏紫',
+    !(cBeast[0] > cBeast[1] && cBeast[2] > cBeast[1]), BEAST.color + ' rgb=' + cBeast.join(','));
+  expect('★两只不许同色（同屏时要靠颜色分开「一对小的」和「一只大的」）',
+    SOUL.color !== BEAST.color, SOUL.color + ' / ' + BEAST.color);
+
+  const poolMiss = [];
+  [M.soulId, M.mobId, SOUL.color, BEAST.color, M.markColor, M.fuseColor]
+    .forEach(function (v) { if (pool.indexOf(v) < 0) poolMiss.push(v); });
+  expect('★★两只的 defId 与两个本体色必须已在串池里：'
+    + '池外值每帧走长格式 —— 怪是一直在快照里的，这是一段持续的、不报错的带宽劣化',
+    poolMiss.length === 0, poolMiss.length ? '缺：' + poolMiss.join(',') : '齐全');
+
+  // ---------- 1. 生成 ----------
+  const w0 = cleanWorld(5001);
+  parkPlayer(w0);
+  clearObstacles(w0);
+  // 地图中心：后面每一段造怪都用它（同一种 createWorld 出来的地图尺寸一致，
+  // 但**不假设**这一点 —— 每段仍然用自己的 w.map 算出中心，见 cOf）
+  const cx0 = Math.round(w0.map.w / 2);
+  const cy0 = Math.round(w0.map.h / 2);
+
+  w0.tick = startTick - 1;
+  const early = SIM.maybeSpawnMerge(w0);
+  expect('★未到 startSec 一只都不生成',
+    early === null && souls(w0).length === 0,
+    '返回=' + early + ' / 场上 ' + souls(w0).length + ' 只');
+
+  w0.tick = startTick;
+  const made = SIM.maybeSpawnMerge(w0);
+  const p4 = souls(w0);
+  expect('★到了 startSec 必须一次来满两对（pairsPerSpawn 2 × 2 只 = 4 只影傀）',
+    made === 4 && p4.length === 4, '生成 ' + made + ' 只 / 场上 ' + p4.length + ' 只');
+  expect('★生成的必须是 soulId 那一种',
+    p4.every(function (m) { return m.defId === M.soulId; }),
+    p4.map(function (m) { return m.defId; }).join(','));
+  expect('★一共记了 2 对（mergeSpawned）', w0.mergeSpawned === 2, 'mergeSpawned=' + w0.mergeSpawned);
+  expect('★每一对播一条 merge_pair（四只播一条会让玩家以为只来了一对）',
+    evs(w0, 'merge_pair').length === 2, evs(w0, 'merge_pair').length + ' 条');
+
+  const paired = p4.every(function (m) {
+    const o = p4.filter(function (x) { return x.id === m.mateId; })[0];
+    return !!o && o.mateId === m.id;
+  });
+  expect('★★配对必须**双向**：每一只的 mateId 都指向那一只，而那一只也指回来。'
+    + '单向配对会让其中一只去追一个不认它的同伴，看着像「追着空气走」',
+    paired, p4.map(function (m) { return m.id + '→' + m.mateId; }).join(' '));
+
+  const gaps = [];
+  for (let i = 0; i < p4.length; i++) {
+    if (p4[i].id < p4[i].mateId) {
+      const o = p4.filter(function (x) { return x.id === p4[i].mateId; })[0];
+      if (o) gaps.push(dist2(p4[i], o));
+    }
+  }
+  expect('★一对必须是**分开**浮现的（间距落在 offset×0.8 ~ offset×1.6）：'
+    + '出生就贴在一起的话，「要不要阻止合体」这个选择根本不存在',
+    gaps.length === 2 && gaps.every(function (d) { return d > M.offset * 0.8 && d < M.offset * 1.6; }),
+    '间距 ' + gaps.map(function (d) { return Math.round(d); }).join(' / '));
+
+  const uniqPos = {};
+  p4.forEach(function (m) { uniqPos[Math.round(m.x) + ',' + Math.round(m.y)] = 1; });
+  expect('★两对不许重叠在同一处（mergeSeq 递增 → 每一对从不同方位浮现）',
+    Object.keys(uniqPos).length === 4,
+    Object.keys(uniqPos).length + ' 个不同落点');
+
+  expect('★每一只都必须在一屏之内（< 520px）：看不见的影傀等于不存在',
+    p4.every(function (m) { return dist2(m, w0.player) < 520; }),
+    p4.map(function (m) { return Math.round(dist2(m, w0.player)); }).join(','));
+
+  // ---------- 2. 同屏上限 ----------
+  w0.tick = startTick + everyTick;
+  const again = SIM.maybeSpawnMerge(w0);
+  expect('★同屏满了就不再生成（maxAlive = ' + M.maxAlive + '）',
+    again === null && souls(w0).length === 4,
+    '返回=' + again + ' / 场上 ' + souls(w0).length + ' 只');
+  expect('★满了只**短等** retrySec，不顺延整个 everySec —— '
+    + '顺延的话玩家一直不清场，后面整串排期会被推走（陨星/引魂灯/双碑/钟都踩过）',
+    w0.mergeNextTick === w0.tick + retryTick,
+    'nextTick - tick = ' + (w0.mergeNextTick - w0.tick) + ' 帧（retry=' + retryTick + '）');
+
+  // ★罔两也必须算进上限：不然一对合体成一只之后限额被腾出来，
+  //   下一轮又刷一对，场上会越堆越多只罔两（每只血都是两只之和，三只就是必败局）。
+  const wCap = cleanWorld(5011);
+  parkPlayer(wCap);
+  wCap.mobs.length = 0;
+  mkSoul(wCap, cx0 - 300, cy0, 9101);
+  mkSoul(wCap, cx0 - 260, cy0, 9102);
+  SIM.spawnMob(wCap, M.mobId, cx0 + 260, cy0, 1, 0, 9103);
+  SIM.spawnMob(wCap, M.mobId, cx0 + 300, cy0, 1, 0, 9104);
+  expect('★对照：场上确实是 2 只影傀 + 2 只罔两',
+    souls(wCap).length === 2 && beasts(wCap).length === 2,
+    souls(wCap).length + ' 影傀 / ' + beasts(wCap).length + ' 罔两');
+  expect('★★罔两也算进同屏上限（countAliveMergeFamily = 4）',
+    SIM.countAliveMergeFamily(wCap) === 4, 'count=' + SIM.countAliveMergeFamily(wCap));
+  wCap.tick = startTick;
+  expect('★★上限占满时（哪怕占位的是罔两）一只都不许再生成',
+    SIM.maybeSpawnMerge(wCap) === null && souls(wCap).length === 2,
+    '场上 ' + souls(wCap).length + ' 影傀 / ' + beasts(wCap).length + ' 罔两');
+
+  // ---------- 3. ★★生成不许消费主随机流 ----------
+  const rA = cleanWorld(5002);
+  const rB = cleanWorld(5002);
+  parkPlayer(rA); clearObstacles(rA);
+  parkPlayer(rB); clearObstacles(rB);
+  rA.tick = startTick;
+  SIM.maybeSpawnMerge(rA);
+  expect('★对照：rA 确实生成了影傀（否则下面比的是两个空世界）',
+    souls(rA).length === 4, souls(rA).length + ' 只');
+  expect('★★生成影傀不许消费主随机流：角度走 affixHash、相位走 spawnMob 的 seed。'
+    + '用了 nextRand 的话，之后每一波的落点都会整体错位一格',
+    rA.rngState === rB.rngState, 'rng=' + rA.rngState + '/' + rB.rngState);
+
+  // ---------- 4. 合体 ----------
+  const w1 = cleanWorld(5004);
+  parkPlayer(w1);
+  clearObstacles(w1);
+  w1.mobs.length = 0;
+  const mA = mkSoul(w1, cx0 - 20, cy0, 9201);
+  const mB = mkSoul(w1, cx0 + 20, cy0, 9202);
+  placePair(w1, mA, mB, 40);          // 40 < mergeDist 52
+  mA.hp = 120;
+  mB.hp = 80;
+
+  w1.tick = 1;
+  SIM.tickMerge(w1, 1 / HZ);
+  expect('★刚贴近的那一帧不许立刻合体（fuseSec 的窗口是玩家阻止它的唯一机会）',
+    beasts(w1).length === 0 && mA.alive && mB.alive,
+    '罔两 ' + beasts(w1).length + ' 只 / fuseT=' + mA.fuseT.toFixed(2));
+
+  tickN(w1, fuseTicks - 2);
+  expect('★差两帧的时候还不许合体（计时必须真的走满 fuseSec）',
+    beasts(w1).length === 0 && mA.alive,
+    '罔两 ' + beasts(w1).length + ' 只 / fuseT=' + mA.fuseT.toFixed(2));
+
+  tickN(w1, 4);
+  expect('★贴够 fuseSec 之后必须合体：两只影傀消失、一只罔两出现',
+    souls(w1).length === 0 && beasts(w1).length === 1,
+    souls(w1).length + ' 影傀 / ' + beasts(w1).length + ' 罔两');
+
+  const bf1 = beasts(w1)[0];
+  expect('★★合体后的血量 = 两只**当前**血量之和 × hpMul（(120+80)×' + M.hpMul + '）。'
+    + '用上限之和算的话，「先打残两只再放它们合体」这条策略就不存在了',
+    !!bf1 && Math.abs(bf1.maxHp - (120 + 80) * M.hpMul) < 1e-6
+      && Math.abs(bf1.hp - bf1.maxHp) < 1e-6,
+    bf1 ? 'hp=' + bf1.hp + ' maxHp=' + bf1.maxHp + ' 期望 ' + (120 + 80) * M.hpMul : '没有罔两');
+  expect('★合出来的罔两身上不许留 mateId（留着它会被当成某人的同伴）',
+    !!bf1 && !bf1.mateId, bf1 ? 'mateId=' + bf1.mateId : '没有罔两');
+  expect('★mergeFused 记了一次', w1.mergeFused === 1, 'mergeFused=' + w1.mergeFused);
+  expect('★合体事件带血量与宝箱数（界面要照着播报，不能自己再算一遍）',
+    evs(w1, 'wangliang').length === 1
+      && evs(w1, 'wangliang')[0].hp === Math.round((120 + 80) * M.hpMul)
+      && evs(w1, 'wangliang')[0].chest === M.rewardChest,
+    JSON.stringify(evs(w1, 'wangliang')[0] || null));
+
+  // ★推一帧 step 让 compactMobs 把死掉的两只剔出去 —— 数组里还留着它们的话，
+  //   下一帧的 tickMerge 会再判一次（而它们已经 alive=false，看着"没事"），
+  //   真正的危险是「合体」这段时间里 alive 的怪被重复计数。
+  const beforeLen = w1.mobs.length;
+  SIM.step(w1, { mx: 0, my: 0 });
+  expect('★★合体后的那两只必须真的从 mobs 数组里消失（只设 alive=false 不够，'
+    + 'compactMobs 之后数组里不该再有它们的 id）',
+    w1.mobs.filter(function (m) { return m.id === mA.id || m.id === mB.id; }).length === 0,
+    '压缩前 ' + beforeLen + ' 条 → 压缩后 ' + w1.mobs.length + ' 条');
+  expect('★★合体之后再怎么推也不会二次合体（罔两不带 mergeSoul）',
+    (function () {
+      tickN(w1, 200);
+      return beasts(w1).length === 1 && souls(w1).length === 0 && w1.mergeFused === 1;
+    })(), '合体次数 ' + w1.mergeFused);
+
+  // ---------- 5. 距离拉开要打断融合 ----------
+  const w2 = cleanWorld(5005);
+  parkPlayer(w2);
+  clearObstacles(w2);
+  w2.mobs.length = 0;
+  const nA = mkSoul(w2, cx0 - 20, cy0, 9301);
+  const nB = mkSoul(w2, cx0 + 20, cy0, 9302);
+  placePair(w2, nA, nB, 40);
+  tickN(w2, 8);
+  expect('★对照：融合计时确实在涨', nA.fuseT > 0, 'fuseT=' + nA.fuseT.toFixed(2));
+  placePair(w2, nA, nB, 300);
+  SIM.tickMerge(w2, 1 / HZ);
+  expect('★拉开超过 mergeDist 之后融合计时必须归零（被击退/绕开要能打断合体）',
+    nA.fuseT === 0, 'fuseT=' + nA.fuseT);
+  tickN(w2, fuseTicks + 10);
+  expect('★一直分开就不会合体', beasts(w2).length === 0, '罔两 ' + beasts(w2).length + ' 只');
+
+  // ---------- 6. ★★打断：打死一只，另一只永远不能自行合体 ----------
+  const w3 = cleanWorld(5006);
+  parkPlayer(w3);
+  clearObstacles(w3);
+  w3.mobs.length = 0;
+  const kA = mkSoul(w3, cx0 - 20, cy0, 9401);
+  const kB = mkSoul(w3, cx0 + 20, cy0, 9402);
+  placePair(w3, kA, kB, 40);
+  SIM.damageMob(w3, kA, 1e6, 0, 0, 'test');
+  expect('★对照：被点掉的那只确实死了', !kA.alive, 'alive=' + kA.alive);
+  expect('★死了同伴之后 findMergeMate 必须返回 null（不返回的话它会去合一个死人）',
+    SIM.findMergeMate(w3, kB) === null,
+    'mate=' + (SIM.findMergeMate(w3, kB) ? '有' : 'null'));
+  tickN(w3, 60 * HZ);
+  expect('★★单只影傀推 60 秒也绝不许自行变成罔两（"落单"不等于"自己合体"）：'
+    + '这一条要是绿的假象，玩家点掉一只之后会莫名其妙多出一只罔两',
+    beasts(w3).length === 0 && kB.alive,
+    '罔两 ' + beasts(w3).length + ' 只 / 剩下那只 alive=' + kB.alive);
+
+  const w4 = cleanWorld(5007);
+  parkPlayer(w4);
+  clearObstacles(w4);
+  w4.mobs.length = 0;
+  const lone = mkSoul(w4, w4.player.x + 300, w4.player.y, 9501);
+  lone.mateId = 0;
+  const d0 = dist2(lone, w4.player);
+  for (let k = 0; k < 20; k++) SIM.step(w4, { mx: 0, my: 0 });
+  const d1 = dist2(lone, w4.player);
+  expect('★落单的影傀必须回头追玩家（否则它站在原地看着像卡住了）',
+    d1 < d0 - 5, '距离 ' + Math.round(d0) + ' → ' + Math.round(d1));
+
+  // ★★★上面那个世界杀的是 **id 小** 的那只 —— 而 tickMerge 只从 id 小的那只出发，
+  //   所以「剩下 id 大的」这条路径本身就走不到合体判定，那一条断言是**侥幸绿的**。
+  //   反向验证（把 findMergeMate 的 alive 判据摘掉）时它照样绿，才发现的。
+  //   必须再补一个「杀 id 大 的那只」的世界：这时剩下的是 id 小的，
+  //   它会作为起点去配对一个**已经死了的同伴** —— 这才是那道 alive 闸真正守的路径。
+  const w3b = cleanWorld(5015);
+  parkPlayer(w3b);
+  clearObstacles(w3b);
+  w3b.mobs.length = 0;
+  const r1 = mkSoul(w3b, cx0 - 20, cy0, 9411);   // id 小
+  const r2 = mkSoul(w3b, cx0 + 20, cy0, 9412);   // id 大
+  placePair(w3b, r1, r2, 40);
+  SIM.damageMob(w3b, r2, 1e6, 0, 0, 'test');
+  expect('★对照：死的是 id 大的那只，剩下的是 id 小的（它会作为合体判定的起点）',
+    !r2.alive && r1.alive && r1.id < r2.id,
+    'r1=' + r1.id + ' alive=' + r1.alive + ' / r2=' + r2.id + ' alive=' + r2.alive);
+  expect('★★★死了同伴之后，剩下那只作为起点也必须找不到同伴'
+    + '（findMergeMate 必须判 o.alive —— 只判 id 的话它会和尸体合体）',
+    SIM.findMergeMate(w3b, r1) === null,
+    'mate=' + (SIM.findMergeMate(w3b, r1) ? '有（错的）' : 'null'));
+  tickN(w3b, 60 * HZ);
+  expect('★★★剩下的是 id 小的那只时，推 60 秒也绝不许和尸体合体：'
+    + '这条路径才是「单只不合体」真正危险的一支（id 大的那支天然走不到合体判定）',
+    beasts(w3b).length === 0, '罔两 ' + beasts(w3b).length + ' 只');
+
+  // ---------- 7. 掉落 ----------
+  const w5 = cleanWorld(5008);
+  parkPlayer(w5);
+  w5.mobs.length = 0;
+  const s1 = mkSoul(w5, cx0, cy0, 9601);
+  SIM.damageMob(w5, s1, 1e6, 0, 0, 'test');
+  const chestAfterSoul = w5.pickups.filter(function (x) { return x.kind === 'chest'; }).length;
+  const goldAfterSoul = w5.pickups.filter(function (x) { return x.kind === 'gold'; }).length;
+  expect('★★影傀**一个宝箱都不掉**：两边都给宝箱的话，'
+    + '「阻止合体」与「放纵合体」收益一样，「什么时候打」这个选择就没了',
+    chestAfterSoul === 0, '宝箱 ' + chestAfterSoul + ' 个');
+  expect('★影傀掉金币（≥ ' + M.goldDrops + ' 枚，另有随机掉落）：'
+    + '这是「阻止合体」那一侧的回报，一枚都不给的话没人会去追它',
+    goldAfterSoul >= M.goldDrops, '金币 ' + goldAfterSoul + ' 枚');
+
+  const w6 = cleanWorld(5009);
+  parkPlayer(w6);
+  w6.mobs.length = 0;
+  const bf2 = SIM.spawnMob(w6, M.mobId, cx0, cy0, 1, 0, 9602);
+  SIM.damageMob(w6, bf2, 1e6, 0, 0, 'test');
+  const chests = w6.pickups.filter(function (x) { return x.kind === 'chest'; });
+  expect('★★罔两死掉必须给 ' + M.rewardChest + ' 个宝箱（不多不少）：'
+    + '这是玩家赌这一把的价码',
+    chests.length === M.rewardChest, '宝箱 ' + chests.length + ' 个');
+  expect('★两个宝箱不许叠在同一点（叠在一个点上只会被一次性吸走，看着像只掉了一个）',
+    chests.length === 2 && dist2(chests[0], chests[1]) > 20,
+    chests.length === 2 ? '间距 ' + Math.round(dist2(chests[0], chests[1])) : '宝箱数不对');
+  expect('★罔两伏诛要有自己的播报（否则玩家只看到地上一堆东西，不知道是它掉的）',
+    evs(w6, 'wangliang_down').length === 1, evs(w6, 'wangliang_down').length + ' 条');
+
+  // ---------- 8. 合体不许消费主随机流 ----------
+  const fA = cleanWorld(5012);
+  parkPlayer(fA);
+  clearObstacles(fA);
+  fA.mobs.length = 0;
+  const gA = mkSoul(fA, cx0 - 20, cy0, 9701);
+  const gB = mkSoul(fA, cx0 + 20, cy0, 9702);
+  placePair(fA, gA, gB, 40);
+  const rngBefore = fA.rngState;
+  SIM.fuseDuo(fA, gA, gB);
+  expect('★对照：合体确实发生了', beasts(fA).length === 1, beasts(fA).length + ' 只罔两');
+  expect('★★合体不许消费主随机流（spawnMob 的第 7 参传了定值相位）：'
+    + '合体用的随机数会顺着主随机流影响之后每一波的落点',
+    fA.rngState === rngBefore, 'rng=' + rngBefore + '→' + fA.rngState);
+
+  // ---------- 9. ★★剧情关 ----------
+  // ★第 49 轮的血泪：用 240 秒上限的 ch1 去验 258 秒那一刻，世界早就结束了，
+  //   生成段根本没被 step 走到 —— 摘掉剧情闸照样全绿。这里两条修法同时上。
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 519, modId: 'myth', stageId: 'ch1' });
+  wS.player.expNext = 1e9;
+  wS.tick = startTick;
+  wS.mergeNextTick = 0;
+  const directS = SIM.maybeSpawnMerge(wS);
+  expect('★★直接调事件入口也必须被剧情关挡住（不依赖 step 会不会早退）：'
+    + '主线是逐关手工配平的，凭空多一对「会自己合体变强」的精英会直接抹掉配好的强度曲线',
+    !!wS.storyStage && directS === null
+      && souls(wS).length === 0 && evs(wS, 'merge_pair').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null')
+      + ' 返回=' + (directS ? '有' : 'null')
+      + ' / 影傀 ' + souls(wS).length + ' 只 / 播报 ' + evs(wS, 'merge_pair').length + ' 条');
+
+  // 走 step 那一遍：用 ch2（300 秒上限，容得下 138 秒），并盯住「世界还在跑」
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 521, modId: 'myth', stageId: 'ch2' });
+  wS2.player.expNext = 1e9;
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((M.startSec + k * 30) * HZ);
+    wS2.mergeNextTick = 0;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch2）走完整条 step 也没有影傀，**而且那一刻世界确实还在跑**：'
+    + '不钉「世界还活着」的话，用超时的关卡验任何「不该出现的东西」都会假绿',
+    storyAlive && souls(wS2).length === 0 && beasts(wS2).length === 0
+      && evs(wS2, 'merge_pair').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '）'
+      + ' / 影傀 ' + souls(wS2).length + ' 只 / 播报 ' + evs(wS2, 'merge_pair').length + ' 条');
+
+  // ---------- 10. 不进关卡池 ----------
+  const inPool = [];
+  C.STAGES.forEach(function (s) {
+    if (s.pool && (s.pool[M.soulId] || s.pool[M.mobId])) inPool.push(s.id || s.name || '?');
+  });
+  expect('★★两只都不许进任何关卡池（与挑战者/山魈/双生妖/饕餮同一条纪律）：'
+    + '进了池它们就从「一段插曲」退化成「精英怪又多了一种」',
+    inPool.length === 0, inPool.length ? '混进了：' + inPool.join(',') : '干净');
+
+  // ---------- 11. 小幅：isMergeSoul / 单只不配对 ----------
+  const w7 = cleanWorld(5014);
+  w7.mobs.length = 0;
+  const solo = mkSoul(w7, cx0, cy0, 9801);
+  const soloBeast = SIM.spawnMob(w7, M.mobId, cx0 + 100, cy0, 1, 0, 9802);
+  expect('★isMergeSoul 只认影傀（罔两不算）',
+    SIM.isMergeSoul(solo) === true && SIM.isMergeSoul(soloBeast) === false,
+    '影傀=' + SIM.isMergeSoul(solo) + ' 罔两=' + SIM.isMergeSoul(soloBeast));
+  expect('★没配对（mateId=0）的影傀找不到同伴，也不会合体',
+    SIM.findMergeMate(w7, solo) === null, 'mate=' + (SIM.findMergeMate(w7, solo) ? '有' : 'null'));
+  tickN(w7, fuseTicks + 5);
+  expect('★落单的影傀推够 fuseSec 也不合体', beasts(w7).length === 1,
+    '罔两 ' + beasts(w7).length + ' 只（本来那 1 只是手造的）');
+}
+
+
+// ============================================================
+// 第五十一轮：精卫衔石（会自己飞走、也会死在你眼皮底下的目标）
+// ============================================================
+// 这一轮要守的东西（都钉「不该发生的事」）：
+//   表自洽（速度必须小于玩家移速、首发帧不许撞别的机制、配色不许发紫）；
+//   生成零随机 / 同屏只许一只 / 满了只短等不顺延；
+//   她只按 speed 走（不许瞬移）/ 不许被磁石吸走 / **玩家走过去也不许把她捡走**；
+//   伤害只算够得着的那几只、而且同时最多算 contactCap 只；
+//   抵达才给宝箱、而且只给一次；血光那一刻**死优先**（既死又成功是绝对不允许的）；
+//   折翼零奖励、只有羽毛；剧情关双管（直接调入口 + 走 step 且断言世界还在跑）。
+function testEscort() {
+  console.log('[第五十一轮] 精卫衔石：会自己飞走的目标（护她到终点，或者看她折翼）');
+  const E = C.ESCORT;
+  const HZ = C.TICK_HZ;
+  const DT = 1 / HZ;
+  const startTick = Math.round(E.startSec * HZ);
+  const everyTick = Math.round(E.everySec * HZ);
+  const retryTick = Math.round(E.retrySec * HZ);
+  const PB = require('../shared/proto_bin.js');
+  const pool = PB.STR_POOL || [];
+
+  function dist(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  // 干净世界：清武器（免得顺手把妖物清掉，接触伤害就测不出来）、锁经验（免升级面板冻住 step）、
+  // 其它事件排期全部推到很远（这一段只验精卫）。
+  // ★每加一个事件型机制都要回来补这张表，否则「随机流/排期」类断言会被别的机制带红（第 50 轮的血泪）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 0;
+    w.mobs.length = 0;
+    w.pickups.length = 0;      // ★地图自带的宝箱/金币也清掉：数「掉几个宝箱」才干净
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function escorts(w) {
+    return w.pickups.filter(function (it) { return it.kind === 'escort'; });
+  }
+  function chests(w) {
+    return w.pickups.filter(function (it) { return it.kind === 'chest'; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function parkPlayer(w) {
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2);
+    p.y = Math.round(w.map.h / 2);
+    SIM.setSelf(w, p);
+    return p;
+  }
+  function tickN(w, n, dt) {
+    const use = dt === undefined ? DT : dt;
+    for (let i = 0; i < n; i++) SIM.tickEscort(w, use);
+  }
+  // 造一只贴着她的妖物（用最普通的小怪：半径小、不与测试自己的假设打架）
+  function mkMobAt(w, x, y, seed) {
+    return SIM.spawnMob(w, 'corpse', x, y, 1, 0, seed || 7001);
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★ESCORT 表必须存在且有名字（表被删/改名时事件会静默什么都不生成）',
+    !!E && !!E.name, E ? E.name : 'null');
+  expect('★★她的速度必须**明显小于**玩家移速：追不上她，「护住她」这件事在物理上就不成立',
+    E.speed < 120 * 0.8, 'speed=' + E.speed + ' / 玩家基础 120');
+  expect('★★首发帧不许落在 30 秒波次网格上（压在波次那一帧，场上其实是空的 —— 陨星踩过）',
+    E.startSec % 30 !== 0, 'startSec=' + E.startSec + ' %30=' + (E.startSec % 30));
+  const otherStart = [];
+  ['CHALLENGER', 'BLOOD_MOON', 'METEOR', 'LEYLINE', 'BLOODPACT', 'SUMMONER',
+    'TWINS', 'LANTERN', 'DEVOURER', 'BOON', 'BELL', 'MERGE'].forEach(function (k) {
+    const t = C[k];
+    if (t && typeof t.startSec === 'number') otherStart.push(t.startSec);
+  });
+  expect('★★首发帧不许与任何既有事件撞 tick（同帧两件事一起弹，玩家只读得到一条）',
+    otherStart.indexOf(E.startSec) === -1, '本件 ' + E.startSec + ' / 既有 ' + otherStart.join(','));
+  expect('★抵达半径必须远小于航程（一出生就算"到了"的话，这一整段玩法不存在）',
+    E.arriveDist < E.flight * 0.1, 'arriveDist=' + E.arriveDist + ' / flight=' + E.flight);
+  const fullSurviveSec = E.hp / (E.touchDps * E.contactCap);
+  expect('★★满额接触下的存活时间必须在 2~15 秒之间：低于 2 秒玩家来不及反应（等于随机失败），'
+    + '高于 15 秒她就是个无敌的靶子',
+    fullSurviveSec > 2 && fullSurviveSec < 15, '满额存活 ' + fullSurviveSec.toFixed(2) + ' 秒');
+  expect('★★contactCap 必须不超过 8（后期一屏几十只，上限太高就等于没有上限）',
+    E.contactCap <= 8, 'cap=' + E.contactCap);
+  expect('★奖励至少 2 只宝箱（她要求玩家离开原位十秒，低于挑战者的 1 只就没人跟）',
+    E.rewardChest >= 2, 'rewardChest=' + E.rewardChest);
+  expect('★同屏上限必须是 1（两只一起飞，"跟不跟"会变成"跟哪只"）',
+    E.maxAlive === 1, 'maxAlive=' + E.maxAlive);
+  expect('★lifeSec 必须至少是「航程/速度」的两倍（保险丝不能比正常航程还短）',
+    E.lifeSec > (E.flight / E.speed) * 2,
+    'lifeSec=' + E.lifeSec + ' / 正常 ' + (E.flight / E.speed).toFixed(1) + ' 秒');
+  function rgbOf(h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+  function notPurple(h) {
+    const c = rgbOf(h);
+    // 紫/紫蓝的共同特征：绿通道显著低于红与蓝（红蓝都高、绿塌下去）。
+    // 青（海青）与暖白都不该被这条判成紫。
+    return c[1] >= c[0] * 0.9 && c[1] >= c[2] * 0.75;
+  }
+  expect('★主色不许发紫（本项目配色铁律：暗红 + 琥珀金 + 冷灰，禁紫/紫蓝）',
+    notPurple(E.color), E.color);
+  expect('★航迹色不许发紫（同上）', notPurple(E.trailColor), E.trailColor);
+  expect('★★kind 与两个新色值都要在二进制串池里（pickups.kind 与 fx.color 都是 str 字段，'
+    + '不进池就走长格式）',
+    pool.indexOf('escort') !== -1 && pool.indexOf(E.color) !== -1 && pool.indexOf(E.trailColor) !== -1,
+    'escort=' + (pool.indexOf('escort') !== -1)
+    + ' 主色=' + (pool.indexOf(E.color) !== -1)
+    + ' 航迹=' + (pool.indexOf(E.trailColor) !== -1));
+
+  // ---------- 1. 生成 ----------
+  const w1 = cleanWorld(5101);
+  const p1 = parkPlayer(w1);
+  w1.tick = startTick - 1;
+  w1.escortNextTick = 0;
+  SIM.maybeSpawnEscort(w1);
+  expect('★到点前一帧：一只都不许出现，也不许播报',
+    escorts(w1).length === 0 && evs(w1, 'escort').length === 0,
+    '精卫 ' + escorts(w1).length + ' 只 / 播报 ' + evs(w1, 'escort').length + ' 条');
+
+  w1.tick = startTick;
+  const rngBefore = w1.rngState;
+  SIM.maybeSpawnEscort(w1);
+  const it1 = escorts(w1)[0];
+  expect('★到点那一帧：正好一只', escorts(w1).length === 1 && !!it1,
+    escorts(w1).length + ' 只');
+  expect('★★生成不许消费主随机流（方位走 affixHash）：插一次就会把之后每一波的落点整体挪一格',
+    w1.rngState === rngBefore, 'rng=' + rngBefore + '->' + w1.rngState);
+  expect('★初始血量百分比必须是满的（value=100，客户端靠它画血环）',
+    it1 && it1.value === 100, it1 ? ('value=' + it1.value) : 'null');
+  expect('★★起点必须离玩家 offset 的七成以上：被贴边 clamp 到脚下的话，'
+    + '"起飞"这一瞬根本看不见（镇妖钟立钟时踩过同款）',
+    it1 && dist(it1, p1) >= E.offset * 0.7, it1 ? Math.round(dist(it1, p1)) + 'px' : 'null');
+  expect('★终点必须落在航程的 45% 以上（被地图边缘截断的"三秒就到"等于没有护送）',
+    it1 && dist({ x: it1.x, y: it1.y }, { x: it1.tx, y: it1.ty }) >= E.flight * 0.45,
+    it1 ? Math.round(dist({ x: it1.x, y: it1.y }, { x: it1.tx, y: it1.ty })) + 'px' : 'null');
+  expect('★终点必须在地图内（飞到地图外＝她永远到不了，45 秒保险丝会兜底成"无故消失"）',
+    it1 && it1.tx > 0 && it1.tx < w1.map.w && it1.ty > 0 && it1.ty < w1.map.h,
+    it1 ? (Math.round(it1.tx) + ',' + Math.round(it1.ty) + ' / 地图 ' + w1.map.w + 'x' + w1.map.h) : 'null');
+  expect('★生成必须恰好发一条播报（每只一条；按帧播会刷屏）',
+    evs(w1, 'escort').length === 1, evs(w1, 'escort').length + ' 条');
+  expect('★生成成功后下一次排期顺延一个 everySec（不是 retrySec）',
+    w1.escortNextTick === w1.tick + everyTick,
+    '差 ' + (w1.escortNextTick - w1.tick) + ' tick / 期望 ' + everyTick);
+  expect('★新世界开局不许自带精卫（她只由事件入口放出来）', (function () {
+    const wf = SIM.createWorld({ seed: 5102 });
+    return escorts(wf).length === 0;
+  })(), '开局就有');
+
+  // ---------- 2. 同屏上限 + 短等 ----------
+  const w2 = cleanWorld(5103);
+  parkPlayer(w2);
+  w2.tick = startTick;
+  SIM.maybeSpawnEscort(w2);
+  w2.tick = startTick + 5 * HZ;
+  w2.escortNextTick = 0;
+  const second = SIM.maybeSpawnEscort(w2);
+  expect('★★同屏只许一只：地上还有她的时候再来一次，必须什么都不生成',
+    second === null && escorts(w2).length === 1, escorts(w2).length + ' 只');
+  expect('★★满了只**短等 retrySec**、不许顺延整个 148 秒（否则玩家躲开一次就得再等两分半）',
+    w2.escortNextTick - w2.tick === retryTick,
+    '差 ' + (w2.escortNextTick - w2.tick) + ' tick / 期望 ' + retryTick);
+
+  // ---------- 3. 飞行与接触伤害 ----------
+  const w3 = cleanWorld(5104);
+  parkPlayer(w3);
+  w3.tick = startTick;
+  SIM.maybeSpawnEscort(w3);
+  const it3 = escorts(w3)[0];
+  const x0 = it3.x;
+  const y0 = it3.y;
+  const tx0 = it3.tx;
+  const ty0 = it3.ty;
+  SIM.tickEscort(w3, 0.5);
+  const moved = dist(it3, { x: x0, y: y0 });
+  expect('★半秒只走 speed×0.5（不许瞬移）：应该走 ' + Math.round(E.speed * 0.5) + 'px',
+    Math.abs(moved - E.speed * 0.5) <= 1.5, '实际 ' + Math.round(moved) + 'px');
+  expect('★她是朝终点飞的（位移之后离终点必须更近）',
+    dist(it3, { x: tx0, y: ty0 }) < dist({ x: x0, y: y0 }, { x: tx0, y: ty0 }),
+    '离终点 ' + Math.round(dist(it3, { x: tx0, y: ty0 })) + 'px');
+  expect('★没有妖物贴着她时，血量一点都不能掉',
+    Math.abs(it3.hp - E.hp) < 0.001, 'hp=' + it3.hp);
+
+  // 一只贴脸：dt=1 一次算清（伤害在移动之前结算，所以这一帧的起始位置就是判据）
+  const w4 = cleanWorld(5105);
+  parkPlayer(w4);
+  w4.tick = startTick;
+  SIM.maybeSpawnEscort(w4);
+  const it4 = escorts(w4)[0];
+  mkMobAt(w4, it4.x, it4.y, 7101);
+  SIM.tickEscort(w4, 1);
+  expect('★一只妖物贴着她一秒：掉 touchDps 点血（' + E.touchDps + '）',
+    Math.abs((E.hp - it4.hp) - E.touchDps) < 0.5, '掉了 ' + (E.hp - it4.hp).toFixed(1));
+  expect('★血量百分比必须跟着掉（value 是客户端唯一能看到的那一格）',
+    it4.value === Math.round((it4.hp / it4.hpMax) * 100), 'value=' + it4.value
+    + ' / 期望 ' + Math.round((it4.hp / it4.hpMax) * 100));
+
+  // 20 只贴脸：只按 contactCap 算
+  const w5 = cleanWorld(5106);
+  parkPlayer(w5);
+  w5.tick = startTick;
+  SIM.maybeSpawnEscort(w5);
+  const it5 = escorts(w5)[0];
+  for (let k = 0; k < 20; k++) mkMobAt(w5, it5.x + (k % 5) * 3, it5.y + Math.floor(k / 5) * 3, 7200 + k);
+  SIM.tickEscort(w5, 1);
+  const lost = E.hp - it5.hp;
+  expect('★★同时贴 20 只时伤害必须按 contactCap(' + E.contactCap + ') 封顶，'
+    + '不许 20 只一起算（否则后期一坨怪碾过来是一帧秒杀 = 随机失败）',
+    Math.abs(lost - E.touchDps * E.contactCap) < 0.5,
+    '掉了 ' + lost.toFixed(1) + ' / 期望 ' + (E.touchDps * E.contactCap));
+  expect('★贴了 20 只也不许当场死（满额要 ' + fullSurviveSec.toFixed(1) + ' 秒才打得穿）',
+    it5.hp > 0, 'hp=' + it5.hp.toFixed(1));
+
+  // 够不着的妖物不算
+  const w6 = cleanWorld(5107);
+  parkPlayer(w6);
+  w6.tick = startTick;
+  SIM.maybeSpawnEscort(w6);
+  const it6 = escorts(w6)[0];
+  const far = mkMobAt(w6, it6.x + 260, it6.y, 7301);
+  expect('★对照：那只远处的妖物是活的（否则下面那条"不掉血"不成立）',
+    !!far && far.alive === true, far ? 'alive' : 'null');
+  SIM.tickEscort(w6, 1);
+  expect('★两百多像素外的妖物不许伤到她（判定半径 = 她 + 妖物半径 + contactPad）',
+    Math.abs(it6.hp - E.hp) < 0.001, 'hp=' + it6.hp);
+
+  // ---------- 4. 抵达：只在抵达那一帧给奖励，而且只给一次 ----------
+  const w7 = cleanWorld(5108);
+  parkPlayer(w7);
+  w7.tick = startTick;
+  SIM.maybeSpawnEscort(w7);
+  const it7 = escorts(w7)[0];
+  // 把她摆到"还差一点点"的位置上（沿指向终点的方向退回来）
+  const ddx = it7.tx - it7.x;
+  const ddy = it7.ty - it7.y;
+  const dlen = Math.sqrt(ddx * ddx + ddy * ddy) || 1;
+  it7.x = it7.tx - (ddx / dlen) * (E.arriveDist + 4);
+  it7.y = it7.ty - (ddy / dlen) * (E.arriveDist + 4);
+  SIM.tickEscort(w7, DT);
+  expect('★★差一点点的时候不许发奖励（提前给就等于"她一到半路就掉宝箱"）',
+    chests(w7).length === 0 && evs(w7, 'escort_done').length === 0,
+    '宝箱 ' + chests(w7).length + ' / 播报 ' + evs(w7, 'escort_done').length);
+  tickN(w7, 4);
+  expect('★★抵达必须正好掉 ' + E.rewardChest + ' 只宝箱（不多不少）',
+    chests(w7).length === E.rewardChest, '宝箱 ' + chests(w7).length + ' 只');
+  expect('★两只宝箱不许叠在同一点（叠着只会被一次性吸走，看着像只掉了一个）',
+    chests(w7).length === 2 && dist(chests(w7)[0], chests(w7)[1]) > 20,
+    chests(w7).length === 2 ? '间距 ' + Math.round(dist(chests(w7)[0], chests(w7)[1])) : '宝箱数不对');
+  expect('★★她本人必须从 pickups 里消失（留在场上＝玩家会一直以为还有一趟要护）',
+    escorts(w7).length === 0, escorts(w7).length + ' 只');
+  expect('★抵达播报恰好一条',
+    evs(w7, 'escort_done').length === 1, evs(w7, 'escort_done').length + ' 条');
+  const chestsBefore = chests(w7).length;
+  tickN(w7, 60);
+  expect('★★奖励只发一次：再推 3 秒也不许多掉一只宝箱，也不许多播一条',
+    chests(w7).length === chestsBefore && evs(w7, 'escort_done').length === 1,
+    '宝箱 ' + chests(w7).length + ' / 播报 ' + evs(w7, 'escort_done').length);
+
+  // ---------- 5. ★★★同一帧既被打穿又压线：必须判死（不许既死又成功） ----------
+  const w8 = cleanWorld(5109);
+  parkPlayer(w8);
+  w8.tick = startTick;
+  SIM.maybeSpawnEscort(w8);
+  const it8 = escorts(w8)[0];
+  it8.x = it8.tx - 2;      // 已经在抵达半径内
+  it8.y = it8.ty;
+  it8.hp = 1;              // 一帧就会被打穿
+  mkMobAt(w8, it8.x, it8.y, 7401);
+  SIM.tickEscort(w8, 1);
+  expect('★★★同一帧既被打穿又压线时，**死优先**：既不许给宝箱、也不许有抵达播报',
+    chests(w8).length === 0 && evs(w8, 'escort_done').length === 0,
+    '宝箱 ' + chests(w8).length + ' / 抵达播报 ' + evs(w8, 'escort_done').length);
+  expect('★★折翼播报必须有且只有一条（她不声不响地消失，玩家会以为是自己看漏了）',
+    evs(w8, 'escort_lost').length === 1, evs(w8, 'escort_lost').length + ' 条');
+  expect('★★折翼之后她必须从场上消失', escorts(w8).length === 0, escorts(w8).length + ' 只');
+  expect('★折翼要有三片羽毛（纯表现，但它是"她没了"唯一的解释）',
+    w8.effects.filter(function (e) { return e.kind === 'feathers'; }).length === 3,
+    w8.effects.filter(function (e) { return e.kind === 'feathers'; }).length + ' 片');
+  tickN(w8, 60);
+  expect('★★折翼之后不许再发抵达奖励（再推 3 秒）',
+    chests(w8).length === 0 && evs(w8, 'escort_done').length === 0,
+    '宝箱 ' + chests(w8).length);
+
+  // ---------- 6. ★★★玩家从她身上走过去：不许把她"捡走" ----------
+  // 【为什么这条最贵】updatePickups 里那个 `if (d <= pickupR)` 的默认分支会把
+  //   「进了拾取半径、但谁都不认识」的 kind 直接吃掉（不写回数组 = 被丢弃）。
+  //   少了 sim 里那一支 write++，表现就是：玩家走过去，她凭空消失，
+  //   没有播报、没有宝箱、连羽毛都没有 —— 而任何"生成/抵达"的断言都照样全绿。
+  const w9 = cleanWorld(5110);
+  const p9 = parkPlayer(w9);
+  w9.tick = startTick;
+  SIM.maybeSpawnEscort(w9);
+  const it9 = escorts(w9)[0];
+  p9.x = it9.x;
+  p9.y = it9.y;
+  SIM.setSelf(w9, p9);
+  const expBefore = w9.stats.exp;
+  let stillThere = true;
+  for (let k = 0; k < 8; k++) {
+    SIM.step(w9, { mx: 0, my: 0 });
+    if (escorts(w9).length !== 1) { stillThere = false; break; }
+  }
+  expect('★★★玩家站在她身上推 8 帧，她必须还在场上（走一趟就把她捡没了是静默级事故）',
+    stillThere, '精卫 ' + escorts(w9).length + ' 只');
+  expect('★她也不许被当成经验球吃掉（走上去不涨经验、不涨金币）',
+    w9.stats.exp === expBefore && w9.stats.gold === 0,
+    'exp ' + expBefore + '->' + w9.stats.exp + ' / gold=' + w9.stats.gold);
+
+  // ---------- 7. 不被磁石吸走：位移只由她自己决定 ----------
+  const w10 = cleanWorld(5111);
+  parkPlayer(w10);
+  w10.tick = startTick;
+  SIM.maybeSpawnEscort(w10);
+  const it10 = escorts(w10)[0];
+  const px10 = it10.x;
+  const py10 = it10.y;
+  // 玩家站在她"来的那一边"120px 处（磁石吸引半径内）：
+  // 如果她吃吸引力，位移会被拽向玩家而不是终点。
+  const backA = Math.atan2(py10 - it10.ty, px10 - it10.tx);
+  const p10 = w10.player;
+  p10.x = px10 + Math.cos(backA) * 120;
+  p10.y = py10 + Math.sin(backA) * 120;
+  SIM.setSelf(w10, p10);
+  for (let k = 0; k < 10; k++) SIM.step(w10, { mx: 0, my: 0 });
+  expect('★她必须还在（磁石名单 / 拾取写回都得排除她）', escorts(w10).length === 1,
+    escorts(w10).length + ' 只');
+  expect('★★她不许被磁石吸向玩家：十帧之后必须仍在朝**终点**逼近，'
+    + '而且离玩家的距离不许变小',
+    (function () {
+      const now = escorts(w10)[0];
+      if (!now) return false;
+      const toTarget = dist({ x: px10, y: py10 }, { x: it10.tx, y: it10.ty })
+        - dist(now, { x: it10.tx, y: it10.ty });
+      const toPlayer = dist(now, p10) - dist({ x: px10, y: py10 }, p10);
+      return toTarget > 3 && toPlayer > -1;
+    })(), '见下一条明细');
+
+  // ---------- 8. ★★剧情关（双管） ----------
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 5191, modId: 'myth', stageId: 'ch1' });
+  wS.player.expNext = 1e9;
+  wS.tick = startTick;
+  wS.escortNextTick = 0;
+  const directS = SIM.maybeSpawnEscort(wS);
+  expect('★★直接调事件入口也必须被剧情关挡住（不依赖 step 会不会早退）：'
+    + '主线是逐关手工配平的，凭空多一个「必须离开原位去护航」的目标会抹掉配好的走位难度',
+    !!wS.storyStage && directS === null
+      && escorts(wS).length === 0 && evs(wS, 'escort').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null')
+      + ' 返回=' + (directS ? '有' : 'null')
+      + ' / 精卫 ' + escorts(wS).length + ' 只');
+
+  // 走 step 那一遍：用 ch3（360 秒上限）——★不能用 ch2：它上限 300 秒，
+  //   而第二遍要把 tick 推到 294+30=324 秒，那时候关卡早就结束了、step 直接早退
+  //   （第 49 轮「用超时关卡验不该出现的东西 = 假绿」就是这么来的）。
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 5193, modId: 'myth', stageId: 'ch3' });
+  wS2.player.expNext = 1e9;
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((E.startSec + k * 30) * HZ);
+    wS2.escortNextTick = 0;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch3）走完整条 step 也没有精卫，**而且那一刻世界确实还在跑**：'
+    + '不钉「世界还活着」的话，用超时的关卡验任何「不该出现的东西」都会假绿（第 49 轮的血泪）',
+    storyAlive && escorts(wS2).length === 0 && evs(wS2, 'escort').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '）'
+      + ' / 精卫 ' + escorts(wS2).length + ' 只 / 播报 ' + evs(wS2, 'escort').length + ' 条');
+}
+
+// ============================================================
+// 第五十二轮：大人之市（把攒着的金币当场花掉）
+// ============================================================
+//
+// 【为什么这一轮要写的断言与前面几轮不一样】
+//   前十七件都是「走过去 → 拿到东西」，失败分支是"没拿到"。
+//   这一件的失败分支是「**钱没了，东西也没到手**」—— 它必须是不可能发生的。
+//   所以本段最贵的几条都钉在钱上：拒绝了不许扣钱、钱不够不许扣钱、
+//   血满时买绷带不许扣钱、血契石满层不许扣钱，而且「扣了多少」必须**正好**
+//   等于打折价（不是商店原价）。
+function testMarket() {
+  console.log('[第五十二轮] 大人之市：把攒着的金币当场花掉（18 件里第一件找你要钱的）');
+  const M = C.MARKET;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(M.startSec * HZ);
+  const everyTick = Math.round(M.everySec * HZ);
+  const retryTick = Math.round(M.retrySec * HZ);
+  const PB = require('../shared/proto_bin.js');
+  const pool = PB.STR_POOL || [];
+  const FS2 = require('fs');
+  const PATH2 = require('path');
+
+  function dist(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  // 干净世界：清武器（免得顺手把怪清掉）、锁经验（免升级面板冻住 step）、
+  // 其它事件排期全部推到很远（这一段只验摊子）。
+  // ★每加一个事件型机制都要回来补这张表（第 50 轮的血泪）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;     // 默认不排期：要生成的世界自己显式打开
+    w.cauldronNextTick = 1e9;   // 第五十三轮：炼魂鼎也要推远（它 324 秒首发，本表剧情验证推到 342）
+    w.mobs.length = 0;
+    w.pickups.length = 0;       // ★地图自带的宝箱/金币也清掉：数钱才干净
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function markets(w) {
+    return w.pickups.filter(function (it) { return it.kind === 'market'; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function parkPlayer(w) {
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2);
+    p.y = Math.round(w.map.h / 2);
+    SIM.setSelf(w, p);
+    return p;
+  }
+  // 直接在玩家脚边摆一座摊（落点检查是给真实落点用的，测试要精确控制"站在摊上"）
+  function stallAt(w, offerId, offX) {
+    const p = w.player;
+    const idx = M.offers.indexOf(offerId);
+    SIM.spawnPickup(w, 'market', p.x + (offX === undefined ? 4 : offX), p.y, idx, M.lifeSec);
+    const it = w.pickups[w.pickups.length - 1];
+    it.offer = offerId;
+    return it;
+  }
+  function offerItem(id) {
+    const items = C.SHOP.items;
+    for (let i = 0; i < items.length; i++) if (items[i].id === id) return items[i];
+    return null;
+  }
+  function offerPrice(id) {
+    const it = offerItem(id);
+    if (!it) return -1;
+    return Math.max(1, Math.round(it.price * M.discount));
+  }
+  function steps(w, n) {
+    for (let i = 0; i < n; i++) SIM.step(w, { mx: 0, my: 0 });
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★MARKET 表必须存在且有名字（表被删/改名时事件会静默什么都不生成）',
+    !!M && !!M.name, M ? M.name : 'null');
+  expect('★★首发帧不许落在 30 秒波次网格上（压在波次那一帧，场上其实是空的 —— 陨星踩过）',
+    M.startSec % 30 !== 0, 'startSec=' + M.startSec + ' %30=' + (M.startSec % 30));
+  const otherStart2 = [];
+  ['CHALLENGER', 'BLOOD_MOON', 'METEOR', 'LEYLINE', 'BLOODPACT', 'SUMMONER',
+    'TWINS', 'LANTERN', 'DEVOURER', 'BOON', 'BELL', 'MERGE', 'ESCORT'].forEach(function (k) {
+    const t = C[k];
+    if (t && typeof t.startSec === 'number') otherStart2.push(t.startSec);
+  });
+  expect('★★首发帧不许与任何既有事件撞 tick（同帧两件事一起弹，玩家只读得到一条）',
+    otherStart2.indexOf(M.startSec) === -1,
+    '本件 ' + M.startSec + ' / 既有 ' + otherStart2.join(','));
+  expect('★间隔不许太密（<=60 秒就成了"一直有摊子"，攒钱换契约那条路会整个消失）',
+    M.everySec >= 60, 'everySec=' + M.everySec);
+  expect('★★折扣必须真的便宜（>0.85 就等于"不如回商店买"，而联机根本没有商店）',
+    M.discount > 0 && M.discount <= 0.85, 'discount=' + M.discount);
+  expect('★折扣也不许低到 0.5 以下（血契石会便宜到"有钱就买"，攒钱那条路死掉）',
+    M.discount >= 0.5, 'discount=' + M.discount);
+  expect('★摊上的货至少两种（只有一种就不叫"今天卖什么"，而且会变成固定补给点）',
+    M.offers.length >= 2, 'offers=' + M.offers.join(','));
+  let offerOk = true;
+  let offerDetail = '';
+  for (let i = 0; i < M.offers.length; i++) {
+    const it2 = offerItem(M.offers[i]);
+    if (!it2) { offerOk = false; offerDetail = '找不到 ' + M.offers[i]; break; }
+    // ★两段式商品（pick）绝对不能在摊子上卖：摊前没有面板可用，
+    //   走到摊上只会拿到 needPick（钱不扣、货不给），玩家会以为摊子坏了。
+    if (it2.pick) { offerOk = false; offerDetail = it2.id + ' 需要二段选择'; break; }
+    if (!it2.cost) { offerOk = false; offerDetail = it2.id + ' 没有 cost'; break; }
+  }
+  expect('★★摊上只许卖「付钱就立刻生效」的货：两段式商品（血脉契约/置换契约）在摊子上没法用 ——'
+    + '摊前没有面板可选，玩家会站在摊子上反复拿到 needPick（钱不扣、货不给）',
+    offerOk, offerDetail || M.offers.join(','));
+  let priceOk = true;
+  let priceDetail = '';
+  for (let i = 0; i < M.offers.length; i++) {
+    const it3 = offerItem(M.offers[i]);
+    if (!it3) continue;
+    const pr = offerPrice(M.offers[i]);
+    if (pr < 1 || pr >= it3.price) { priceOk = false; priceDetail = it3.id + ' ' + pr + ' vs ' + it3.price; }
+  }
+  expect('★每种货的打折价都必须**严格低于**商店价且不少于 1 枚（出现 0 金就是白给）',
+    priceOk, priceDetail || M.offers.map(function (id) {
+      return id + '=' + offerPrice(id) + '/' + (offerItem(id) ? offerItem(id).price : '?');
+    }).join(' '));
+  expect('★★成交半径必须远小于摆摊距离：否则摆在 220px 外、站原地就"买"了',
+    M.buyRadius < M.offset * 0.3, 'buyRadius=' + M.buyRadius + ' / offset=' + M.offset);
+  expect('★摆摊距离要在手机视野内（半屏约 300~400），否则玩家根本看不见摊子',
+    M.offset > 120 && M.offset < 380, 'offset=' + M.offset);
+  expect('★lifeSec 要在 15~40 秒之间：太短来不及打完手上这一波，太长就变成常驻商店',
+    M.lifeSec >= 15 && M.lifeSec <= 40, 'lifeSec=' + M.lifeSec);
+  expect('★同屏上限必须是 1（两座并排 = 玩家要在摊子前做算术题，而世界不会停）',
+    M.maxAlive === 1, 'maxAlive=' + M.maxAlive);
+  expect('★落空只许短等（<=5 秒）：顺延整段间隔会让后面整串排期被推走（陨星/灯/钟都踩过）',
+    M.retrySec > 0 && M.retrySec <= 5, 'retrySec=' + M.retrySec);
+  expect('★★kind 必须在二进制串池里（pickups.kind 是 str 字段，不进池就走长格式）',
+    pool.indexOf('market') !== -1, 'market=' + (pool.indexOf('market') !== -1));
+  // 紫/紫蓝的判据：**蓝与红都明显高于绿**（紫罗兰 #8b5cf6：r139 g92 b246）。
+  // ★不能照搬精卫那轮的 "green >= red*0.9"：那条判据会把青铜（#b0793a：r176 g121 b58）
+  //   判成紫 —— 而青铜/棕色本来就是红远大于绿、蓝最低，是暖色不是紫。
+  function rgbOf(h) {
+    return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  }
+  function notPurple(h) {
+    const c = rgbOf(h);
+    const isPurple = c[2] > c[1] * 1.05 && c[0] > c[1] * 1.05;
+    return !isPurple;
+  }
+  expect('★四色都不许发紫（本项目配色铁律：暗红 + 琥珀金 + 冷灰，禁紫/紫蓝）',
+    notPurple(M.color) && notPurple(M.clothColor) && notPurple(M.woodColor) && notPurple(M.buyColor),
+    [M.color, M.clothColor, M.woodColor, M.buyColor].join(' '));
+  // 表里的字段不许是死字段（写了却没人读 —— 引魂灯那轮立下的规矩）
+  const simSrc = FS2.readFileSync(PATH2.join(__dirname, '../shared/sim.js'), 'utf8');
+  const deadKeys = ['startSec', 'everySec', 'maxAlive', 'offset', 'buyRadius', 'lifeSec',
+    'retrySec', 'discount', 'offers'].filter(function (k) {
+    return simSrc.indexOf('rule.' + k) === -1;
+  });
+  expect('★表里不许有死字段（写了却没人读的数值，等于给下一个人埋一个"改了没用"的坑）',
+    deadKeys.length === 0, deadKeys.join(','));
+
+  // ---------- 1. 生成 ----------
+  const w1 = cleanWorld(5201);
+  const p1 = parkPlayer(w1);
+  w1.tick = startTick - 1;
+  w1.marketNextTick = 0;
+  SIM.maybeSpawnMarket(w1);
+  expect('★到点前一帧：一座都不许出现，也不许播报',
+    markets(w1).length === 0 && evs(w1, 'market').length === 0,
+    '摊子 ' + markets(w1).length + ' 座 / 播报 ' + evs(w1, 'market').length + ' 条');
+
+  w1.tick = startTick;
+  const rngBefore = w1.rngState;
+  const before1 = w1.mobs.length;
+  SIM.maybeSpawnMarket(w1);
+  const m1 = markets(w1)[0];
+  expect('★到点正好摆开一座（0 座 = 机制不存在；2 座 = 玩家要在摊子前做算术题）',
+    markets(w1).length === 1, markets(w1).length + ' 座');
+  expect('★★不消费主随机流（rngState 逐位一致）—— 它会在任意 tick 插进来，'
+    + '一旦取走随机数，后面每一波的落点都会整体错位',
+    w1.rngState === rngBefore, '前 ' + rngBefore + ' / 后 ' + w1.rngState);
+  expect('★它不是怪：生成不许顺手往 mobs 里塞东西（塞了就会被武器当敌人打）',
+    w1.mobs.length === before1, 'mobs ' + before1 + ' → ' + w1.mobs.length);
+  expect('★value 必须是 offers 的合法下标（越界会让客户端算出 undefined 的货名与售价）',
+    !!m1 && M.offers.indexOf(m1.offer) === m1.value && m1.value >= 0 && m1.value < M.offers.length,
+    m1 ? ('value=' + m1.value + ' offer=' + m1.offer) : 'null');
+  const ev1 = evs(w1, 'market');
+  expect('★播报恰好一条，且把「卖什么 / 多少钱 / 原价 / 多久收摊」都带上',
+    ev1.length === 1 && !!ev1[0].itemName && ev1[0].price > 0
+    && ev1[0].listPrice > ev1[0].price && ev1[0].sec === M.lifeSec,
+    ev1.length ? JSON.stringify({ n: ev1[0].itemName, p: ev1[0].price, l: ev1[0].listPrice, s: ev1[0].sec }) : '0 条');
+  expect('★落点要在"看得见但要走过去"的范围里（被贴边 clamp 到脚下 = 路过自动买）',
+    !!m1 && dist(m1, p1) > M.offset * 0.5 && dist(m1, p1) < M.offset * 1.7,
+    m1 ? '距玩家 ' + Math.round(dist(m1, p1)) + ' / offset=' + M.offset : 'null');
+  expect('★落点必须在地图内（摆到地图外等于这一座不存在）',
+    !!m1 && m1.x > 0 && m1.x < w1.map.w && m1.y > 0 && m1.y < w1.map.h,
+    m1 ? (Math.round(m1.x) + ',' + Math.round(m1.y) + ' / ' + w1.map.w + 'x' + w1.map.h) : 'null');
+  expect('★排期顺延一个完整间隔（everySec），不是短等',
+    w1.marketNextTick === startTick + everyTick,
+    'nextTick=' + w1.marketNextTick + ' 期望 ' + (startTick + everyTick));
+
+  // ---------- 2. 同屏上限：满了只短等 ----------
+  w1.tick = startTick + everyTick;
+  SIM.maybeSpawnMarket(w1);
+  expect('★场上已有一座时，不许再摆第二座',
+    markets(w1).length === 1, markets(w1).length + ' 座');
+  expect('★★满了只**短等 retrySec**，不许顺延整个 everySec —— 否则玩家一直不去，'
+    + '后面整串排期会被整体推走',
+    w1.marketNextTick === w1.tick + retryTick,
+    'nextTick=' + w1.marketNextTick + ' / 期望 ' + (w1.tick + retryTick)
+    + '（顺延整段会是 ' + (w1.tick + everyTick) + '）');
+
+  // ---------- 3. 成交：钱必须正好扣掉打折价 ----------
+  const w2 = cleanWorld(5203);
+  const p2 = parkPlayer(w2);
+  p2.shopGold = 200;
+  p2.hp = p2.maxHp;             // 满血：买血契石（与血无关的货），验证"满血不挡非治疗货"
+  const dmgBefore = p2.attrs.dmgMul;
+  const st2 = stallAt(w2, 'buff');
+  const gold2 = p2.shopGold;
+  const price2 = offerPrice('buff');
+  SIM.step(w2, { mx: 0, my: 0 });
+  expect('★★成交时扣的钱必须正好是**打折价**（不是商店原价）',
+    p2.shopGold === gold2 - price2,
+    '余额 ' + p2.shopGold + ' / 期望 ' + (gold2 - price2)
+    + '（按原价扣会是 ' + (gold2 - offerItem('buff').price) + '）');
+  expect('★货必须真的到手（血契石 +12% 伤害，且走 recalcAttrs 落到 attrs 上）',
+    Math.abs(p2.shopBuffDmg - 0.12) < 1e-6 && p2.attrs.dmgMul > dmgBefore,
+    'shopBuffDmg=' + p2.shopBuffDmg + ' dmgMul ' + dmgBefore + ' → ' + p2.attrs.dmgMul);
+  expect('★成交后摊子必须消失（留着的话玩家会反复走上去，以为能一直买）',
+    markets(w2).length === 0 && !!st2.sold, markets(w2).length + ' 座');
+  expect('★成交播报恰好一条，且带上「花了多少 / 还剩多少」',
+    evs(w2, 'market_bought').length === 1
+    && evs(w2, 'market_bought')[0].price === price2
+    && evs(w2, 'market_bought')[0].gold === p2.shopGold,
+    evs(w2, 'market_bought').length + ' 条');
+  steps(w2, 60);
+  expect('★★再推 3 秒不许二次扣钱（摊子已经没了，谁再扣一次就是最恶劣的那种 bug）',
+    p2.shopGold === gold2 - price2 && evs(w2, 'market_bought').length === 1,
+    '余额 ' + p2.shopGold + ' / 成交 ' + evs(w2, 'market_bought').length + ' 次');
+
+  // ---------- 4. 拒绝：钱不够 —— 一分钱都不许动，摊子必须留在原地 ----------
+  const w3 = cleanWorld(5205);
+  const p3 = parkPlayer(w3);
+  p3.shopGold = 10;
+  p3.hp = p3.maxHp;
+  const st3 = stallAt(w3, 'buff');
+  const needPrice = offerPrice('buff');
+  for (let k = 0; k < 8; k++) SIM.step(w3, { mx: 0, my: 0 });
+  expect('★★钱不够时一分钱都不许扣（"先扣再判"会让玩家路过就被扣成 0，'
+    + '而提示条只写「还差 X 金币」，没人看得出钱去哪了）',
+    p3.shopGold === 10, '余额 ' + p3.shopGold);
+  expect('★★货也不许给（钱没扣、伤害却涨了 = 白送）',
+    p3.shopBuffDmg === 0 && markets(w3).length === 1,
+    'shopBuffDmg=' + p3.shopBuffDmg + ' / 摊子 ' + markets(w3).length + ' 座');
+  expect('★★★站在摊上推 8 帧，摊子必须**还在**（拒绝分支漏了写回数组就会把它吃掉 ——'
+    + '玩家看到"提示条说我钱不够，然后摊子没了"，而「生成 / 成交 / 收摊」三种断言照样全绿，'
+    + '这是精卫那轮踩过的同一个坑）',
+    markets(w3).length === 1, markets(w3).length + ' 座');
+  const deny3 = evs(w3, 'market_deny');
+  expect('★★拒绝播报必须**节流**到一条（摊子留在原地，不拦的话一秒刷几十条）',
+    deny3.length === 1, deny3.length + ' 条');
+  expect('★播报要说清「差多少」：只说"金币不够"玩家不知道还差 5 枚还是 500 枚',
+    deny3.length === 1 && deny3[0].reason === 'no_gold'
+    && deny3[0].lack === needPrice - 10 && deny3[0].price === needPrice,
+    deny3.length ? JSON.stringify({ r: deny3[0].reason, lack: deny3[0].lack, price: deny3[0].price }) : '0 条');
+  expect('★摊子还在原地（坐标没被"拒绝"这一步挪动过）',
+    !!st3 && markets(w3)[0] === st3, '同一颗=' + (markets(w3)[0] === st3));
+
+  // 钱够了再回来：必须能买（拒绝不该有后遗症）
+  p3.shopGold = 200;
+  SIM.step(w3, { mx: 0, my: 0 });
+  expect('★★攒够钱再站上去必须能成交（拒绝只是"现在不行"，不许留下永久拉黑）',
+    markets(w3).length === 0 && p3.shopBuffDmg > 0 && p3.shopGold < 200,
+    '摊子 ' + markets(w3).length + ' 座 / shopBuffDmg=' + p3.shopBuffDmg + ' / 余额 ' + p3.shopGold);
+
+  // ---------- 5. 拒绝：血满时买绷带（最容易被忽略的一种"白扔钱"） ----------
+  const w4 = cleanWorld(5207);
+  const p4 = parkPlayer(w4);
+  p4.shopGold = 200;
+  p4.hp = p4.maxHp;
+  stallAt(w4, 'heal');
+  steps(w4, 6);
+  expect('★★血是满的时候买绷带必须被拒（60 点回复一滴不剩 = 把钱扔在地上）：'
+    + '不扣钱、不给货、摊子留在原地',
+    p4.shopGold === 200 && markets(w4).length === 1,
+    '余额 ' + p4.shopGold + ' / 摊子 ' + markets(w4).length + ' 座');
+  expect('★拒绝理由必须是 hp_full（提示条要能说出"血是满的"，而不是含糊的"买不了"）',
+    evs(w4, 'market_deny').length === 1 && evs(w4, 'market_deny')[0].reason === 'hp_full',
+    evs(w4, 'market_deny').length ? evs(w4, 'market_deny')[0].reason : '0 条');
+  // 掉血之后同一个摊子必须能买
+  p4.hp = p4.maxHp - 100;
+  SIM.step(w4, { mx: 0, my: 0 });
+  expect('★掉血之后同一个摊子必须立刻能买（"血满"是**当下**的判断，不是永久拒绝）',
+    markets(w4).length === 0 && p4.hp > p4.maxHp - 100 && p4.shopGold === 200 - offerPrice('heal'),
+    '血 ' + Math.round(p4.hp) + ' / 余额 ' + p4.shopGold);
+
+  // ---------- 6. 拒绝：血契石满 3 层 ----------
+  const w5 = cleanWorld(5209);
+  const p5 = parkPlayer(w5);
+  p5.shopGold = 200;
+  p5.shopBuffDmg = 0.36;        // 3 层已满
+  p5.hp = p5.maxHp;
+  stallAt(w5, 'buff');
+  steps(w5, 6);
+  expect('★★血契石已满 3 层时必须拒绝（shopBuy 会挡，但摊子这一层也要把播报说清楚）：'
+    + '不扣钱、摊子留在原地',
+    p5.shopGold === 200 && p5.shopBuffDmg === 0.36 && markets(w5).length === 1,
+    '余额 ' + p5.shopGold + ' / 层数 ' + p5.shopBuffDmg + ' / 摊子 ' + markets(w5).length + ' 座');
+  expect('★拒绝必须播报（静默拒绝 = 玩家以为摊子坏了，会一直站在上面试）',
+    evs(w5, 'market_deny').length === 1, evs(w5, 'market_deny').length + ' 条');
+
+  // ---------- 7. 买笔记：经验必须真的涨（走 gainExp，不能直接改 exp） ----------
+  const w6 = cleanWorld(5211);
+  const p6 = parkPlayer(w6);
+  p6.shopGold = 200;
+  p6.hp = p6.maxHp;
+  const expBefore = p6.exp;
+  stallAt(w6, 'exp');
+  SIM.step(w6, { mx: 0, my: 0 });
+  expect('★买笔记必须真的涨经验（走 gainExp；直接改 exp 会绕过升级/加血/开面板）',
+    p6.exp > expBefore && p6.shopGold === 200 - offerPrice('exp'),
+    'exp ' + expBefore + ' → ' + p6.exp + ' / 余额 ' + p6.shopGold);
+
+  // ---------- 8. 磁石：摊子不许被吸走 ----------
+  const w7 = cleanWorld(5213);
+  const p7 = parkPlayer(w7);
+  p7.shopGold = 0;
+  const st7 = stallAt(w7, 'buff', 120);   // 120px：磁石吸引半径内
+  const sx7 = st7.x;
+  const sy7 = st7.y;
+  steps(w7, 10);
+  expect('★★摊子不许被磁石吸走（被吸过来就等于"隔着两个身位自动买"，'
+    + '"走过去"这个唯一的成本会消失）',
+    markets(w7).length === 1 && markets(w7)[0].x === sx7 && markets(w7)[0].y === sy7,
+    markets(w7).length ? ('位移 ' + Math.round(markets(w7)[0].x - sx7)) : '摊子没了');
+
+  // ---------- 9. 收摊：到点必须播一条，且不许退钱/扣钱 ----------
+  const w8 = cleanWorld(5215);
+  const p8 = parkPlayer(w8);
+  p8.shopGold = 0;
+  stallAt(w8, 'exp', 200);      // 摆远一点，别被"站上去"打断
+  const gold8 = p8.shopGold;
+  steps(w8, Math.ceil((M.lifeSec + 0.5) * HZ));
+  expect('★到点收摊：摊子必须消失',
+    markets(w8).length === 0, markets(w8).length + ' 座');
+  expect('★收摊必须播**一条**提示（不播的话玩家会以为自己看错了，'
+    + '或者以为被谁偷偷买走了）',
+    evs(w8, 'market_gone').length === 1, evs(w8, 'market_gone').length + ' 条');
+  expect('★收摊不许动钱（既不退也不扣）', p8.shopGold === gold8, '余额 ' + p8.shopGold);
+
+  // ---------- 10. 饕餮吃不到摊子 ----------
+  const w9 = cleanWorld(5217);
+  parkPlayer(w9);
+  stallAt(w9, 'heal', 30);
+  expect('★★饕餮的食物名单里不许有摊子（它是"要你走过去掏钱"的东西，'
+    + '被偷走会让玩家觉得这机制在阴人 —— 宝箱/神龛/祭坛/灯/红心都是同一条）',
+    SIM.findDevourFood(w9, { x: w9.player.x + 30, y: w9.player.y }) === null,
+    SIM.findDevourFood(w9, { x: w9.player.x + 30, y: w9.player.y }) ? '被当成食物了' : 'null');
+
+  // ---------- 11. ★★剧情关（双管） ----------
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 5221, modId: 'myth', stageId: 'ch4' });
+  wS.player.expNext = 1e9;
+  wS.tick = startTick;
+  wS.marketNextTick = 0;
+  const directS = SIM.maybeSpawnMarket(wS);
+  expect('★★直接调事件入口也必须被剧情关挡住（不依赖 step 会不会早退）：'
+    + '主线是逐关手工配平的，凭空多一条「花金币换属性」的支线会破坏配好的成长曲线',
+    !!wS.storyStage && directS === null
+    && markets(wS).length === 0 && evs(wS, 'market').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null')
+    + ' 返回=' + (directS ? '有' : 'null')
+    + ' / 摊子 ' + markets(wS).length + ' 座');
+
+  // 走 step 那一遍：用 ch4（420 秒上限）。
+  // ★必须先算时长：摊子首发 312 秒，验证循环要推到 312+30=342 秒 ——
+  //   ch2(300s) / ch3(360s) 都能撑住 342，但 ch1(240s) 会提前结束、step 早退，
+  //   那样"没有摊子"就是**假绿**（第 49 轮、第 51 轮各踩过一次）。
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 5223, modId: 'myth', stageId: 'ch4' });
+  wS2.player.expNext = 1e9;
+  let storyAlive2 = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((M.startSec + k * 30) * HZ);
+    wS2.marketNextTick = 0;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive2 = false;
+  }
+  expect('★★剧情关（《补天纪》ch4）走完整条 step 也没有摊子，**而且那一刻世界确实还在跑**：'
+    + '不钉「世界还活着」的话，用超时的关卡验任何"不该出现的东西"都会假绿',
+    storyAlive2 && markets(wS2).length === 0 && evs(wS2, 'market').length === 0,
+    '世界还在跑=' + storyAlive2 + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
+    + ' / 摊子 ' + markets(wS2).length + ' 座 / 播报 ' + evs(wS2, 'market').length + ' 条');
+}
+
+// ============================================================
+// 第五十三轮：炼魂鼎（把攒着的经验炼成一口血）
+// ============================================================
+// 全项目第 19 件事件型玩法，也是第一件动「经验」的：前 18 件付出的是
+// 时间/上限/位置/机会/时机/挨打密度/金币，没有一件是"攒着的修为"。
+// 断言绝大多数钉「不该发生的事」：满血/经验不足时什么都不做、鼎留在原地、
+// 不消费主随机流、剧情关没有、饕餮偷不走、到点不许二次结算。
+function testCauldron() {
+  console.log('[第五十三轮] 炼魂鼎：把攒着的经验炼成一口血（19 件里第一件动修为的）');
+  const K = C.CAULDRON;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(K.startSec * HZ);
+  const everyTick = Math.round(K.everySec * HZ);
+  const retryTick = Math.round(K.retrySec * HZ);
+  const PB = require('../shared/proto_bin.js');
+  const pool = PB.STR_POOL || [];
+  const FS2 = require('fs');
+  const PATH2 = require('path');
+
+  function dist(a, b) {
+    const dx = a.x - b.x;
+    const dy = a.y - b.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  // 干净世界：其它事件排期全推很远（这一段只验鼎）。
+  // ★每加一个事件型机制都要回来补这张表（第 50 轮的血泪）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;   // 默认不排期：要生成的世界自己显式打开
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function cauldrons(w) {
+    return w.pickups.filter(function (it) { return it.kind === 'cauldron'; });
+  }
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function parkPlayer(w) {
+    const p = w.player;
+    p.x = Math.round(w.map.w / 2);
+    p.y = Math.round(w.map.h / 2);
+    SIM.setSelf(w, p);
+    return p;
+  }
+  // 直接在玩家脚边浮一座鼎（落点检查是给真实落点用的，测试要精确控制"站在鼎上"）
+  function cauldronAt(w, offX) {
+    const p = w.player;
+    SIM.spawnPickup(w, 'cauldron', p.x + (offX === undefined ? 4 : offX), p.y, 1, K.lifeSec);
+    const it = w.pickups[w.pickups.length - 1];
+    it.denied = 0;
+    return it;
+  }
+  // 给玩家一笔"可付"的修为：expNext 定成 100，exp 攒够
+  function fundExp(p, exp) {
+    p.expNext = 100;
+    p.exp = exp === undefined ? 60 : exp;
+    return p;
+  }
+  function steps(w, n) {
+    for (let i = 0; i < n; i++) SIM.step(w, { mx: 0, my: 0 });
+  }
+
+  // ---------- 0. 表自洽 ----------
+  expect('★CAULDRON 表必须存在且有名字（表被删/改名时事件会静默什么都不生成）',
+    !!K && !!K.name, K ? K.name : 'null');
+  expect('★★首发帧不许落在 30 秒波次网格上（压在波次那一帧，场上其实是空的 —— 陨星踩过）',
+    K.startSec % 30 !== 0, 'startSec=' + K.startSec + ' %30=' + (K.startSec % 30));
+  const otherStart3 = [];
+  ['CHALLENGER', 'BLOOD_MOON', 'METEOR', 'LEYLINE', 'BLOODPACT', 'SUMMONER',
+    'TWINS', 'LANTERN', 'DEVOURER', 'BOON', 'BELL', 'MERGE', 'ESCORT', 'MARKET'].forEach(function (k) {
+    const t = C[k];
+    if (t && typeof t.startSec === 'number') otherStart3.push(t.startSec);
+  });
+  expect('★★首发帧不许与任何既有事件撞 tick（同帧两件事一起弹，玩家只读得到一条）',
+    otherStart3.indexOf(K.startSec) === -1,
+    '本件 ' + K.startSec + ' / 既有 ' + otherStart3.join(','));
+  expect('★间隔不许太密（<=60 秒就成了"一直有鼎"，残血无脑踩）',
+    K.everySec >= 60, 'everySec=' + K.everySec);
+  expect('★★代价比例必须落在 0.2~0.6（太低＝白送血，太高＝没人用）',
+    K.expCostPct >= 0.2 && K.expCostPct <= 0.6, 'expCostPct=' + K.expCostPct);
+  expect('★★回报比例必须落在 0.15~0.45（太低不值得付修为，太高＝一口满血不用打了）',
+    K.healPct >= 0.15 && K.healPct <= 0.45, 'healPct=' + K.healPct);
+  expect('★★最低余量必须大于代价比例（否则"刚够付"就被扣到 0，等于白嫖一口血）',
+    K.minExpPct > K.expCostPct, 'minExpPct=' + K.minExpPct + ' / cost=' + K.expCostPct);
+  expect('★最低余量不许高到 0.8（要攒八成经验才能用，这套玩法基本见不到）',
+    K.minExpPct < 0.8, 'minExpPct=' + K.minExpPct);
+  expect('★★成交半径必须明显小于 offset（磁石会把拾取半径顶到 100+，'
+    + '隔着两个身位就炼＝"要不要走过去"这个唯一成本没了）',
+    K.buyRadius < K.offset * 0.3, 'buyRadius=' + K.buyRadius + ' / offset=' + K.offset);
+  expect('★offset 在 120~380（太近＝路过自动炼，太远＝手机视野外找不到）',
+    K.offset >= 120 && K.offset <= 380, 'offset=' + K.offset);
+  expect('★lifeSec 15~40（够打完一波折回来，不够干完两件事）',
+    K.lifeSec >= 15 && K.lifeSec <= 40, 'lifeSec=' + K.lifeSec);
+  expect('★maxAlive 必须是 1（两座一样的鼎并排＝没有取舍）',
+    K.maxAlive === 1, 'maxAlive=' + K.maxAlive);
+  expect('★retrySec <= 5（落点被挡只短等，不许顺延整段）',
+    K.retrySec <= 5, 'retrySec=' + K.retrySec);
+  expect("★'cauldron' 必须在串池（漏了走长格式，bintest 会红）",
+    pool.indexOf('cauldron') >= 0, 'pool.indexOf=' + pool.indexOf('cauldron'));
+  // 三色都不许发紫：紫 = 蓝与红都明显高于绿（照搬第 52 轮重写后的判据）
+  ['color', 'soulColor', 'healColor'].forEach(function (key) {
+    const hex = K[key] || '';
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    expect('★★' + key + ' 不许发紫（紫 = 蓝与红都明显高于绿；旧判据会把青铜误判）',
+      !(b > g * 1.05 && r > g * 1.05), hex + ' r=' + r + ' g=' + g + ' b=' + b);
+  });
+  // 不许有死字段：表里每个字段都要被 sim.js（rule.<字段>）或 render.js（CD.<字段>）用到。
+  // ★两个来源都要扫：soulColor/healColor 是纯渲染字段，只扫 sim.js 会把它们误判成死字段。
+  const simSrc = FS2.readFileSync(PATH2.join(__dirname, '..', 'shared', 'sim.js'), 'utf8');
+  const renderSrc = FS2.readFileSync(PATH2.join(__dirname, '..', 'public', 'js', 'render.js'), 'utf8');
+  Object.keys(K).forEach(function (key) {
+    if (typeof K[key] !== 'number' && typeof K[key] !== 'string') return;
+    const usedInSim = simSrc.indexOf('rule.' + key) >= 0;
+    const usedInRender = renderSrc.indexOf('CD.' + key) >= 0 || renderSrc.indexOf('MK.' + key) >= 0;
+    expect('★CAULDRON.' + key + ' 不许是死字段（写了没人读＝改了表也没反应）',
+      usedInSim || usedInRender, 'sim.js 找不到 rule.' + key + ' / render.js 找不到 CD.' + key);
+  });
+
+  // ---------- 1. 生成 ----------
+  const w1 = cleanWorld(5301);
+  parkPlayer(w1);
+  const rngBefore = w1.rngState;
+  w1.tick = startTick - 1;
+  w1.cauldronNextTick = 0;
+  SIM.maybeSpawnCauldron(w1);
+  expect('★到点前一帧：一座都不许出现，也不许播报',
+    cauldrons(w1).length === 0 && evs(w1, 'cauldron').length === 0,
+    '鼎 ' + cauldrons(w1).length + ' 座 / 播报 ' + evs(w1, 'cauldron').length + ' 条');
+  w1.tick = startTick;
+  const born = SIM.maybeSpawnCauldron(w1);
+  expect('★到点正好浮起一座', !!born && cauldrons(w1).length === 1,
+    '返回=' + (born ? '有' : 'null') + ' / ' + cauldrons(w1).length + ' 座');
+  expect('★★不消费主随机流（rngState 逐位一致）—— 它是任意 tick 插进来的，'
+    + '取走随机数会让后面每一波的落点整体错位',
+    w1.rngState === rngBefore, '前 ' + rngBefore + ' / 后 ' + w1.rngState);
+  expect('★它不是怪（做成怪的话每支武器都会去打它）', w1.mobs.length === 0,
+    'mobs=' + w1.mobs.length);
+  expect('★value 固定为 1（鼎没有种类，代价/回报全按玩家当下状态算）',
+    born && born.value === 1, 'value=' + (born && born.value));
+  const ev1 = evs(w1, 'cauldron');
+  expect('★播报恰好一条，且把「代价比例 / 回报比例 / 多久消散」都带上',
+    ev1.length === 1 && ev1[0].expCostPct === K.expCostPct
+    && ev1[0].healPct === K.healPct && ev1[0].sec === K.lifeSec,
+    '共 ' + ev1.length + ' 条 / ' + JSON.stringify(ev1[0] || {}));
+  const p1 = w1.player;
+  const dBorn = dist({ x: born.x, y: born.y }, p1);
+  expect('★落点距玩家在 offset×0.5~1.7（被贴边 clamp 到脚下＝路过自动炼）',
+    dBorn >= K.offset * 0.5 && dBorn <= K.offset * 1.7,
+    '距离=' + Math.round(dBorn) + ' / offset=' + K.offset);
+  expect('★落点在地图内', born.x >= 0 && born.x <= w1.map.w && born.y >= 0 && born.y <= w1.map.h,
+    born.x + ',' + born.y);
+  expect('★到点后排期顺延一个完整 everySec（不是短等）',
+    w1.cauldronNextTick === startTick + everyTick,
+    'next=' + w1.cauldronNextTick + ' / 期望=' + (startTick + everyTick));
+
+  // ---------- 2. 同屏上限：满了一座只短等 ----------
+  const w2 = cleanWorld(5302);
+  w2.tick = startTick + everyTick;
+  w2.cauldronNextTick = 0;
+  SIM.spawnCauldron(w2);              // 场上先有一座
+  const before2 = cauldrons(w2).length;
+  SIM.maybeSpawnCauldron(w2);
+  expect('★场上已有一座时：不许再浮第二座', cauldrons(w2).length === before2,
+    before2 + ' → ' + cauldrons(w2).length);
+  expect('★★满了只短等 retrySec，不许顺延整个 everySec（'
+    + '否则玩家一直不去，后面整串排期被推到很久之后）',
+    w2.cauldronNextTick === w2.tick + retryTick,
+    'next=' + w2.cauldronNextTick + ' / 期望=' + (w2.tick + retryTick));
+
+  // ---------- 3. 成交：扣经验、回血、鼎消失，且不许二次结算 ----------
+  const w3 = cleanWorld(5303);
+  parkPlayer(w3);
+  const p3 = w3.player;
+  fundExp(p3, 60);
+  p3.hp = Math.round(p3.maxHp * 0.4);
+  const exp3 = p3.exp, hp3 = p3.hp, max3 = p3.maxHp;
+  const cost3 = Math.round(p3.expNext * K.expCostPct);
+  const it3 = cauldronAt(w3, 4);
+  // ★走真实的 step 路径（而不是直接调 applyCauldron）：从数组移除鼎是 updatePickups 的
+  //   职责，只有走 step 才能同时验到"结算"与"鼎被吃掉"两件事。
+  steps(w3, 1);
+  expect('★残血且修为够：交易成立（经验确实被扣了）', p3.exp < exp3,
+    exp3 + ' → ' + p3.exp);
+  expect('★★扣的经验正好是 expNext×pct，不是当前经验的几成',
+    Math.abs((exp3 - p3.exp) - cost3) < 0.001,
+    '扣了 ' + (exp3 - p3.exp) + ' / 期望 ' + cost3);
+  expect('★★回的血正好是上限×healPct',
+    Math.abs((p3.hp - hp3) - max3 * K.healPct) < 0.001,
+    '回了 ' + (p3.hp - hp3) + ' / 期望 ' + max3 * K.healPct);
+  expect('★回血不许溢出上限', p3.hp <= p3.maxHp, p3.hp + '/' + p3.maxHp);
+  expect('★成交后鼎被吃掉（一次性的"修为换命"）',
+    w3.pickups.indexOf(it3) === -1, '还在数组里');
+  const tk3 = evs(w3, 'cauldron_taken');
+  expect('★成交播报恰好一条，带扣的经验与回的血',
+    tk3.length === 1 && tk3[0].expCost === cost3 && tk3[0].hpGain > 0,
+    JSON.stringify(tk3[0] || {}));
+  // 再推 3 秒：不许出现第二座、第二条播报、第二次扣钱
+  const expAfter3 = p3.exp, hpAfter3 = p3.hp;
+  w3.cauldronNextTick = 1e9;
+  steps(w3, 60);
+  expect('★★成交后推 3 秒：不许二次扣经验', p3.exp === expAfter3,
+    expAfter3 + ' → ' + p3.exp);
+  expect('★★成交后推 3 秒：不许二次回血', p3.hp === hpAfter3,
+    hpAfter3 + ' → ' + p3.hp);
+  expect('★成交后推 3 秒：不许冒出第二座鼎', cauldrons(w3).length === 0,
+    cauldrons(w3).length + ' 座');
+
+  // ---------- 4. 拒绝·满血：什么都不做，鼎原地 ----------
+  const w4 = cleanWorld(5304);
+  parkPlayer(w4);
+  const p4 = fundExp(w4.player, 60);
+  p4.hp = p4.maxHp;                    // 满血
+  const exp4 = p4.exp, hp4 = p4.hp;
+  const it4 = cauldronAt(w4, 4);
+  const took4 = SIM.applyCauldron(w4, p4, it4);
+  expect('★★满血时拒绝（一滴血都回不上，不该白扔修为）', took4 === false, '返回=' + took4);
+  expect('★★满血拒绝：经验一分不扣', p4.exp === exp4, exp4 + ' → ' + p4.exp);
+  expect('★★满血拒绝：血一点没动', p4.hp === hp4, hp4 + ' → ' + p4.hp);
+  expect('★满血拒绝：鼎必须留在原地（推 8 帧还在）', (function () {
+    steps(w4, 8);
+    return w4.pickups.indexOf(it4) >= 0;
+  })(), '鼎被吃掉了');
+  expect('★满血拒绝：播报节流到恰好一条（站在鼎上每帧都踩，不拦会刷几十条）',
+    evs(w4, 'cauldron_deny').length === 1, evs(w4, 'cauldron_deny').length + ' 条');
+  expect('★满血拒绝的播报写明 reason=hp_full',
+    evs(w4, 'cauldron_deny')[0] && evs(w4, 'cauldron_deny')[0].reason === 'hp_full',
+    JSON.stringify(evs(w4, 'cauldron_deny')[0] || {}));
+  // 掉血之后同一个鼎立刻能成交（拒绝没有后遗症）
+  p4.hp = Math.round(p4.maxHp * 0.4);
+  const hp4b = p4.hp;
+  expect('★★满血拒绝后掉血：同一个鼎立刻能成交（拒绝不消耗鼎）',
+    SIM.applyCauldron(w4, p4, it4) === true, '又失败了');
+  expect('★再次成交确实回了血', p4.hp > hp4b, hp4b + ' → ' + p4.hp);
+
+  // ---------- 5. 拒绝·经验不足：什么都不做，攒够再回来能成交 ----------
+  const w5 = cleanWorld(5305);
+  parkPlayer(w5);
+  const p5 = fundExp(w5.player, 5);   // 远低于 minExpPct×100 = 40
+  p5.hp = Math.round(p5.maxHp * 0.4);
+  const exp5 = p5.exp, hp5 = p5.hp;
+  const it5 = cauldronAt(w5, 4);
+  expect('★★残血但修为不足：拒绝', SIM.applyCauldron(w5, p5, it5) === false, '居然成交了');
+  expect('★★修为不足拒绝：经验一分不扣', p5.exp === exp5, exp5 + ' → ' + p5.exp);
+  expect('★★修为不足拒绝：血一点没回', p5.hp === hp5, hp5 + ' → ' + p5.hp);
+  expect('★修为不足拒绝：鼎留在原地（推 8 帧还在）', (function () {
+    steps(w5, 8);
+    return w5.pickups.indexOf(it5) >= 0;
+  })(), '鼎被吃掉了');
+  expect('★修为不足拒绝：播报节流到一条且 reason=no_exp',
+    evs(w5, 'cauldron_deny').length === 1
+    && evs(w5, 'cauldron_deny')[0].reason === 'no_exp',
+    JSON.stringify(evs(w5, 'cauldron_deny')[0] || {}));
+  // 攒够修为再踩同一个鼎
+  p5.exp = 60;
+  expect('★★攒够修为后同一个鼎能成交（拒绝没有后遗症）',
+    SIM.applyCauldron(w5, p5, it5) === true, '又失败了');
+
+  // ---------- 6. 走开再回来：节流重置 ----------
+  const w6 = cleanWorld(5306);
+  parkPlayer(w6);
+  const p6 = fundExp(w6.player, 5);
+  p6.hp = Math.round(p6.maxHp * 0.4);
+  const it6 = cauldronAt(w6, 4);
+  SIM.applyCauldron(w6, p6, it6);      // 拒绝一次（denied=1）
+  expect('★第一次拒绝后 it.denied 被标记', it6.denied === 1, 'denied=' + it6.denied);
+  it6.denied = 0;                      // 模拟走开（真实由 updatePickups 在半径外重置）
+  const evBefore6 = evs(w6, 'cauldron_deny').length;
+  expect('★走开重置后回来还能再听到一次拒绝（不是永久静音）', (function () {
+    SIM.applyCauldron(w6, p6, it6);
+    return evs(w6, 'cauldron_deny').length === evBefore6 + 1;
+  })(), '播报 ' + evBefore6 + ' → ' + evs(w6, 'cauldron_deny').length);
+
+  // ---------- 7. 磁石不许把鼎吸走 ----------
+  const w7 = cleanWorld(5307);
+  parkPlayer(w7);
+  const p7 = fundExp(w7.player, 60);
+  p7.hp = Math.round(p7.maxHp * 0.4);
+  const it7 = cauldronAt(w7, 0);
+  it7.x = p7.x + 160; it7.y = p7.y; it7.px = it7.x; it7.py = it7.y;
+  it7.life = 999;
+  p7.attrs.pickupRadius = 400;        // 磁石顶到 400
+  const x7 = it7.x;
+  steps(w7, 10);
+  expect('★★磁石（拾取半径 400）也吸不走鼎：走过去是它唯一的成本',
+    it7.x === x7 && w7.pickups.indexOf(it7) >= 0,
+    'x ' + x7 + ' → ' + it7.x + ' / 还在=' + (w7.pickups.indexOf(it7) >= 0));
+  expect('★磁石没把鼎吸走时也不许偷偷炼掉经验', p7.exp === 60, 'exp=' + p7.exp);
+
+  // ---------- 8. 到点消散：说一声，且不许动经验 ----------
+  const w8 = cleanWorld(5308);
+  parkPlayer(w8);
+  const p8 = fundExp(w8.player, 60);
+  p8.hp = Math.round(p8.maxHp * 0.4);
+  const it8 = cauldronAt(w8, 300);    // 放远点，玩家踩不到
+  it8.life = 0.05;
+  const exp8 = p8.exp;
+  steps(w8, 3);
+  expect('★到点消散：鼎消失', w8.pickups.indexOf(it8) === -1, '还在');
+  expect('★到点消散：播报恰好一条', evs(w8, 'cauldron_gone').length === 1,
+    evs(w8, 'cauldron_gone').length + ' 条');
+  expect('★到点消散：不许动经验', p8.exp === exp8, exp8 + ' → ' + p8.exp);
+
+  // ---------- 9. 饕餮偷不走鼎 ----------
+  const w9 = cleanWorld(5309);
+  parkPlayer(w9);
+  cauldronAt(w9, 30);
+  const food9 = SIM.findDevourFood(w9, { x: w9.player.x + 30, y: w9.player.y });
+  expect('★★饕餮的食物名单里不许有鼎（它是"要你走过去炼"的东西，'
+    + '被偷走会让玩家觉得机制在阴人 —— 宝箱/神龛/祭坛/摊子都是同一条）',
+    food9 === null, food9 ? '被当成食物了' : 'null');
+
+  // ---------- 10. 剧情关（双管） ----------
+  const wS = SIM.createWorld({ charId: 'hunter', seed: 5310, modId: 'myth', stageId: 'ch4' });
+  wS.player.expNext = 1e9;
+  wS.tick = startTick;
+  wS.cauldronNextTick = 0;
+  const directS = SIM.maybeSpawnCauldron(wS);
+  expect('★★直接调事件入口也必须被剧情关挡住（不依赖 step 会不会早退）：'
+    + '主线逐关手工配平，凭空多一条"修为换血"会破坏配好的血量曲线',
+    !!wS.storyStage && directS === null
+    && cauldrons(wS).length === 0 && evs(wS, 'cauldron').length === 0,
+    'storyStage=' + (wS.storyStage ? wS.storyStage.id : 'null')
+    + ' 返回=' + (directS ? '有' : 'null') + ' / 鼎 ' + cauldrons(wS).length + ' 座');
+  // 走 step 那一遍：鼎首发 324 秒，验证循环推到 324+30=354 秒 → 用 ch4（420 秒上限）。
+  // ★必须先算时长：ch1(240)/ch2(300)/ch3(360) 会在 354 秒前结束、step 早退 → 假绿。
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 5311, modId: 'myth', stageId: 'ch4' });
+  wS2.player.expNext = 1e9;
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((K.startSec + k * 30) * HZ);
+    wS2.cauldronNextTick = 0;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch4）走完整条 step 也没有鼎，**而且那一刻世界确实还在跑**：'
+    + '不钉「世界还活着」的话，用超时的关卡验任何"不该出现的东西"都会假绿',
+    storyAlive && cauldrons(wS2).length === 0 && evs(wS2, 'cauldron').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
+    + ' / 鼎 ' + cauldrons(wS2).length + ' 座 / 播报 ' + evs(wS2, 'cauldron').length + ' 条');
 }

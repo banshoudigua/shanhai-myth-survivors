@@ -167,7 +167,76 @@
     // ★第四十五轮：双生妖（事件型一对精英）。defId 每帧都要进快照，
     //   配色走同一套 MOB_MAP 扫描（assertStrPool 启动时逐项核对，漏了直接起不来）。
     //   ★它的色值还会出现在快照里：复活那一下的 boom 特效带 color，是 str 字段。
-    'twins', '#8fb6c8'
+    'twins', '#8fb6c8',
+    // ★第四十六轮：引魂灯（掉落物 kind 'lantern'）与收尾冲击的两条特效
+    //   （kind 'lanterncore' = 暖光爆闪、'lanternring' = 240 判定边界环）。
+    //   与 'chest'/'shrine'/'pact' 同一类东西 ——
+    //   bintest 直接扫 sim.js 源码里的 `spawnPickup(w, '...')` / `kind: '...'`，漏了必红。
+    //   ★'lanterncore' 与 'lanternring' 都是**自绘**的（pixelfx 里没有这两个名字，
+    //     effectFor 返回 null，落到 render.js 的 drawEffects）：见那两处的说明，
+    //     用 boom / ring 会分别被画成"天降雷柱"和"铺满半屏的白色符文线框"（都试过）。
+    //   ★配色 #ffcf5c 本来就在池里（陨星预警环同色），不必重复追加：
+    //     串池里出现两次同一个值会让「索引即协议」这条前提多一个坑。
+    'lantern', 'lanternring', 'lanterncore',
+    // ★第四十七轮：饕餮（事件型窃贼精英）。defId 每帧都要进快照，
+    //   配色走同一套 MOB_MAP 扫描（assertStrPool 启动时逐项核对，漏了直接起不来）。
+    //   ★'devour' 是它「吞下一份」的特效 kind（自绘：一圈往回收的光）。
+    //     在 pixelfx 里没有这个名字 → effectFor 返回 null → 落到 render.js 的 drawEffects，
+    //     这正是我们要的：借 boom / ring 会被画成雷击或符文阵，方向还反了（它们都是往外炸）。
+    'taotie', '#55663c', 'devour',
+    // ★第四十八轮：歧路双碑（掉落物 kind 'boon'）与「另一座当场碎裂」的特效
+    //   （kind 'boonshatter'）。
+    //   · 'boon' 与 'chest'/'shrine'/'pact'/'lantern' 同一类东西（走上去才生效的地面物件），
+    //     bintest 直接扫 sim.js 源码里的 `spawnPickup(w, '...')` / `kind: '...'`，漏了必红。
+    //   · ★两座碑**共用一个 kind**，靠 pickups.value（1 / 2）区分是哪一座 ——
+    //     用 value 而不是两个 kind，是为了只往池里加一个字符串（能少一个就少一个坑）。
+    //   · 'boonshatter' 在 pixelfx 里没有这个名字 → effectFor 返回 null → 落到
+    //     render.js 的 drawEffects 自绘（灰白的碎裂尘环）。借 boom 会被画成
+    //     「雷部神锤的金色雷击」（引魂灯那轮试错过），语义完全不同。
+    'boon', 'boonshatter',
+    // ★第四十九轮：镇妖钟（掉落物 kind 'bell'）。
+    //   与 'chest'/'shrine'/'pact'/'lantern'/'boon' 同一类东西（走上去才生效的地面物件），
+    //   bintest 直接扫 sim.js 源码里的 `spawnPickup(w, '...')` / `kind: '...'`，漏了必红。
+    //   · 钟响时的圈走 **zones**（不是新 kind）：它的配色 #e8d9b8 本来就在池里
+    //     （素白），所以这一轮**一个新色值都不用加**。
+    //   · ★为什么钟声不做成特效 kind：圈画在哪儿、牵引就管到哪儿 —— 两者必须是
+    //     同一个半径，而 zones 的 r 本来就是**判定半径**，特效的缩放则要经过
+    //     pixelfx 的 effectFor 换算（那里夹了上限，改大判定半径画面上也不会长大）。
+    'bell',
+    // ★第五十轮：影傀 / 罔两（事件怪 + 它们的两套配色）。
+    //   两只怪的 defId 与 def.color 都会进「每帧快照」，不进池就要走长格式
+    //   （assertSchema 的自检直接把它们点出来了，不用等 bintest 发现带宽变胖）。
+    //   · 影傀的标记环色 #dfe6ef 本来就在池里（冷白，第四十九轮之前就有）——
+    //     所以标记环不用再加色值，只有这两个怪本体色是新的。
+    //   · 合体爆点用的是 #ffd166（琥珀金），也在池里。
+    'shadow_puppet', 'wangliang', '#9aa7b3', '#524842',
+    // ★第五十一轮：精卫衔石。三样东西要进池 ——
+    //   · 'escort' 是掉落物 kind（pickups.kind 是 str 字段，不进池就走长格式）；
+    //   · '#eaf2f8'（羽绒白）与 '#8fd3e8'（海青航迹）是**新色值**：它们会跟着
+    //     掉落物的特效一起过线（fx.color 是 str 字段）。
+    //   · ★她的血量不进协议：走 pickups.value（0~100 的百分比）。
+    //     与「灵泉复用 strikes.delay 当充能进度」同一条路子 —— 能借就不加字段。
+    'escort', '#eaf2f8', '#8fd3e8',
+    // ★同轮：'feathers' 是她折翼时的自绘特效（pixelfx 里没有这个名字 →
+    //   effectFor 返回 null → 落到 render.js 的 drawEffects）。
+    //   借 boom 会被画成一记金色雷击，语义正好相反（那是"打赢了"的形状）。
+    'feathers',
+    // ★第五十二轮：大人之市（掉落物 kind 'market'）。
+    //   · 与 'chest'/'shrine'/'pact'/'lantern'/'boon'/'bell' 同一类东西
+    //     （走上去才生效的地面物件），bintest 直接扫 sim.js 源码里的
+    //     `spawnPickup(w, '...')` / `kind: '...'`，漏了必红。
+    //   · ★卖的是哪件货不进协议：走 pickups.value（offers 的下标 0/1/2），
+    //     客户端拿 C.MARKET.offers[value] 反查名字与价钱 —— 一个字段都不用加
+    //     （与「血祭坛 value 固定 1」「精卫 value 当血量百分比」同一条路子）。
+    //   · ★配色也一个都不用加：摊子的金/素白/青铜三色本来就都在池里
+    //     （#ffd166 / #e8d9b8 / #b0793a），成交那一下走 boom 的金色。
+    'market',
+    // ★第五十三轮：炼魂鼎（掉落物 kind 'cauldron'）。
+    //   与 'market'/'bell'/'boon' 同一类东西（走上去才生效的地面物件），
+    //   bintest 直接扫 sim.js 源码里的 `spawnPickup(w, '...')`，漏了必红。
+    //   ★代价/回报全按玩家当下状态现算（读 expNext / maxHp），不进协议；
+    //     三色（#ff8c42 火橙 / #5fe0b0 玉青 / #ffd166 金）本来就在池里。
+    'cauldron'
     //
     // 【角色配色为什么不在这里】玩家与怪物的快照都**只发 id**（players.charId / mobs.defId），
     // 颜色由客户端查表（CHARACTERS / MOBS）得到 —— 一个会变的色值（本轮刚换成马卡龙色系）

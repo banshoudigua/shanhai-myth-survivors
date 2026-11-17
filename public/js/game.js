@@ -1858,6 +1858,93 @@ function goLobby(why) {
       // 失败分支：说清「是它站起来了」，而不是「又刷了一只」——
       // 这两种说法对玩家的下一步动作完全相反（一个该补刀，一个该跑）。
       pushToast((e.name || '双生妖') + '复生了：同命已断，它变回普通精英', false);
+    } else if (e.type === 'devourer') {
+      // 饕餮（第四十七轮）：全项目第一个**会拿走你东西**的机制，所以这条提示
+      // 必须把「它在偷什么」和「多久之内收掉它」一次说清 ——
+      // 只说「饕餮现身」的话，玩家会把它当成又一只精英，等发现地上的球没了已经来不及。
+      // ★数字从 const.js 现算：表一调，提示跟着变。
+      const DV = C.DEVOURER || { holdSec: 38, eatCap: 14 };
+      pushToast((e.name || '饕餮') + '现身：它在吞地上的精魄，' +
+        (e.holdSec || DV.holdSec) + ' 秒内不收掉就钻地跑掉', true);
+    } else if (e.type === 'devourer_down') {
+      // 打死它：说清「吐回来了多少」—— 不然玩家不知道自己刚才那一趟回头到底值不值。
+      pushToast('击杀' + (e.name || '饕餮') + '！吐出 ' + (e.exp || 0) + ' 点精魄' +
+        (e.gold ? ('、' + e.gold + ' 枚金币') : ''), true);
+    } else if (e.type === 'devourer_flee') {
+      // 失败分支：说清「它带走了多少」，而且**不用责备的语气** ——
+      // 这一段本来就是「你没空回头」，播一条「你输了」只会让人烦。
+      pushToast((e.name || '饕餮') + '吞了 ' + (e.eaten || 0) + ' 份精魄钻地跑了', false);
+    } else if (e.type === 'boon') {
+      // 歧路双碑（第四十八轮）：全项目第一个**奖励之间互斥**的点位。
+      // 【提示条必须把「只能取一座」写在最前面】它是两块并排站着、都发光的碑，
+      //   玩家的本能是"两个都走过去" —— 不说清的话，他会在取完第一座、
+      //   回头发现第二座没了之后，认定这是丢东西的 bug，而不是规则。
+      // ★数字全部从 const.js 现算：表一调，提示跟着变。
+      const BN = C.BOON || { lifeSec: 20, maxRounds: 5, options: [] };
+      const n0 = (BN.options[0] && BN.options[0].name) || '兵主碑';
+      const n1 = (BN.options[1] && BN.options[1].name) || '玄龟碑';
+      const h0 = (BN.options[0] && BN.options[0].hint) || '';
+      const h1 = (BN.options[1] && BN.options[1].hint) || '';
+      pushToast('歧路双碑：' + n0 + '（' + h0 + '）或 ' + n1 + '（' + h1 +
+        '）—— 只能取一座，另一座会碎（第 ' + (e.round || 1) + '/' + (e.maxRounds || BN.maxRounds) +
+        ' 组，' + (e.sec || BN.lifeSec) + ' 秒）', true);
+    } else if (e.type === 'boon_taken') {
+      // 取走一座：两件事必须同框 ——「拿到了什么」和「失去了什么」。
+      // 只播前者的话，碎掉的那一座在玩家的账本里等于没存在过。
+      pushToast('取「' + (e.label || '石碑') + '」（第 ' + (e.level || 1) + ' 层）' +
+        ((e.healed || 0) > 0 ? '，回复 ' + e.healed + ' 点生命' : '') +
+        '；' + (e.other || '另一座') + '已碎', true);
+    } else if (e.type === 'bell') {
+      // 镇妖钟（第四十九轮）：全项目第一个**牵引**类机制。
+      // 【提示条必须说清三件事】①它是踩上去敲的、②敲了会发生什么（妖群转向钟）、
+      //   ③它是有时限的（不敲就没了）。
+      // 只说「镇妖钟立于此处」的话，玩家会以为它是一座能领东西的神龛 ——
+      // 走到跟前发现没反应（钟要踩上去才响），回头就再也不看了。
+      // ★数字全部从 const.js 现算：表一调，提示跟着变。
+      const BL = C.BELL || { lifeSec: 26, ringSec: 7, radius: 460 };
+      pushToast('镇妖钟现世：走过去踩一下，' + (e.ringSec || BL.ringSec) +
+        ' 秒内周围妖物尽赴钟下（' + (e.lifeSec || BL.lifeSec) + ' 秒内不敲则自散）', true);
+    } else if (e.type === 'bell_toll') {
+      // 钟响：这是全项目唯一一次「妖群整体转向」，必须让玩家当场意识到
+      // 「它们不冲我来了」—— 不说的话，玩家只会觉得怪突然都不追了，像卡了。
+      // ★同时说清"钟声管多大范围"：圈外那些怪照旧冲你，这一点不写清楚会显得机制随机。
+      const BL = C.BELL || { ringSec: 7, radius: 460 };
+      pushToast((e.name ? e.name + ' 敲响镇妖钟' : '钟声起') + '！半径 ' +
+        (e.radius || BL.radius) + ' 内的妖物尽赴钟下，' +
+        (e.sec || BL.ringSec) + ' 秒后回身', true);
+    } else if (e.type === 'merge_pair') {
+      // 影傀浮现：这两只**不理你**，只往彼此身上走。不说清楚的话，玩家会以为
+      // 「刷了两只卡住的怪」—— 而它整段玩法的前提是玩家看懂"它们正在合体"。
+      // ★只播一次（事件本身每对只发一条），不按"每只影傀一条"播 —— 那样会刷屏。
+      const MG = C.MERGE || { fuseSec: 1.4, rewardChest: 2 };
+      pushToast('影傀成对浮现：它们只朝彼此靠拢，贴住 ' + MG.fuseSec +
+        ' 秒便合体为「' + (MG.name || '罔两') + '」。趁现在点掉一只，还是放它们合体去赌 ' +
+        MG.rewardChest + ' 个宝箱？', true);
+    } else if (e.type === 'wangliang') {
+      // 合体成功：必须点明"你赌的那一把已经发生了"，否则玩家只会看到多了一只怪。
+      const MG = C.MERGE || { rewardChest: 2 };
+      pushToast('两只影傀合成「' + (MG.name || '罔两') + '」！血 ' + (e.hp || 0) +
+        '，击破可得 ' + (e.chest || MG.rewardChest) + ' 个宝箱', true);
+    } else if (e.type === 'wangliang_down') {
+      pushToast((e.name || '罔两') + '伏诛，双份宝箱落地', true);
+    } else if (e.type === 'escort') {
+      // 精卫衔石（第五十一轮）：全项目第一个**会离开你**的目标。
+      // 【这条提示必须一次说清三件事】①她是谁（不是你的人，也不是怪）；
+      //   ②她会往哪儿去（"朝那边飞"—— 玩家得知道该跟哪个方向）；
+      //   ③她会被妖物打死、打死了什么都没有。
+      // 只说「精卫现身」的话，玩家会把她当成一只白色的小怪，抬手就是一发 ——
+      // 而武器打不到她（她是 pickups），于是更困惑。
+      // ★数字全部从 const.js 现算：表一调，提示跟着变。
+      const ES = C.ESCORT || { hp: 240, speed: 68, rewardChest: 2 };
+      pushToast('精卫衔石而起：护她飞到终点可得 ' + ES.rewardChest +
+        ' 只宝箱；妖物会扑她（' + (e.hp || ES.hp) + ' 点血），她不等你', true);
+    } else if (e.type === 'escort_done') {
+      // 成功：说清"宝箱落在她落下的地方"—— 玩家得走回去拿（宝箱不被磁石吸）。
+      pushToast((e.name || '精卫') + '衔石填海，' + (e.chest || 2) + ' 只宝箱落在她落下的地方', true);
+    } else if (e.type === 'escort_lost') {
+      // 失败：**不用责备的语气**。这一整段的代价就是"你没跟上"，
+      // 再补一句"你输了"只会让人烦（与饕餮跑掉那条同一个口径）。
+      pushToast((e.name || '精卫') + '折翼，石沉于此', false);
     } else if (e.type === 'chest_drop') {
       // 宝箱是「要专门走过去拿」的（不被磁石吸），所以必须明确告诉玩家它掉了、
       // 而且是谁掉的 —— 否则很容易走开之后才发现漏了一个免费升级。
@@ -1942,6 +2029,90 @@ function goLobby(why) {
     } else if (e.type === 'pact_full') {
       const BP4 = C.BLOODPACT || { stackMax: 2 };
       pushToast('血契已满 ' + (e.stackMax || BP4.stackMax) + ' 层，不能再签', false);
+    } else if (e.type === 'market') {
+      // 大人之市（第五十二轮）：全项目第一个**找你要钱**的点位。
+      // 【提示条必须把「三件事」一次说清】卖什么、多少钱（以及比商店便宜多少）、
+      //   多久收摊 —— 少任何一条，这个决定都做不完整：
+      //   · 不说卖什么：玩家得跑到摊子前才知道，白跑一趟；
+      //   · 不说多便宜：他不知道值不值得现在花（而"现在花还是攒着"就是这一件的全部）；
+      //   · 不说多久：他会按"回头再买"来规划，回来发现摊子没了。
+      // ★数字全部从事件里带来（sim 现算）：表一调，提示跟着变。
+      const save = (e.listPrice && e.price && e.listPrice > e.price)
+        ? ('（商店价 ' + e.listPrice + '）') : '';
+      pushToast((C.MARKET ? C.MARKET.name : '大人之市') + '开市：' +
+        (e.itemName || '一件山货') + ' ' + (e.price || '?') + ' 金' + save +
+        '，走上去就成交，' + (e.sec || 24) + ' 秒后收摊', true);
+    } else if (e.type === 'market_bought') {
+      // 成交：必须报「花了多少 / 还剩多少」—— 这是玩家确认"钱真的花出去了"的唯一反馈
+      // （金币余额在顶栏上，但战斗里没人会去盯它）。
+      pushToast('买下「' + (e.itemName || '山货') + '」，花 ' + (e.price || 0) +
+        ' 金，余额 ' + (e.gold === undefined ? '?' : e.gold) + ' 金', true);
+    } else if (e.type === 'market_deny') {
+      // 拒绝：三种理由必须分开说，否则玩家不知道"该怎么办"。
+      //   ★一律普通提示（false）：它是"没买成"，不是奖励，不该用强调色。
+      if (e.reason === 'hp_full') {
+        pushToast('血是满的，' + (e.itemName || '这件货') + '现在用不上，摊子仍在原地', false);
+      } else if (e.reason === 'no_gold') {
+        pushToast('还差 ' + (e.lack || 0) + ' 金才能买下「' + (e.itemName || '这件货') +
+          '」，摊子仍在原地', false);
+      } else {
+        pushToast('买不了「' + (e.itemName || '这件货') + '」：' +
+          (e.reason || '现在不行') + '，摊子仍在原地', false);
+      }
+    } else if (e.type === 'market_gone') {
+      // 收摊：★不责备玩家（与饕餮跑掉、精卫折翼同一个口径）——
+      //   只是把"这一次错过了"说清楚，别写成"你没抓住机会"。
+      pushToast('大人之市收摊了', false);
+    } else if (e.type === 'cauldron') {
+      // 炼魂鼎（第五十三轮）：全项目第一个**拿成长换生存**的点位。
+      // 【提示条必须说清"代价是经验、回报是血、多久消失"】少说代价，玩家会以为
+      //   又是一口白给回血井，残血时无脑踩、白白倒退一截升级进度。
+      // ★数字全部从事件里带来（sim 现算）：表一调，提示跟着变。
+      pushToast((C.CAULDRON ? C.CAULDRON.name : '炼魂鼎') + '现世：投入约 ' +
+        Math.round((e.expCostPct || 0.35) * 100) + '% 的升级修为，换回 ' +
+        Math.round((e.healPct || 0.30) * 100) + '% 气血；' +
+        (e.sec || 22) + ' 秒后消散', true);
+    } else if (e.type === 'cauldron_taken') {
+      // 成交：报"花了多少修为 / 回了多少血 / 还剩多少经验"——修为花出去是看不见的，
+      //   不报的话玩家只看到血涨了，完全不知道自己刚刚牺牲了一次升级。
+      pushToast('投入 ' + (e.expCost || 0) + ' 点修为，回 ' + (e.hpGain || 0) +
+        ' 点气血（现 ' + (e.hp === undefined ? '?' : e.hp) + '/' +
+        (e.maxHp === undefined ? '?' : e.maxHp) + '），余 ' +
+        (e.expLeft === undefined ? '?' : e.expLeft) + ' 修为', true);
+    } else if (e.type === 'cauldron_deny') {
+      // 拒绝：两种理由分开说，一律普通提示（false）——它是"没炼成"，不是奖励。
+      //   ★都要带上"鼎仍在原地"，否则玩家以为错过了、其实还能回来再试。
+      if (e.reason === 'hp_full') {
+        pushToast('血是满的，不必白白折损修为；炼魂鼎仍在原地', false);
+      } else if (e.reason === 'no_exp') {
+        pushToast('修为不足（需攒够 ' + (e.need || 0) + ' 点，现 ' +
+          (e.exp || 0) + ' 点），炼魂鼎仍在原地', false);
+      } else {
+        pushToast('现在炼不了：' + (e.reason || '时机未到') + '，炼魂鼎仍在原地', false);
+      }
+    } else if (e.type === 'cauldron_gone') {
+      // 消散：★不责备玩家（与收摊/折翼/饕餮跑掉同一个口径）
+      pushToast('炼魂鼎散去了', false);
+    } else if (e.type === 'lantern') {
+      // 引魂灯（第四十六轮）：全项目第一个**要求一条路线**的点位（一次三盏、散在三个方向）。
+      // 【提示条必须一次说清四件事】几盏、往哪走、多久、点齐给什么 ——
+      //   只说「引魂灯亮起」的话，玩家会以为地上只有一盏，走到那一盏就停下，
+      //   然后看着另外两盏在视野外悄悄熄灭（而"没拿到"不会有任何惩罚提示）。
+      //   「走过去就点着」也必须说：它是唯一一个**不停留**的点位，
+      //   玩家刚从灵泉那边过来，很容易以为要站桩。
+      // ★数字全部从 const.js 现算：表一调，提示跟着变。
+      const LN = C.LANTERN || { count: 3, lifeSec: 26, chest: 2, startSec: 0 };
+      pushToast('引魂灯亮起：' + (e.count || LN.count) + ' 盏散在三个方向，走过去就点亮，'
+        + (e.sec || LN.lifeSec) + ' 秒内点齐得 ' + LN.chest + ' 个宝箱', true);
+    } else if (e.type === 'lantern_lit') {
+      // 点着一盏：只报进度。★用 false（普通提示）—— 它不是奖励，是"还差几盏"的路标，
+      //   用强调色会把它和"点齐"那一下混成同一件事。
+      const left = e.left || 0;
+      pushToast('引魂灯 ' + (e.lit || 1) + '/' + (e.total || 3) + '：还差 ' + left + ' 盏', false);
+    } else if (e.type === 'lantern_done') {
+      // 点齐：三段信息缺一不可 —— 拿到了什么（宝箱/金币）、脚下那一下是什么（冲击）。
+      // 不说冲击的话，玩家会以为「齐了只是掉东西」，于是下次不会靠这一步清身边的怪。
+      pushToast('三灯齐亮！冲击荡开 ' + (e.chest || 0) + ' 个宝箱与金币已落地', true);
     } else if (e.type === 'levelup') {
       ui.screen = 'levelup';
       ui.pendingLevels = (e.pendingLevels !== undefined) ? e.pendingLevels

@@ -690,6 +690,11 @@
       // ★必须是**每个人一份**：队友跑过去领的是他自己的祝福，不该给全队加。
       //   所以存人身上、不进世界级字段，与 shopBuffDmg 同一套做法。
       shrines: {},
+      // 歧路双碑的层数（第四十八轮）：{ blade: n, shell: n }。
+      // 与 shrines 同一套归属：**每个人一份** —— 我取了兵主碑，队友的伤害不该跟着涨。
+      // ★键名与 C.BOON.options[i].key 一一对应，recalcAttrs 按表遍历，
+      //   表里没有的键（老存档 / 手改）一律忽略，不会凭空加属性（与神龛同一条纪律）。
+      boons: {},
       // ---------- 血怒（第三十八轮：连杀奖励） ----------
       // 【为什么这四个数存在玩家身上而不是世界上】
       //   连杀是「你一个人清得怎么样」，队友的连杀不该给我加伤害。
@@ -935,6 +940,79 @@
       // ★这是**服务端事实**，不进快照：配对规则完全在服务端结算，客户端只需要
       //   知道「这两只是双生妖」（defId 已在快照里），不必知道谁和谁配、还剩几秒。
       twinPairs: [],
+      // ---------- 引魂灯（第四十六轮：三盏一组的路线规划） ----------
+      // 下一组的排期 tick（0 = 还没排期）
+      lanternNextTick: 0,
+      // 本局一共放过几组 / 一共点着过几盏（只用于观察与测试，不参与任何逻辑）
+      lanternSpawned: 0,
+      lanternLit: 0,
+      // 当前这一组：{ id, lit, total, done, expireTick }
+      // ★这是**服务端事实**，不进快照：客户端靠「地上还剩几盏灯」与事件播报得知进度。
+      lanternRound: null,
+      // ---------- 饕餮（第四十七轮：专吃地上精魄的窃贼） ----------
+      // 下一只的排期 tick（0 = 还没排期）
+      devourerNextTick: 0,
+      // 本局一共刷过几只 / 一共被它吃掉的份数（只用于观察与测试，不参与任何逻辑）
+      devourerSpawned: 0,
+      devourerEaten: 0,
+      // ---------- 歧路双碑（第四十八轮：两座只能取一座） ----------
+      // 下一组的排期 tick（0 = 还没排期）
+      boonNextTick: 0,
+      // 本局已经立过几组 / 一共取走过几座（只用于观察与测试，不参与任何逻辑）
+      // ★boonRounds 参与逻辑：它是「总预算」的计数器（>= C.BOON.maxRounds 就不再立）
+      boonRounds: 0,
+      boonSpawned: 0,
+      boonTaken: 0,
+      // 组号自增（每组两座共用同一个号，记在 pickup 的 it.group 上，**不进协议**）
+      boonGroupSeq: 0,
+      // 待摘除的组号：取走一座后，另一座在这里登记，由 updatePickups 收尾统一摘掉
+      // （★不能在拾取循环里直接删——那个循环正用 write 指针原地压缩数组）
+      boonChosenGroup: 0,
+      // ---------- 镇妖钟（第四十九轮：把妖群牵到你要的地方） ----------
+      // 下一口的排期 tick（0 = 还没排期）
+      bellNextTick: 0,
+      // 本局一共立过几口 / 一共敲响过几次（只用于观察与测试，不参与任何逻辑）
+      bellSpawned: 0,
+      bellTolls: 0,
+      // 钟位序号自增：每一口从不同方向立起来（角度走 affixHash，不消费主随机流）
+      bellSeq: 0,
+      // 当前钟声：{ x, y, until }（until = w.time 口径的到期时刻，单位秒）。
+      // ★null = 没在响。它同时是「牵引生效」的唯一判据 ——
+      //   客户端不需要它（看到地上那个素白圈就知道在响），所以**不进协议**。
+      bellRing: null,
+      // ---------- 影傀 / 罔两（第五十轮：两只靠近就会合体的一对） ----------
+      // 下一次生成影傀的排期 tick（0 = 还没排期）
+      mergeNextTick: 0,
+      // 本局一共生成过几对 / 一共合体过几次（只用于观察与测试，不参与任何逻辑）
+      mergeSpawned: 0,
+      mergeFused: 0,
+      // 生成序号自增：每一对从不同方位浮现（角度走 affixHash，不消费主随机流）
+      mergeSeq: 0,
+      // ---------- 精卫衔石（第五十一轮：会自己飞走的目标） ----------
+      // 下一只的排期 tick（0 = 还没排期）
+      escortNextTick: 0,
+      // 本局一共来过几只 / 护到了几只 / 折翼几只（只用于观察与测试，不参与逻辑）
+      escortSpawned: 0,
+      escortDone: 0,
+      escortLost: 0,
+      // 生成序号自增：每一只从不同方位起飞（角度走 affixHash，不消费主随机流）
+      escortSeq: 0,
+      // ---------- 大人之市（第五十二轮：把攒着的金币当场花掉） ----------
+      // 下一座摊子的排期 tick（0 = 还没排期）
+      marketNextTick: 0,
+      // 本局一共摆过几座 / 一共成交过几笔（只用于观察与测试，不参与任何逻辑）
+      marketSpawned: 0,
+      marketBought: 0,
+      // 生成序号自增：每一座从不同方位摆开（角度与货品都走 affixHash，不消费主随机流）
+      marketSeq: 0,
+      // ---------- 炼魂鼎（第五十三轮：把攒着的经验炼成一口血） ----------
+      // 下一座鼎的排期 tick（0 = 还没排期）
+      cauldronNextTick: 0,
+      // 本局一共浮过几座 / 一共炼成过几次（只用于观察与测试，不参与任何逻辑）
+      cauldronSpawned: 0,
+      cauldronTaken: 0,
+      // 生成序号自增：每一座从不同方位浮现（角度走 affixHash，不消费主随机流）
+      cauldronSeq: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1255,6 +1333,26 @@
       ? Math.max(0.5, 1 - C.BLOODPACT.hpCostPct * pactN)
       : 1;
 
+    // ---------- 歧路双碑（第四十八轮：两座只能取一座） ----------
+    // 与神龛 / 血契 / 山海谱同一个理由放在汇总点：升级、进化、买 buff、复活、
+    // 掉线接回走的都是 recalcAttrs，碑上的加成不会因为某条路径忘了重算而消失。
+    // ★伤害进 dmgMul（与被动 / 神龛 / 血契同一个乘区）：不为它新造一档。
+    // ★血量是**上限的百分比**，所以它只能乘在下面那行 maxHp 上（与 pactScale 同位置）；
+    //   写成「加当前血量」就等于一瓶绷带，那不叫「上限」。
+    // ★遍历的是 const.js 的表而不是 p.boons 的键：表决定了「哪一项加到哪」，
+    //   对象里存的是层数。表里没有的键（老存档 / 手改）一律忽略。
+    let boonHpAdd = 0;
+    if (p.boons) {
+      for (let i = 0; i < C.BOON.options.length; i++) {
+        const o = C.BOON.options[i];
+        const n = p.boons[o.key] || 0;
+        if (!n) continue;
+        if (o.dmg) attrs.dmgMul += o.dmg * n;
+        if (o.hpPct) boonHpAdd += o.hpPct * n;
+      }
+    }
+    const boonScale = 1 + boonHpAdd;
+
     // ---------- 升级加血 ----------
     // 血量上限 = (基础血量 + 等级加成) × 角色/被动倍率。
     // 【为什么先加等级加成、再乘倍率】倍率回答的是「这个角色本身血厚不厚」，
@@ -1264,7 +1362,7 @@
     // 上限 C.PLAYER.hpPerLevelCap 是防「血量流叠到几千血彻底无敌」的兜底。
     // ★神龛的血量上限跟等级加成同一位置（乘倍率之前）：它也是「练出来的绝对值」。
     const lvHp = Math.min((p.level - 1) * C.PLAYER.hpPerLevel, C.PLAYER.hpPerLevelCap);
-    attrs.maxHp = Math.round((C.PLAYER.hp + lvHp + shrineHp + metaHp) * attrs.hpMul * pactScale);
+    attrs.maxHp = Math.round((C.PLAYER.hp + lvHp + shrineHp + metaHp) * attrs.hpMul * pactScale * boonScale);
     attrs.pickupRadius = C.PLAYER.pickupRadius * attrs.pickupMul;
 
     p.attrs = attrs;
@@ -1300,7 +1398,9 @@
     // ★第四十二轮把地脉灵泉也算进这一类：它的数值同样写在表里（leyDmgAt），
     //   打它的人和被打的人的 build 都不该让同一个灵泉一会儿清一片、一会儿清半片。
     //   ★但它**不静音连杀**（见 updateLeys 的说明）：那是玩家站着不动换来的。
-    const isWorld = src === 'meteor' || src === 'ley';
+    // ★第四十六轮把引魂灯的收尾冲击也算进来（lanternDmgAt）：同一个道理 ——
+    //   它是「跑完三盏灯」的一次性回报，数值必须对所有人一样。
+    const isWorld = src === 'meteor' || src === 'ley' || src === 'lantern';
     // ---------- 血怒的临时乘区（第三十八轮） ----------
     // ★放在暴击/斩杀**之前**：血怒是「底子变强」，暴击是「这一下翻倍」。
     //   反过来（先翻倍再乘血怒）数学上一样、但意义不同 —— 这里选「血怒先进基数」，
@@ -1564,6 +1664,44 @@
     // ★判定用的是 m.twinPair（配对号），不是 defId：复活出来的那只 defId 一样，
     //   但它的链接已断（twinPair=0），不会再次进入这个分支 —— 这就是「只复活一次」。
     if (m.twinPair) onTwinKilled(w, m);
+
+    // ---------- 饕餮：把肚子里的精魄全吐回来（第四十七轮） ----------
+    // 【为什么也挂在 killMob】与双生妖同一条：只有这里知道「它真的死了」。
+    //   ★它和「钻地跑掉」是两条完全不同的分支（那条走 devourerFlee，不经过这里），
+    //     所以「打死 → 吐回来」与「跑掉 → 带走」在代码上就是互斥的，不会同时发生。
+    if (def.devourer) onDevourerKilled(w, m);
+
+    // ---------- 罔两：2 个宝箱（第五十轮） ----------
+    // 【为什么是 2 个】这是整个机制的价码：影傀一个宝箱都不掉，
+    //   放它们合体再打死能拿 2 个 —— 玩家每次看见影傀都要算一遍
+    //   「现在打得动吗，值不值得赌这 2 个」。
+    // ★两个宝箱必须**错开落点**：叠在一个点上只会被一次性吸走，看着像"只掉了一个"。
+    if (def.wangliang) {
+      const mrule = C.MERGE || { rewardChest: 2 };
+      const cn = mrule.rewardChest || 0;
+      for (let i = 0; i < cn; i++) {
+        const ang = (Math.PI * 2 / (cn || 1)) * i + 0.6;
+        spawnPickup(w, 'chest',
+          m.x + Math.cos(ang) * 16, m.y + Math.sin(ang) * 16, 1, C.DROPS.chest.life);
+      }
+      w.events.push({
+        type: 'wangliang_down', x: Math.round(m.x), y: Math.round(m.y),
+        name: (w.nameTable && w.nameTable.mob[def.id]) || def.name
+      });
+    }
+
+    // ---------- 影傀：只给金币（第五十轮） ----------
+    // ★一个宝箱都没有，这是**故意**的：两边都给宝箱的话，
+    //   「阻止合体」与「放纵合体」的收益一样多，那个赌注就不存在了。
+    if (def.mergeSoul) {
+      const mrule = C.MERGE || { goldDrops: 3 };
+      const gn = mrule.goldDrops || 0;
+      for (let i = 0; i < gn; i++) {
+        const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+        spawnPickup(w, 'gold',
+          m.x + Math.cos(ang) * 14, m.y + Math.sin(ang) * 14, C.DROPS.goldValue);
+      }
+    }
 
     // 死亡特效，让打击感有反馈
     w.effects.push({ kind: 'death', x: m.x, y: m.y, r: def.r, life: 0.25, maxLife: 0.25, color: def.color });
@@ -1840,6 +1978,10 @@
     //   叠「坚壁」会让 6 秒内收掉一只变成不可能（直接判你失败），
     //   叠「狂暴」则让它跑得比玩家快、你又必须先磨血 —— 两条都把规则变成运气。
     if (def.twins) return 0;
+    // ★饕餮（第四十七轮）不挂：它的难度来自「38 秒的期限」这条规则本身。
+    //   叠「坚壁」= 你回头那 3 秒打不死它，只能看着它带着东西钻地；
+    //   叠「狂暴」= 它比玩家还快，吃完就跑，追不上。两种都把取舍变成运气。
+    if (def.devourer) return 0;
     const chance = C.affixChance ? C.affixChance(w.wave) : 0;
     if (!(chance > 0)) return 0;
     return rollAffix(w.wave, w.affixIdx || 0, mobId, chance);
@@ -3006,6 +3148,1855 @@
     return true;
   }
 
+  // ============================================================
+  // 歧路双碑（第四十八轮：两座只能取一座，一局只有五组）
+  // ============================================================
+  //
+  // 【它是什么】某一刻玩家左右各立起一座石碑：兵主碑（永久 +伤害）与玄龟碑
+  //   （永久 +生命上限、当场回一截血）。走上去只取**其中一座** —— 另一座当场碎裂，
+  //   这一局再也不会出现同样的选择（一局最多五组）。详见 const.js 的 BOON 段。
+  //
+  // 【为什么它是第 14 件，而不是「又两个白给的点位」】
+  //   前面十三件增量都让玩家**做**一件事，但没有一件要求**放弃**：点位之间
+  //   从来互不影响，走过去全都拿走就行（引魂灯的三盏是同一条路线上的三点，
+  //   考的是排序，不是放弃）。歧路双碑第一次把「另一个就在旁边、你眼睁睁看着
+  //   它碎掉」摆在同一个画面里 —— 这是全项目唯一一个**奖励之间互斥**的机制。
+  //
+  // 【★状态放在哪】
+  //   · 两座碑 = 两条 pickups（kind 'boon'，value 1/2 区分是哪一座）；
+  //   · 组号 it.group **只存在服务端**（协议里没有这个字段，客户端也不需要：
+  //     它只要把两座碑画成两种样子，"谁和谁是一对"由画面自己说明）；
+  //   · 玩家身上的层数 = p.boons = { blade: n, shell: n }，由 recalcAttrs 汇总 ——
+  //     与神龛 / 血契 / 山海谱同一个汇总点，升级、进化、买 buff、复活都不会弄丢。
+  //
+  // ★★与挑战者 / 山魈 / 双生妖 / 陨星 / 灵泉 / 血祭坛 / 引魂灯 / 饕餮同一条铁律：
+  //   整段**不许碰 nextRand** —— 它在任意 tick 插进来，一旦取走随机数，
+  //   后面每一波的落点都会整体错位。落点角度全部走 affixHash 散列。
+
+  // 场上还剩几座碑（同屏上限用：一组两座）
+  function countAliveBoons(w) {
+    let n = 0;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'boon') n += 1;
+    }
+    return n;
+  }
+
+  // 选一组落点：锚在「自己」周围，两座分别偏 ±半个夹角。
+  // ★撞障碍时必须**整组一起转向**：只转其中一座会让两座的间距忽近忽远，
+  //   玩家一眼就能看出「这一组是坏的」（也会让「只能取一座」这件事变模糊）。
+  function pickBoonPoints(w) {
+    const rule = C.BOON;
+    const anchor = w.self || w.players[0];
+    if (!rule || !anchor) return null;
+    const pad = 70;
+    const half = rule.spreadAngle / 2;
+    // ★角度来自散列而不是 nextRand（老坑：会整体错位后面每一波的落点）。
+    //   第二个参数用**组序号**：每一组从不同方向立起来，不会次次出现在同一个位置。
+    const baseA = affixHash((w.boonGroupSeq || 0) + 1, 4639, 'boon') * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+      const a = baseA + (i * Math.PI) / 4;
+      const pts = [];
+      let ok = true;
+      for (let k = 0; k < 2; k++) {
+        const ang = a + (k === 0 ? -half : half);
+        const x = clamp(anchor.x + Math.cos(ang) * rule.offset, pad, w.map.w - pad);
+        const y = clamp(anchor.y + Math.sin(ang) * rule.offset, pad, w.map.h - pad);
+        // 不能落在石头里：跑不进去的碑等于没有
+        if (pointBlocked(w, x, y, 22)) { ok = false; break; }
+        pts.push({ x: x, y: y });
+      }
+      if (!ok) continue;
+      // ★★贴边（clamp）之后两座可能被挤到玩家脚下 —— 玩家站在地图角落时尤其明显。
+      //   挤得太近的后果不是"不好看"，而是**玩家根本没做选择**：
+      //   落在拾取半径（约 26px）里的那座会被自动吃掉，另一座随之碎裂。
+      //   所以两座都必须离锚点至少 offset 的七成，不然就换一个方向重立
+      //   （八个方向都不行 → 返回 null，由调用方短等 2 秒再试，等玩家走出角落）。
+      const minD = rule.offset * 0.7;
+      if (distance(anchor.x, anchor.y, pts[0].x, pts[0].y) < minD) continue;
+      if (distance(anchor.x, anchor.y, pts[1].x, pts[1].y) < minD) continue;
+      // ★夹在一起的两座还要再查一次间距：叠成一块的话"两座"这件事看不出来
+      if (distance(pts[0].x, pts[0].y, pts[1].x, pts[1].y) < 60) continue;
+      return pts;
+    }
+    return null;
+  }
+
+  // 立起一组（两座）。返回那一组 pickup；位置不成立时返回 null。
+  function spawnBoons(w) {
+    const rule = C.BOON;
+    const pts = pickBoonPoints(w);
+    if (!pts) return null;
+
+    w.boonGroupSeq = (w.boonGroupSeq || 0) + 1;
+    const group = w.boonGroupSeq;
+    const out = [];
+    for (let k = 0; k < 2; k++) {
+      // ★value 就是「哪一座」：1 = 兵主碑、2 = 玄龟碑。
+      //   用一个 kind + value 而不是两个 kind，是为了只往串池加一个字符串
+      //   （索引即协议，能少加一个就少一个坑）。
+      // ★spawnPickup 没有返回值（它是无脑 push）→ 必须取数组末尾那一颗。
+      spawnPickup(w, 'boon', pts[k].x, pts[k].y, k + 1, rule.lifeSec);
+      const it = w.pickups[w.pickups.length - 1] || null;
+      if (!it) continue;
+      it.group = group;
+      out.push(it);
+    }
+    if (!out.length) return null;
+
+    w.boonSpawned = (w.boonSpawned || 0) + 1;
+    w.boonRounds = (w.boonRounds || 0) + 1;
+    w.events.push({
+      type: 'boon',
+      sec: rule.lifeSec,
+      round: w.boonRounds,
+      maxRounds: rule.maxRounds,
+      left: Math.max(0, rule.maxRounds - w.boonRounds)
+    });
+    return out;
+  }
+
+  // 每帧调一次（放在血祭坛之后、引魂灯之前）。五道闸。
+  function maybeSpawnBoons(w) {
+    const rule = C.BOON;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者 / 神龛 / 赤月 / 陨星 / 山魈 / 灵泉 /
+    //    血祭坛 / 双生妖 / 引魂灯 / 饕餮同一条纪律）。剧情关是逐关手工配平的，
+    //    凭空多一条「永久加伤害或上限」会破坏配好的血量曲线。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一组
+    if (w.tick < w.boonNextTick) return null;
+
+    // ④ ★总预算用完了：这一局不再给。
+    //   「一局只有五次」不是吝啬，而是让每一次都当成最后一次来选 ——
+    //   无限循环的话，选错的代价会被下一次抹平，这个机制就没有重量了。
+    if ((w.boonRounds || 0) >= rule.maxRounds) return null;
+
+    // ⑤ 同屏最多一组：地上还留着上一次没取的两座时不再立新的。
+    //    ★只**短等 2 秒**，不顺延整个 148 秒（陨星/引魂灯/饕餮都踩过这个坑：
+    //      玩家一直不去，后面的排期会被整体推到很久之后）。
+    if (countAliveBoons(w) > 0) {
+      w.boonNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+
+    const arr = spawnBoons(w);
+    if (!arr) {
+      // 找不到空位（贴边 + 障碍）：短等重试，理由同上
+      w.boonNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+    w.boonNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return arr;
+  }
+
+  // 取走一座碑：加一层，另一座由 updatePickups 的收尾统一摘掉。
+  // ★这里**不删另一座**：updatePickups 正在用 write 指针原地压缩数组，
+  //   在这里删会把它后面还没搬完的项一起丢掉 —— 表现是「地上凭空少了几颗球」
+  //   （那种 bug 只能靠「球的总数对不对」去查，很难联想到是这里）。
+  function applyBoon(w, p, it) {
+    const rule = C.BOON;
+    if (!rule || !p || !p.alive) return false;
+    const idx = it.value === 2 ? 1 : 0;
+    const opt = rule.options[idx];
+    if (!opt) return false;
+
+    if (!p.boons) p.boons = {};
+    p.boons[opt.key] = (p.boons[opt.key] || 0) + 1;
+    const lvl = p.boons[opt.key];
+
+    // 重算属性走 w.player 上下文（与 applyPact / applyShrine 同一套做法）：
+    // 不切的话联机里会拿「自己」的属性去重算别人 —— 表现是「队友取了碑，我变强了」。
+    const prevCtx = w.player;
+    setCtx(w, p);
+    recalcAttrs(w);
+
+    // 玄龟碑当场回一截血。★必须在**重算之后**按新上限算：
+    //   反过来的话回血量按旧上限给，玩家看到的「+22%」总会差一点点
+    //   （而且层数越多差得越多，越容易被误判成 bug）。
+    let healed = 0;
+    if (opt.healPct > 0) {
+      const before = p.hp;
+      healPlayer(w, Math.round(p.maxHp * opt.healPct));
+      healed = Math.max(0, Math.round(p.hp - before));
+    }
+    if (prevCtx && prevCtx !== p) setCtx(w, prevCtx);
+
+    w.boonTaken = (w.boonTaken || 0) + 1;
+    w.boonChosenGroup = it.group || 0;
+
+    w.events.push({
+      type: 'boon_taken',
+      slot: p.slot,
+      name: p.name,
+      which: opt.key,
+      label: opt.name,
+      level: lvl,
+      // ★另一座的名字必须报出来：**这就是这一轮唯一的代价**。
+      //   只播「你获得了伤害 +14%」的话，碎掉的那一座在玩家的账本里等于没存在过，
+      //   下次他就会以为这是个「走过去就有两份加成」的点位。
+      other: rule.options[idx === 0 ? 1 : 0].name,
+      healed: healed
+    });
+    return true;
+  }
+
+  // ============================================================
+  // 镇妖钟（第四十九轮：把妖群牵到你要的地方）
+  // ============================================================
+  //
+  // 【它是什么】某一刻玩家身边 190px 处立起一口铜钟，走过去踩一下 = 敲响：
+  //   半径 460 内**所有妖物的移动目标从「你」改成「钟」**，它们掉头走向钟下、
+  //   走到 30px 处站住；7 秒后钟声停，妖群重新回头找你。详见 const.js 的 BELL 段。
+  //
+  // 【为什么它是第 15 件，而不是又一个「走过去拿东西」的点位】
+  //   前面十四件全部是**你动**：走过去、打掉它、停下来、付账、放弃一个。
+  //   玩家能控制的从头到尾只有自己的脚，妖群怎么走是它们的事。
+  //   镇妖钟第一次让玩家去拨动**妖群的脚** —— 全项目唯一的「牵引」类机制。
+  //
+  // 【★实现上最关键的一条：只改方向，不改速度大小】
+  //   牵引这一支拿 m.vx / m.vy 的**模长**当速度，再把方向换成正对钟心。
+  //   为什么不去读 m.def.speed 重算一遍？因为有效速度里有光环、词缀（狂暴快/坚壁慢）、
+  //   赤月、冲锋倍率、定身这些乘区 —— 自己算一份就等于把它们复制一遍，
+  //   迟早在某一层上漏掉（moveMobToward 的注释里写着同一条纪律）。
+  //   复用量纲还有个副作用是免费的正确性：**被牵的怪不会变快**（不会「被吸飞」）。
+  //
+  // 【★三类妖物不理会钟声】Boss / 山魈 / 饕餮，理由见 const.js 的 BELL 段，
+  //   由 bellPullable() 一处挡掉（simtest 三类各钉了一条）。
+  //
+  // ★★与挑战者 / 山魈 / 双生妖 / 陨星 / 引魂灯 / 饕餮 / 双碑同一条铁律：
+  //   整段**不许碰 nextRand**。落点角度走 affixHash 散列（可复现、两端一致）。
+  //
+  // 【状态放在哪】钟本身是一条 `pickups`（kind 'bell'），与宝箱/神龛/血祭坛/引魂灯/
+  //   双碑共用同一个列表、同一个快照字段 —— 协议一个字节都不用加。
+  //   真正在响的**钟声**（圆心 + 到期时刻）记在 w.bellRing 上：
+  //   那是服务端事实，客户端不需要（它看地上那个素白圈就知道在响）。
+
+  // 场上还剩几口钟（同屏上限看它）
+  function countAliveBells(w) {
+    let n = 0;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'bell') n += 1;
+    }
+    return n;
+  }
+
+  // 选钟位：锚在玩家 190px 外，八个方向里挑一个不撞石头、也不被贴边挤到脚下的。
+  // ★角度来自散列而不是 nextRand（老坑：会整体错位后面每一波的落点）。
+  function pickBellPoint(w) {
+    const rule = C.BELL;
+    const anchor = w.self || w.players[0];
+    if (!rule || !anchor) return null;
+    const pad = 70;
+    const baseA = affixHash((w.bellSeq || 0) + 1, 7841, 'bell') * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+      const a = baseA + (i * Math.PI) / 4;
+      const x = clamp(anchor.x + Math.cos(a) * rule.offset, pad, w.map.w - pad);
+      const y = clamp(anchor.y + Math.sin(a) * rule.offset, pad, w.map.h - pad);
+      // 不能立在石头里：走不进去的钟等于没有
+      if (pointBlocked(w, x, y, 20)) continue;
+      // ★被贴边 clamp 之后可能正好落在玩家脚下 —— 那样玩家「一抬手就敲了」，
+      //   等于自动触发，「什么时候敲」这个唯一的决定就消失了。
+      //   所以离锚点必须还有 offset 的六成，否则换一个方向重立。
+      if (distance(anchor.x, anchor.y, x, y) < rule.offset * 0.6) continue;
+      return { x: x, y: y };
+    }
+    return null;
+  }
+
+  // 立一口钟。返回那条 pickup；位置不成立时返回 null。
+  function spawnBell(w) {
+    const rule = C.BELL;
+    const pt = pickBellPoint(w);
+    if (!pt) return null;
+    // ★spawnPickup 没有返回值（它是无脑 push）→ 必须取数组末尾那一颗
+    spawnPickup(w, 'bell', pt.x, pt.y, 0, rule.lifeSec);
+    const it = w.pickups[w.pickups.length - 1] || null;
+    if (!it) return null;
+
+    w.bellSeq = (w.bellSeq || 0) + 1;
+    w.bellSpawned = (w.bellSpawned || 0) + 1;
+    w.events.push({
+      type: 'bell',
+      lifeSec: rule.lifeSec,
+      ringSec: rule.ringSec,
+      radius: rule.radius
+    });
+    return it;
+  }
+
+  // 每帧调一次（放在歧路双碑之后、引魂灯之前）。五道闸，与其它事件同构。
+  function maybeSpawnBell(w) {
+    const rule = C.BELL;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者/神龛/赤月/陨星/山魈/灵泉/血祭坛/
+    //    双生妖/引魂灯/饕餮/双碑同一条纪律）。剧情关是逐关手工配平的，
+    //    凭空多一个「群体控制」会直接抹掉配好的走位难度。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一口
+    if (w.tick < w.bellNextTick) return null;
+
+    // ④ 同屏最多一口：地上还立着（含正在响的）就不再立新的。
+    //    ★只**短等 retrySec**，不顺延整个 132 秒（陨星/引魂灯/饕餮/双碑都踩过）。
+    if (countAliveBells(w) >= rule.maxAlive) {
+      w.bellNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+
+    const it = spawnBell(w);
+    if (!it) {
+      // 找不到空位（贴边 + 障碍）：短等重试，理由同上
+      w.bellNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+    w.bellNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return it;
+  }
+
+  // 敲响：钟自己留在原地（还画在圈的中央），钟声状态记到 w.bellRing 上。
+  // ★已经在响的（value === 1）再踩什么都不做 —— 不重复计时、不重复播报。
+  function tollBell(w, p, it) {
+    const rule = C.BELL;
+    if (!rule || !it) return false;
+    if (it.value === 1) return false;
+
+    it.value = 1;
+    // 钟的剩余寿命直接改成「响完就消失」：地上的钟与地上的圈必须同生共死，
+    // 否则会出现「圈没了、钟还杵在那儿」（玩家会以为还能再敲一次）。
+    it.life = rule.ringSec;
+
+    w.bellRing = { x: it.x, y: it.y, until: w.time + rule.ringSec };
+    w.bellTolls = (w.bellTolls || 0) + 1;
+
+    // 钟声的圈：走 zones 这条已经跑了两年的管线（双端都画、自动进快照）。
+    // ★为什么是 zone 而不是特效：它的半径**就是判定半径** ——
+    //   圈画在哪儿，牵引就管到哪儿，两者必须是同一个数字。
+    w.zones.push({
+      id: w.nextId++,
+      x: it.x, y: it.y,
+      r: rule.radius,
+      life: rule.ringSec, maxLife: rule.ringSec,
+      color: rule.ringColor
+    });
+
+    w.events.push({
+      type: 'bell_toll',
+      // ★没有 slot：钟声改变的是**整个战场**（所有妖物的走向都换了），
+      //   只推给敲钟那个人，队友就会看到「怪突然都不追我了」而没有任何解释
+      //   —— 与血祭坛/双碑那条「个人收益只播给本人」正好相反，这里必须广播。
+      name: p ? p.name : '',
+      sec: rule.ringSec,
+      radius: rule.radius
+    });
+    return true;
+  }
+
+  // 钟声到期：把状态清掉。
+  // ★不清也不算错（时间判据本身挡得住），但「现在有没有钟在响」这个问题的答案
+  //   会永远停在「有」—— 以后任何人加一支读 w.bellRing 的逻辑都会写错。
+  function tickBell(w) {
+    const ring = w.bellRing;
+    if (!ring) return;
+    if (w.time < ring.until) return;
+    w.bellRing = null;
+  }
+
+  // 这只妖物会不会被钟声牵走？
+  // ★三类行为特殊的妖物不理会钟声（理由见 const.js 的 BELL 段）：
+  //   Boss 牵着走整场变成遛狗、山魈/饕餮的身份就是「不追你」。
+  function bellPullable(m) {
+    if (!m || !m.alive) return false;
+    const k = m.def && m.def.kind;
+    if (k === 'boss' || k === 'summoner' || k === 'devourer') return false;
+    return true;
+  }
+
+  // 钟声牵引：把这一帧的方向从「玩家」改成「钟」。
+  // ★只改**方向**、不改速度大小（理由见本段开头的说明）。
+  // ★圈外一步都不许牵；到钟下（standRadius 内）就站住。
+  function applyBellPull(w, m) {
+    const ring = w.bellRing;
+    if (!ring) return false;
+    if (w.time >= ring.until) return false;      // 钟声已停（下一秒都不许多牵）
+    if (!bellPullable(m)) return false;
+
+    const rule = C.BELL || { radius: 460, standRadius: 30 };
+    const dx = ring.x - m.x;
+    const dy = ring.y - m.y;
+    const d2 = dx * dx + dy * dy;
+    if (d2 > rule.radius * rule.radius) return false;
+
+    const d = Math.sqrt(d2);
+    if (d <= rule.standRadius) {
+      // 到钟下了就站住：不设这一条的话它们会一路压到钟心叠成一坨，
+      // 截图里只剩一团色块，玩家看不出「来了多少只」。
+      m.vx = 0;
+      m.vy = 0;
+      return true;
+    }
+
+    // 定身 / 本来就站着不动的（vx=vy=0）不许被牵：没有速度可借，
+    // 硬给一个速度就等于钟声附带了一次「解定身 + 冲锋」。
+    const sp = Math.sqrt(m.vx * m.vx + m.vy * m.vy);
+    if (!(sp > 0.01)) return false;
+
+    m.vx = (dx / d) * sp;
+    m.vy = (dy / d) * sp;
+    return true;
+  }
+
+  // ============================================================
+  // 影傀 / 罔两（第五十轮：两只靠近就会合体的一对）
+  // ============================================================
+  //
+  // 【它是什么】某一刻从玩家两侧浮现一对「影傀」。它们**不理你，只朝彼此走**；
+  //   贴住并停留 1.4 秒就合体成「罔两」（血 = 两只当前血量之和 ×1.15、伤害翻倍）。
+  //   影傀只掉金币，罔两掉 2 个宝箱 —— 于是玩家要决定的是**什么时候打**，
+  //   而不是打不打。详见 const.js 的 MERGE 段。
+  //
+  // 【为什么这是全项目第一个「怪与怪之间」的机制】
+  //   前面十五件的作用对象是：玩家自己（血怒 / 赤月）、地上物（神龛 / 灵泉 / 双碑 /
+  //   引魂灯 / 镇妖钟）、单个怪（挑战者 / 山魈 / 饕餮 / 词缀）、整群怪（陨星 / 钟声）。
+  //   双生妖虽然是两只，但它的规则是「同命」—— 两只各自行动、各自挨打，
+  //   彼此之间没有任何作用力。影傀之间**有**：它们互相靠近、合体后原来两只就不存在了。
+  //
+  // 【★三条铁律】
+  //   ① 生成不许消费 nextRand：角度走 affixHash、相位走 spawnMob 的第 7 参 seed，
+  //      否则后面每一波的落点整体偏移（赤月 / 陨星 / 山魈 / 双生妖 / 钟都踩过）。
+  //   ② 合体必须**两只都判活**：玩家先点掉一只，另一只永远不能自行变成罔两。
+  //   ③ 合体的两只必须真的 alive=false —— 否则下一帧它们会再合一次，
+  //      而「合体」又会生成新的罔两：这是最容易写成无限循环的一段。
+
+  function isMergeSoul(m) {
+    return !!(m && m.alive && m.def && m.def.mergeSoul);
+  }
+
+  // 场上还有几只「影傀 + 罔两」。
+  // ★罔两也要算进去：不然一对影傀合体之后限额被腾出来，下一轮又刷一对，
+  //   场上会越堆越多只罔两（它的血量是两只之和，堆三只就等于白送一场必败局）。
+  function countAliveMergeFamily(w) {
+    let n = 0;
+    for (let i = 0; i < w.mobs.length; i++) {
+      const m = w.mobs[i];
+      if (!m.alive || !m.def) continue;
+      if (m.def.mergeSoul || m.def.wangliang) n += 1;
+    }
+    return n;
+  }
+
+  // 找配对的另一半。★「已经死了」也算找不到 ——
+  //   玩家点掉一只之后，另一只就永远落单（不会自行合体成罔两），
+  //   这是整个机制里最要紧的一条（simtest 有一整段专门推 60 秒验它）。
+  function findMergeMate(w, m) {
+    if (!m || !m.mateId) return null;
+    for (let i = 0; i < w.mobs.length; i++) {
+      const o = w.mobs[i];
+      if (o.id === m.mateId && o.alive && o.def && o.def.mergeSoul) return o;
+    }
+    return null;
+  }
+
+  // 一只影傀落在哪：以锚点玩家为心、ang 方向 radius 处。
+  // 撞障碍就每 18° 转一次（最多 20 次），全挡就原样返回 ——
+  // 碰撞层会把它推出来，不会卡死（与 ringSpawnPos 同一条兜底）。
+  function mergePoint(w, p, ang, radius) {
+    const bx = p ? p.x : w.map.w / 2;
+    const by = p ? p.y : w.map.h / 2;
+    const pad = 30;
+    for (let k = 0; k < 20; k++) {
+      const a = ang + k * 0.314;
+      const x = clamp(bx + Math.cos(a) * radius, pad, w.map.w - pad);
+      const y = clamp(by + Math.sin(a) * radius, pad, w.map.h - pad);
+      if (!pointBlocked(w, x, y, 26)) return { x: x, y: y };
+    }
+    return {
+      x: clamp(bx + Math.cos(ang) * radius, pad, w.map.w - pad),
+      y: clamp(by + Math.sin(ang) * radius, pad, w.map.h - pad)
+    };
+  }
+
+  // 生成**一对**影傀。返回实际生成的只数（0 / 1 / 2）。
+  // ★只返回 1 的那次不设 mateId：落单的影傀立刻退化成普通怪（追玩家），
+  //   而不是变成一块站在原地的木头。
+  function spawnMergePair(w) {
+    const rule = C.MERGE;
+    if (!rule) return 0;
+    if (w.mobs.length >= C.MAX_MOBS) return 0;
+    const anchor = pickChallengerAnchor(w, 'merge');
+    if (!anchor) return 0;
+
+    const seq = (w.mergeSeq || 0) + 1;
+    // 基准方向走散列（★不消费 nextRand）；seq 每对 +1，所以每一对从不同方位浮现
+    const base = affixHash(seq, 9137, 'merge') * Math.PI * 2;
+    const half = ((rule.pairHalf || 42) * Math.PI) / 180;
+
+    const born = [];
+    for (let side = 0; side < 2; side++) {
+      if (w.mobs.length >= C.MAX_MOBS) break;
+      const ang = base + (side ? half : -half);
+      const pos = mergePoint(w, anchor, ang, rule.offset || 340);
+      // ★seed = 确定性相位（spawnMob 的第 7 参）：不然它会去 nextRand 抽 phase
+      const m = spawnMob(w, rule.soulId, pos.x, pos.y, 1, 0, seq * 0.37 + side * 0.5);
+      if (!m) continue;
+      m.mateId = 0;
+      m.fuseT = 0;
+      born.push(m);
+    }
+    if (!born.length) return 0;
+    w.mergeSeq = seq;
+
+    if (born.length < 2) return 1;
+
+    // 两只互相记住对方（合体判定只从 id 小的那只出发，见 tickMerge）
+    born[0].mateId = born[1].id;
+    born[1].mateId = born[0].id;
+
+    // 浮现特效：凭空多出两只怪是最容易被当成 bug 的事，给一层"从地里渗出来"的提示
+    for (let i = 0; i < 2; i++) {
+      w.effects.push({
+        kind: 'boom', x: born[i].x, y: born[i].y, r: 30,
+        life: 0.26, maxLife: 0.26, color: rule.markColor
+      });
+    }
+
+    w.mergeSpawned = (w.mergeSpawned || 0) + 1;
+    w.events.push({ type: 'merge_pair', x: Math.round(born[0].x), y: Math.round(born[0].y) });
+    return 2;
+  }
+
+  // 该刷一对影傀了吗。五道闸，与其它事件同构（见 BELL / LANTERN）。
+  function maybeSpawnMerge(w) {
+    const rule = C.MERGE;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者/神龛/赤月/陨星/山魈/灵泉/血祭坛/
+    //    双生妖/引魂灯/饕餮/双碑/钟同一条纪律）。剧情关是逐关手工配平的，
+    //    凭空多一对「会自己合体变强」的精英会直接抹掉配好的强度曲线。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一对
+    if (w.tick < w.mergeNextTick) return null;
+
+    // ④ 同屏上限满了：★只**短等 retrySec**，不顺延整个 everySec
+    //    （陨星 / 引魂灯 / 饕餮 / 双碑 / 钟都踩过这个坑）
+    if (countAliveMergeFamily(w) >= rule.maxAlive) {
+      w.mergeNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+
+    // ⑤ 生成（每次可能来好几对，但总数不越过 maxAlive）
+    let total = 0;
+    const pairs = rule.pairsPerSpawn || 1;
+    for (let k = 0; k < pairs; k++) {
+      if (countAliveMergeFamily(w) >= rule.maxAlive) break;
+      const n = spawnMergePair(w);
+      if (n < 2) break;      // 只生成出一只（被 MAX_MOBS 截断）：这一轮到此为止
+      total += n;
+    }
+
+    // 一只都没生成出来 = 落点被挡 / 没活人：短等重试，别把整串排期推走
+    if (total <= 0) {
+      w.mergeNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+    w.mergeNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return total;
+  }
+
+  // 把一对影傀合成罔两。
+  // 【为什么用「当前血量之和」而不是「上限之和」】这是第二条策略的入口：
+  //   先把两只都打残、再放它们合体，合出来的罔两血很少 —— 玩家用「少拿几次击杀经验」
+  //   换「2 个宝箱」。用上限算的话，先打残毫无意义，那条策略直接被抹掉。
+  function fuseDuo(w, a, b) {
+    const rule = C.MERGE;
+    if (!rule) return null;
+    // ★这块闸必须自己判：spawnMob 内部**没有** MAX_MOBS 闸（闸都在各调用点）。
+    //   写「上限满了就短等重试」之前忘了这一条，那段就是死代码（双生妖复活踩过）。
+    if (w.mobs.length >= C.MAX_MOBS) return null;
+
+    const mx = (a.x + b.x) * 0.5;
+    const my = (a.y + b.y) * 0.5;
+    const hpSum = Math.max(0, a.hp) + Math.max(0, b.hp);
+
+    // ③ 铁律：两只必须真的消失，且断开配对（否则下一帧又合一次）
+    a.alive = false;
+    b.alive = false;
+    a.mateId = 0;
+    b.mateId = 0;
+
+    const beast = spawnMob(w, rule.mobId, mx, my, 1, 0, 4.7);
+    if (!beast) return null;
+    const hp = hpSum * (rule.hpMul || 1);
+    beast.hp = hp;
+    beast.maxHp = hp;
+    beast.mateId = 0;
+
+    w.mergeFused = (w.mergeFused || 0) + 1;
+    w.effects.push({
+      kind: 'boom', x: mx, y: my, r: 62,
+      life: 0.32, maxLife: 0.32, color: rule.fuseColor
+    });
+    w.events.push({
+      type: 'wangliang', x: Math.round(mx), y: Math.round(my),
+      hp: Math.round(hp), chest: rule.rewardChest || 0
+    });
+    return beast;
+  }
+
+  // 每帧推进「贴近 → 融合计时 → 合体」。
+  // 【为什么放在 updateMobs 之后而不是里面】位置整合在 updateMobs 末尾，
+  //   只有那时才拿得到本帧的真实距离；放在循环里读到的是「一半的位移」。
+  function tickMerge(w, dt) {
+    const rule = C.MERGE;
+    if (!rule) return;
+    const list = w.mobs;
+    for (let i = 0; i < list.length; i++) {
+      const a = list[i];
+      if (!a.alive || !a.def || !a.def.mergeSoul) continue;
+      if (!a.mateId) continue;
+      const b = findMergeMate(w, a);
+      if (!b) continue;
+      // ★只从 id 小的那一只出发：两只各算一遍的话，同一对会被推进两次
+      //   （第二次推进时对方已经 alive=false，看着"没发生"，但 fuseT 会翻倍）。
+      if (a.id > b.id) continue;
+
+      const d = distance(a.x, a.y, b.x, b.y);
+      if (d > (rule.mergeDist || 52)) {
+        a.fuseT = 0;      // 被击退 / 绕开了就重新计时（这一条让"打断合体"成为可能）
+        continue;
+      }
+      a.fuseT = (a.fuseT || 0) + dt;
+      if (a.fuseT < (rule.fuseSec || 1.4)) continue;
+      // 合体失败（撞上 MAX_MOBS）就把计时归零、原地再等一轮 ——
+      // 不能让 fuseT 一直 >= fuseSec，否则每帧都试着生成一只新的
+      if (!fuseDuo(w, a, b)) a.fuseT = 0;
+    }
+  }
+
+  // ============================================================
+  // 精卫衔石（第五十一轮：会自己飞走、也会死在你眼皮底下的目标）
+  // ============================================================
+  //
+  // 【它是什么】某一刻一位「精卫」从玩家身边 210px 处起飞，朝一个方向直飞 700px
+  //   （约 10 秒）。路上妖物贴到她就掉血：单只每秒 7 点、同时最多算 8 只。
+  //   护她到终点 → 原地落 2 只宝箱；半路被打死 → 什么都不掉，只留一地羽毛。
+  //   详见 const.js 的 ESCORT 段。
+  //
+  // 【为什么它是第 17 件】
+  //   前面十六件里，作用对象依次是：玩家自己（血怒 / 赤月）、地上物（神龛 / 灵泉 /
+  //   血祭坛 / 双碑 / 引魂灯 / 镇妖钟）、单个怪（挑战者 / 山魈 / 饕餮 / 词缀 / 合体妖）、
+  //   整群怪（陨星 / 钟声）。这些都有一个共同前提：**你不去，它就一直等你**
+  //   （连镇妖钟都要等你走过去才响）。精卫不等你 —— 她朝一个你选不了的方向飞，
+  //   而且会死。这是全项目第一次「有一个目标物，它的位置不听你的」。
+  //
+  // 【为什么她不是一只怪，而是一条 pickups】
+  //   ★做成 mobs 的话，玩家的每一支武器都会去打她（武器全是按 mobs 找目标的）：
+  //     要么得给每支武器加一层"别打自己人"的过滤（改动面铺开到全部武器分支），
+  //     要么玩家会看到自己的输出全喂给了一只要保护的东西 —— 后者是致命的体验事故。
+  //   做成 pickups 里的一种 kind，武器天然看不见她；坐标、插值、联机同步全是现成的
+  //   （proto_bin 的 pickups 字段表一个字节都不用加，applySnap 的四处契约也不用补）。
+  //   ★代价是"血量"没法进快照 —— 所以借 pickups 本来就有的 `value` 当**血量百分比**
+  //   （0~100）传给客户端画血环。与地脉灵泉借 strikes.delay 当充能进度是同一条路子。
+  //
+  // ★★三条铁律
+  //   ① 生成不许消费 nextRand：方位走 affixHash（可复现、两端一致），
+  //      否则后面每一波的落点整体偏移（赤月 / 陨星 / 山魈 / 双生妖 / 钟 / 影傀都踩过）。
+  //   ② 她**必须在上限闸里数得进去**：同屏已有一只就不再生成（只短等 retrySec），
+  //      否则两只一起飞，"跟不跟"这个唯一的决定会变成"跟哪只"。
+  //   ③ 同一帧既被打穿又刚好压线时，**死优先**（见 tickEscort 里的判定顺序）：
+  //      她若在抵达的一瞬间被打穿，玩家看到的是"她没了"，这时候给奖励
+  //      会让人以为自己赢了却不知道赢在哪。宁可判负。
+
+  // 场上还剩几只精卫（同屏上限看它）
+  function countAliveEscorts(w) {
+    let n = 0;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'escort') n += 1;
+    }
+    return n;
+  }
+
+  // 选一条航线：起点锚在玩家 offset 外，终点再沿同一方向 flight 远。
+  // ★整条路径纯确定性：只读 w.escortSeq 与地图尺寸，一个随机数都不取。
+  // ★两遍挑选：先要"完整航程"（不被地图边缘截断），都不满足才退一步要
+  //   "至少 45% 航程" —— 玩家贴着地图角落站着时，仍然得有一条能飞的线，
+  //   否则这个机制会在他最需要喘口气的时候永远刷不出来。
+  function pickEscortPath(w) {
+    const rule = C.ESCORT;
+    const anchor = w.self || w.players[0];
+    if (!rule || !anchor) return null;
+    const pad = 70;
+    const baseA = affixHash((w.escortSeq || 0) + 1, 9127, 'escort') * Math.PI * 2;
+    let best = null;
+    let bestLen = 0;
+
+    for (let i = 0; i < 8; i++) {
+      const a = baseA + (i * Math.PI) / 4;
+      const sx = clamp(anchor.x + Math.cos(a) * rule.offset, pad, w.map.w - pad);
+      const sy = clamp(anchor.y + Math.sin(a) * rule.offset, pad, w.map.h - pad);
+      // ★起点不能被贴边 clamp 到玩家脚下：那样她一生出来就在人堆里，
+      //   "起飞"这一瞬根本看不见（镇妖钟立钟时踩过同款）。
+      if (distance(anchor.x, anchor.y, sx, sy) < rule.offset * 0.7) continue;
+
+      const tx = clamp(sx + Math.cos(a) * rule.flight, pad, w.map.w - pad);
+      const ty = clamp(sy + Math.sin(a) * rule.flight, pad, w.map.h - pad);
+      const len = distance(sx, sy, tx, ty);
+      if (len > bestLen) { bestLen = len; best = { x: sx, y: sy, tx: tx, ty: ty, len: len }; }
+      if (len >= rule.flight * 0.8) return { x: sx, y: sy, tx: tx, ty: ty, len: len };
+    }
+    if (best && bestLen >= rule.flight * 0.45) return best;
+    return null;
+  }
+
+  // 放出一只精卫。返回那条 pickup；航线不成立时返回 null。
+  function spawnEscort(w) {
+    const rule = C.ESCORT;
+    const path = pickEscortPath(w);
+    if (!path) return null;
+
+    // ★spawnPickup 没有返回值（它是无脑 push）→ 必须取数组末尾那一颗
+    spawnPickup(w, 'escort', path.x, path.y, 100, rule.lifeSec);
+    const it = w.pickups[w.pickups.length - 1] || null;
+    if (!it) return null;
+
+    // 终点与血量记在**服务端实体**上（客户端不需要：它只要看见"她往哪边飘"）。
+    // ★tx/ty/hp/hpMax 都不在 pickups 字段表里 —— 它们一帧都不会过线，
+    //   过线的只有 x/y（坐标）与 value（血量百分比）。
+    it.tx = path.tx;
+    it.ty = path.ty;
+    it.hp = rule.hp;
+    it.hpMax = rule.hp;
+    it.hurt = 0;                 // 本帧贴着几只（测试与调试用，不进协议）
+
+    w.escortSeq = (w.escortSeq || 0) + 1;
+    w.escortSpawned = (w.escortSpawned || 0) + 1;
+
+    w.events.push({
+      type: 'escort',
+      name: rule.name,
+      // 航程与秒数给播报用：玩家要能立刻判断"这趟值不值得跟"
+      dist: Math.round(path.len),
+      sec: Math.round(path.len / rule.speed),
+      hp: rule.hp
+    });
+    return it;
+  }
+
+  // 每帧调一次（放在影傀之后、引魂灯之前）。五道闸，与其它事件同构。
+  function maybeSpawnEscort(w) {
+    const rule = C.ESCORT;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者/神龛/赤月/陨星/山魈/灵泉/血祭坛/
+    //    双生妖/引魂灯/饕餮/双碑/钟/影傀同一条纪律）。剧情关是逐关手工配平的，
+    //    凭空多一个"必须离开原位去护航"的目标会直接抹掉配好的走位难度。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一只
+    if (w.tick < w.escortNextTick) return null;
+
+    // ④ 同屏最多一只。★只**短等 retrySec**，不顺延整个 148 秒
+    //    （陨星/引魂灯/饕餮/双碑/钟/影傀都踩过这个坑）。
+    if (countAliveEscorts(w) >= rule.maxAlive) {
+      w.escortNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+
+    const it = spawnEscort(w);
+    if (!it) {
+      // 贴着地图角落站着、八个方向都被截断：短等重试，理由同上
+      w.escortNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+    w.escortNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return it;
+  }
+
+  // 折翼：她被打穿了。
+  // ★"什么都没掉"是这一支的全部内容 —— 不要为了"安慰玩家"塞一点经验球进去：
+  //   护送失败的代价必须是一次**空手**，否则玩家会发现"故意让她死"更划算
+  //   （死得快 → 早点回来清怪 → 反而多拿击杀经验）。
+  function loseEscort(w, it) {
+    const rule = C.ESCORT;
+    w.escortLost = (w.escortLost || 0) + 1;
+    // 三片羽毛散开（纯表现，pixelfx 里没有 'feathers' 这个名字 → 走自绘）
+    for (let i = 0; i < 3; i++) {
+      const a = (i * Math.PI * 2) / 3;
+      w.effects.push({
+        kind: 'feathers',
+        x: it.x + Math.cos(a) * 14,
+        y: it.y + Math.sin(a) * 14,
+        r: 12,
+        life: 0.7, maxLife: 0.7,
+        color: rule.color
+      });
+    }
+    w.events.push({
+      type: 'escort_lost',
+      name: rule.name,
+      x: Math.round(it.x), y: Math.round(it.y)
+    });
+  }
+
+  // 抵达：宝箱落在地上（不是直接塞进 pendingLevels）。
+  // ★为什么走 spawnPickup 而不是直接给奖励：宝箱在这个游戏里一直是"走过去领"，
+  //   玩家对它的形状已经有预期；而且联机时"谁去拿"这件事留给玩家自己决定
+  //   （她落在谁脚边，谁就先拿到 —— 比"系统判给最近的人"更符合直觉）。
+  function finishEscort(w, it) {
+    const rule = C.ESCORT;
+    const list = w.pickups;
+    const dx = it.tx - it.x;
+    const dy = it.ty - it.y;
+    // 两只宝箱沿"垂直于航向"的方向各偏 22px：叠在同一点只会被一次性吸走，
+    // 看着像只掉了一个（影傀那轮踩过同款）。
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+    const nx = -dy / len;
+    const ny = dx / len;
+    const pad = 40;
+
+    for (let k = 0; k < rule.rewardChest; k++) {
+      const s = k === 0 ? -22 : 22;
+      const cx = clamp(it.x + nx * s, pad, w.map.w - pad);
+      const cy = clamp(it.y + ny * s, pad, w.map.h - pad);
+      spawnPickup(w, 'chest', cx, cy, 1, C.DROPS.chest.life);
+    }
+    // 她脚下再补一圈暖光（不是伤害圈，只是"这里落了东西"）
+    w.effects.push({
+      kind: 'boom',
+      x: it.x, y: it.y,
+      r: 40,
+      life: 0.45, maxLife: 0.45,
+      color: rule.hpColor
+    });
+
+    w.escortDone = (w.escortDone || 0) + 1;
+    w.events.push({
+      type: 'escort_done',
+      name: rule.name,
+      chest: rule.rewardChest,
+      x: Math.round(it.x), y: Math.round(it.y)
+    });
+    return list.length;
+  }
+
+  // 每帧推进（放在 updatePickups **之后**）。
+  // 【为什么在 updatePickups 之后】① 她的位置这一帧可能被别人改过（磁石名单已经把她排除，
+  //   但拾取循环里的 write 指针压缩会重排数组）；② 她抵达时要 push 两条宝箱，
+  //   放在拾取循环之后 push，那两条宝箱这一帧不会被"当场走过就吃掉"地判一次 ——
+  //   玩家看到的是"宝箱落在她脚下"，而不是"闪一下没了"。
+  function tickEscort(w, dt) {
+    const rule = C.ESCORT;
+    if (!rule) return;
+    const list = w.pickups;
+    const mobs = w.mobs;
+
+    // ★倒序遍历：本函数会把抵达/折翼的那一只从数组里摘掉，
+    //   正序遍历在 splice 之后会跳过下一项（同屏最多一只，但别把这条写死）。
+    for (let i = list.length - 1; i >= 0; i--) {
+      const it = list[i];
+      if (it.kind !== 'escort') continue;
+
+      // 记录上一帧位置，供客户端插值（pickups 的 px/py 是 prev 字段）
+      it.px = it.x;
+      it.py = it.y;
+
+      // ---------- ① 这一帧有多少妖物贴着她 ----------
+      let touch = 0;
+      for (let j = 0; j < mobs.length; j++) {
+        const m = mobs[j];
+        if (!m.alive) continue;
+        if (distance(m.x, m.y, it.x, it.y) <= (m.r || 0) + rule.r + rule.contactPad) touch += 1;
+      }
+      it.hurt = touch;
+      if (touch > 0) {
+        // ★上限 8 只：不设的话后期五十只怪从她身上碾过去是一帧秒杀 ——
+        //   玩家做什么都没用，机制就退化成"随机失败"。
+        const cap = touch < rule.contactCap ? touch : rule.contactCap;
+        it.hp -= cap * rule.touchDps * dt;
+      }
+      // 血量百分比写回 value（协议里唯一能表达她的状态的那一格）
+      it.value = it.hp > 0 ? Math.max(1, Math.min(100, Math.round((it.hp / it.hpMax) * 100))) : 0;
+
+      // ---------- ② ★先判死、再判抵达 ----------
+      if (it.hp <= 0) {
+        loseEscort(w, it);
+        list.splice(i, 1);
+        continue;
+      }
+
+      // ---------- ③ 飞向终点 ----------
+      const dx = it.tx - it.x;
+      const dy = it.ty - it.y;
+      const d = Math.sqrt(dx * dx + dy * dy);
+      if (d <= rule.arriveDist) {
+        finishEscort(w, it);
+        list.splice(i, 1);
+        continue;
+      }
+      // 不做地形碰撞：她在飞（地图上的石头/墓碑挡不住她）。
+      // ★但**妖物照样能贴到她** —— 那是这一整段唯一的压力来源。
+      const stepLen = rule.speed * dt;
+      const move = stepLen < d ? stepLen : d;
+      it.x += (dx / d) * move;
+      it.y += (dy / d) * move;
+    }
+  }
+
+  // ============================================================
+  // 大人之市（第五十二轮：把攒着的金币当场花掉）
+  // ============================================================
+  //
+  // 【它是什么】某一刻地上摆开一座摊子，摊上只摆**一件货**（散列定的：绷带 / 笔记 /
+  //   血契石），价钱是局内商店的七折。走上去：钱够就成交、钱不够它就在那儿等你，
+  //   **24 秒到点收摊**。详见 const.js 的 MARKET 段。
+  //
+  // 【为什么它是第 18 件】
+  //   前十七件里玩家付出去过时间、生命上限、位置、机会、击杀时机、挨打密度 ——
+  //   没有一件是**钱**。而金币在这游戏里一直是只进不出（局内商店只在单机暂停面板，
+  //   联机没有商店）。大人之市第一次让「你攒着的那笔钱」变成一个当场兑现的选择。
+  //
+  // 【★它是"商店"，但绝不复用商店的调用方式】
+  //   商店面板是**暂停时**的界面：世界不动、玩家在挑、点错了还能再看一遍。
+  //   摊子是**世界里**的一件东西：世界在跑、只有一秒决定、走过路过不能反悔。
+  //   所以这里只借 shopBuy 的**结算**（拒绝分支全在扣钱之前、血契石叠层上限、
+  //   走 gainExp / healPlayer / recalcAttrs），不借它的界面与暂停语义 ——
+  //   价格则通过 opt.price 传进去（见 shopBuy 里那行说明），商店本身的四个调用点一行都没改。
+  //
+  // ★★与挑战者 / 山魈 / 双生妖 / 陨星 / 灵泉 / 血祭坛 / 双碑 / 钟 / 影傀 / 精卫同一条铁律：
+  //   整段**不许碰 nextRand** —— 落点角度与货品都走 affixHash 散列。
+
+  // 这座摊子卖的是哪件货（it.value 就是 offers 的下标；值坏了按第一件兜底）
+  function marketOfferOf(it) {
+    const rule = C.MARKET;
+    if (!rule || !rule.offers || !rule.offers.length) return null;
+    let idx = it && typeof it.value === 'number' ? Math.round(it.value) : 0;
+    if (idx < 0 || idx >= rule.offers.length) idx = 0;
+    const id = rule.offers[idx];
+    const list = C.SHOP.items;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === id) return list[i];
+    }
+    return null;
+  }
+
+  // 摊上的价钱 = 商店价 × 折扣（至少 1 枚，免得出现"免费"）
+  function marketPriceOf(item) {
+    const rule = C.MARKET;
+    if (!item || !rule) return 0;
+    return Math.max(1, Math.round(item.price * rule.discount));
+  }
+
+  // 场上还剩几座摊子（同屏上限与「新一座能不能摆」都看它）
+  function countAliveMarkets(w) {
+    let n = 0;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'market') n += 1;
+    }
+    return n;
+  }
+
+  // 选摊子落点：锚在「自己」周围 offset 处，散列定角度，撞障碍就顺时针换角度。
+  // ★与血祭坛 / 双碑 / 钟同一套做法：它是**请你过去**的一个点，丢到屏幕外等于没有。
+  function pickMarketPoint(w) {
+    const rule = C.MARKET;
+    const anchor = w.self || w.players[0];
+    if (!anchor) return null;
+    const pad = 80;
+
+    // ★角度必须来自散列而不是 nextRand（老坑：会整体错位后面每一波的落点）
+    const baseA = affixHash(w.marketSeq + 3301, 37, 'market') * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+      const a = baseA + (i * Math.PI) / 4;
+      let x = anchor.x + Math.cos(a) * rule.offset;
+      let y = anchor.y + Math.sin(a) * rule.offset;
+      // 夹回地图内：贴边摆摊的话，摊子与玩家之间的距离会被墙吃掉一半
+      x = clamp(x, pad, w.map.w - pad);
+      y = clamp(y, pad, w.map.h - pad);
+      // 不能落在石头里：跑不进去的摊子等于没有
+      if (pointBlocked(w, x, y, 30)) continue;
+      return { x: x, y: y };
+    }
+    return null;
+  }
+
+  // 摆开一座摊子（返回那颗 pickup；位置不成立时返回 null）
+  function spawnMarket(w) {
+    const rule = C.MARKET;
+    const pt = pickMarketPoint(w);
+    if (!pt) return null;
+
+    // 卖什么：散列定，**不消费主随机流**。
+    // ★必须是「两端算得出同一个值」的确定性挑选：联机里服务端只发 value（下标），
+    //   客户端拿 C.MARKET.offers[value] 反查名字与价钱 —— 协议一个字节都不用加。
+    const h = affixHash(w.marketSeq + 9127, 53, 'market_offer');
+    const idx = Math.floor(h * rule.offers.length) % rule.offers.length;
+
+    // ★spawnPickup 没有返回值（无脑 push）→ 取数组末尾那一颗。
+    //   写 `const it = spawnPickup(...)` 会永远拿到 undefined（血祭坛踩过）。
+    spawnPickup(w, 'market', pt.x, pt.y, idx, rule.lifeSec);
+    const it = w.pickups[w.pickups.length - 1] || null;
+    if (!it) return null;
+    it.offer = rule.offers[idx];
+
+    w.marketSeq = (w.marketSeq || 0) + 1;
+    w.marketSpawned = (w.marketSpawned || 0) + 1;
+
+    const item = marketOfferOf(it);
+    w.events.push({
+      type: 'market',
+      x: Math.round(pt.x), y: Math.round(pt.y),
+      sec: rule.lifeSec,
+      item: it.offer,
+      itemName: item ? item.name : '',
+      price: marketPriceOf(item),
+      // 原价一起带上：提示条要能说出「便宜了多少」，否则玩家判断不了值不值
+      listPrice: item ? item.price : 0
+    });
+    return it;
+  }
+
+  // 每帧调一次。四道闸：剧情关 / 时间未到 / 未到下一次 / 场上已有一座。
+  function maybeSpawnMarket(w) {
+    const rule = C.MARKET;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者 / 神龛 / 赤月 / 陨星 / 山魈 / 灵泉 / 祭坛 /
+    //    双碑 / 钟 / 影傀 / 精卫同一条纪律）：剧情关是逐关手工配平的，
+    //    凭空多一条「花金币换属性」的支线会破坏配好的成长曲线。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一座的时点
+    if (w.tick < w.marketNextTick) return null;
+
+    // ④ 同屏最多一座：地上已经有一座没成交（或刚被拒绝）时不再摆新的。
+    //    ★只**短等 retrySec**，不顺延整个间隔 —— 否则玩家一直不去，
+    //      后面的排期会被整体推走（陨星/灯/饕餮/双碑/钟/影傀/精卫都踩过这个坑）。
+    if (countAliveMarkets(w) > 0) {
+      w.marketNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+
+    const it = spawnMarket(w);
+    if (!it) {
+      // 找不到空位（贴边 + 障碍）：短等重试，理由同上
+      w.marketNextTick = w.tick + Math.round(rule.retrySec * C.TICK_HZ);
+      return null;
+    }
+    w.marketNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return it;
+  }
+
+  // 走上一座摊子：成交 or 被拒绝。
+  // 返回 true = 成交（摊子被吃掉）；false = 拒绝（**摊子必须留在原地**）。
+  //
+  // ★★「拒绝」必须是**什么都不做**：不扣钱、不给货、不消耗摊子。
+  //   这一支最容易写错的是「先扣再判」—— 那样钱不够的玩家路过就被扣成 0，
+  //   而提示条上只会写「还差 20 金币」，没人看得出来钱去哪了（血祭坛同款坑）。
+  //
+  // ★三个会拒绝的情形，缺一个都会变成"白白花钱"：
+  //   ① 血是满的却买了绷带（60 点回复一滴不剩，等于把钱扔在地上）；
+  //   ② 血契石已经 3 层（shopBuy 会挡，但我们要先把播报说清楚）；
+  //   ③ 钱不够。
+  //   前两条都是「这件货现在对你没用」—— 系统替你把这笔钱留住。
+  function applyMarket(w, p, it) {
+    const rule = C.MARKET;
+    if (!rule || !p || !p.alive) return false;
+
+    // 拒绝播报只发一次：拒绝之后摊子还留在原地，玩家站在上面会每帧再踩一次，
+    // 不拦的话提示条会在一秒内刷几十条（血祭坛的 it.denied 同一套做法）。
+    function noteOnce(type, extra) {
+      if (it && it.denied) return;
+      if (it) it.denied = 1;
+      w.events.push(Object.assign({ type: type, slot: p.slot, name: p.name }, extra || {}));
+    }
+
+    const item = marketOfferOf(it);
+    if (!item) return false;
+    const price = marketPriceOf(item);
+
+    // ① 血是满的 → 绷带一滴都回不上，拒绝
+    if (item.cost && item.cost.hp && p.hp >= p.maxHp - 0.5) {
+      noteOnce('market_deny', {
+        reason: 'hp_full', item: item.id, itemName: item.name,
+        price: price, lack: 0
+      });
+      return false;
+    }
+
+    // ② 钱不够 → 说清「差多少」，摊子留在原地（回血/攒钱之后还能回来）
+    if (p.shopGold < price) {
+      noteOnce('market_deny', {
+        reason: 'no_gold', item: item.id, itemName: item.name,
+        price: price, lack: Math.round(price - p.shopGold)
+      });
+      return false;
+    }
+
+    // ③ 成交：走 shopBuy 的结算（拒绝分支全在扣钱之前、原子结算）。
+    //   ★price 通过 opt.price 传进去 —— shopBuy 的形参一个都没加，商店的四个调用点不用改。
+    const r = shopBuy(w, item.id, p, { price: price });
+    if (!r || !r.ok) {
+      // 剩下的拒绝理由来自 shopBuy 自己（例如血契石满 3 层）：原样播出去
+      noteOnce('market_deny', {
+        reason: (r && r.reason) || 'refused', item: item.id, itemName: item.name,
+        price: price, lack: 0
+      });
+      return false;
+    }
+
+    w.marketBought = (w.marketBought || 0) + 1;
+    if (it) it.sold = 1;
+
+    // 兑现的反馈：脚下溅一圈金光（复用 boom，不新增特效 kind —— 新增要进串池、
+    // 两条绘制管线各加一支，为一次脉冲不值得；血祭坛/合体也是这么做的）。
+    w.effects.push({
+      kind: 'boom', x: p.x, y: p.y, r: 56,
+      life: 0.36, maxLife: 0.36, color: rule.buyColor
+    });
+
+    w.events.push({
+      type: 'market_bought', slot: p.slot, name: p.name,
+      item: item.id, itemName: item.name,
+      price: price, listPrice: item.price,
+      gold: p.shopGold
+    });
+    return true;
+  }
+
+  // ============================================================
+  // 炼魂鼎（第五十三轮：把攒着的经验炼成一口血）
+  // ============================================================
+  //
+  // 【它是什么】玩家脚边浮起一座丹鼎：走上去，把"升下一级所需经验的 35%"投进鼎里，
+  //   当场回 30% 生命上限的血。修为换命，是全项目第一件动"经验"的玩法。
+  //   满血 / 经验槽余量不足 40% 时拒绝 —— 拒绝时什么都不做，鼎留在原地。
+  //
+  // 【★为什么整段不许碰 nextRand】它与其它事件一样在任意 tick 插进来，一旦取走
+  //   随机数，后面每一波的落点都会整体错位。落点角度一律走 affixHash 散列。
+  //
+  // ★刻意的协议零改动：鼎是 pickups 的一种 kind（走上去才生效的地面物件），
+  //   代价/回报都按玩家当前状态现算（读 expNext / maxHp），一个字段都不用进快照。
+
+  // 场上还剩几座鼎（同屏上限用）
+  function countAliveCauldrons(w) {
+    let n = 0;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'cauldron') n += 1;
+    }
+    return n;
+  }
+
+  // 选鼎的落点：锚在"自己"周围 offset 处，散列定角度，撞障碍就顺时针换角度。
+  // ★与血祭坛/大市同一套：它是"请你过去"的点位，不能丢到屏幕外。
+  function pickCauldronPoint(w) {
+    const rule = C.CAULDRON;
+    const anchor = w.self || w.players[0];
+    if (!anchor) return null;
+    const pad = 70;
+
+    // ★角度来自散列而不是 nextRand（老坑：会整体错位后面每一波的落点）
+    const baseA = affixHash(w.cauldronSeq + 6187, 37, 'cauldron') * Math.PI * 2;
+    for (let i = 0; i < 8; i++) {
+      const a = baseA + (i * Math.PI) / 4;
+      let x = anchor.x + Math.cos(a) * rule.offset;
+      let y = anchor.y + Math.sin(a) * rule.offset;
+      x = clamp(x, pad, w.map.w - pad);
+      y = clamp(y, pad, w.map.h - pad);
+      // 不能落在石头里：跑不进去的鼎等于没有
+      if (pointBlocked(w, x, y, 26)) continue;
+      return { x: x, y: y };
+    }
+    return null;
+  }
+
+  // 浮起一座炼魂鼎（返回那颗 pickup；位置不成立时返回 null）
+  function spawnCauldron(w) {
+    const rule = C.CAULDRON;
+    const pt = pickCauldronPoint(w);
+    if (!pt) return null;
+
+    // ★复用现成的"走上去就生效"实体（pickups 的 kind），不新造一套。
+    //   value 固定 1：鼎没有种类，代价/回报全按玩家当下状态算。
+    // ★spawnPickup 没有返回值（它无脑 push），取数组末尾那一颗。
+    spawnPickup(w, 'cauldron', pt.x, pt.y, 1, rule.lifeSec);
+    const it = w.pickups[w.pickups.length - 1] || null;
+    if (!it) return null;
+    w.cauldronSeq = (w.cauldronSeq || 0) + 1;
+    w.cauldronSpawned = (w.cauldronSpawned || 0) + 1;
+    w.events.push({
+      type: 'cauldron',
+      x: Math.round(pt.x), y: Math.round(pt.y),
+      sec: rule.lifeSec,
+      expCostPct: rule.expCostPct,
+      healPct: rule.healPct
+    });
+    return it;
+  }
+
+  // 每帧调一次（放在大市之后）。四道闸：剧情关 / 时间未到 / 未到下一次 / 场上已有。
+  function maybeSpawnCauldron(w) {
+    const rule = C.CAULDRON;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与其它全部事件同一条纪律）
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一座的时点
+    if (w.tick < w.cauldronNextTick) return null;
+
+    // ④ 同屏最多一座：地上还有一座没被踩（或刚被拒绝）时不再浮新的。
+    //    ★只短等 2 秒，不顺延整个间隔（陨星那一轮踩过的同款坑）。
+    if (countAliveCauldrons(w) > 0) {
+      w.cauldronNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+
+    const it = spawnCauldron(w);
+    if (!it) {
+      w.cauldronNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+    w.cauldronNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return it;
+  }
+
+  // 踩上一座炼魂鼎：投经验、换回血。
+  // 返回 true = 交易成立（鼎被吃掉）；false = 被拒绝（满血 / 经验不足），鼎原地不动。
+  //
+  // ★★"拒绝"必须是**什么都不做**：不扣经验、不回血、不消耗鼎。
+  //   这一支最容易写错的是"先扣再判"——那样残血又经验不足的玩家路过，
+  //   经验会被扣掉却一滴血没回，而界面上只会显示"修为不足"。simtest 钉了这一条。
+  //
+  // ★第三个参数 it（那座鼎）只用来**去掉重复播报**：拒绝之后鼎还留在原地，
+  //   玩家站在上面会每帧再踩一次 —— 不拦的话提示条会在一秒内刷几十条。
+  function applyCauldron(w, p, it) {
+    const rule = C.CAULDRON;
+    if (!rule || !p || !p.alive) return false;
+
+    function noteOnce(type, extra) {
+      if (it && it.denied) return;
+      if (it) it.denied = 1;
+      w.events.push(Object.assign({ type: type, slot: p.slot, name: p.name }, extra || {}));
+    }
+
+    // 代价：固定按"升下一级所需经验"算，与当前经验槽剩多少无关（见上面的说明）
+    const cost = Math.max(1, Math.round(p.expNext * rule.expCostPct));
+
+    // ① 满血 → 一口血都回不上，拒绝（不白扔经验）
+    if (p.hp >= p.maxHp - 0.5) {
+      noteOnce('cauldron_deny', {
+        reason: 'hp_full', cost: cost,
+        hpPct: p.maxHp > 0 ? p.hp / p.maxHp : 1
+      });
+      return false;
+    }
+
+    // ② 经验槽余量不足 → 付不起这笔账，拒绝（鼎留在原地，攒够了再回来）
+    if (p.exp < p.expNext * rule.minExpPct) {
+      noteOnce('cauldron_deny', {
+        reason: 'no_exp', cost: cost,
+        exp: p.exp, need: Math.ceil(p.expNext * rule.minExpPct)
+      });
+      return false;
+    }
+
+    // ③ 成交：扣经验 → 回血（原子结算，拒绝分支全排在扣减之前）
+    const expBefore = p.exp;
+    const hpBefore = p.hp;
+    p.exp = Math.max(0, p.exp - cost);
+    healPlayer(w, p.maxHp * rule.healPct);
+    w.cauldronTaken = (w.cauldronTaken || 0) + 1;
+    if (it) it.used = 1;
+
+    // 兑现的反馈：脚下溅一圈金光（复用 boom，不新增特效 kind —— 与血祭坛/大市同一条）
+    w.effects.push({
+      kind: 'boom', x: p.x, y: p.y, r: 56,
+      life: 0.36, maxLife: 0.36, color: rule.healColor
+    });
+
+    w.events.push({
+      type: 'cauldron_taken', slot: p.slot, name: p.name,
+      expCost: Math.round(expBefore - p.exp), expLeft: Math.round(p.exp),
+      hpGain: Math.round(p.hp - hpBefore), hp: Math.round(p.hp),
+      maxHp: Math.round(p.maxHp)
+    });
+    return true;
+  }
+
+  // ============================================================
+  // 引魂灯（第四十六轮：三盏一组的路线规划）
+  // ============================================================
+  //
+  // 【它是什么】某一刻地上同时亮起三盏引魂灯（散在玩家周围三个方向），
+  //   走过去就点着（不站桩、不停留），26 秒内点齐三盏 → 最后一盏灯脚下落
+  //   2 个宝箱 + 8 枚金币，并炸一次半径 240 的收尾冲击。详见 const.js 的 LANTERN 段。
+  //
+  // 【为什么它是「多点」而不是又一个「一个点」】
+  //   前面十一件增量各自只要求一个决定：先打哪只 / 去不去 / 停不停 / 付不付。
+  //   引魂灯第一次要求**一条路线** —— 三盏灯分散 360°，26 秒跑不完「每盏都慢慢来」，
+  //   于是「先近后远还是先远后近」成了玩家自己排的次序。这是全项目唯一一条
+  //   「点位之间有关系」的规则（其余的点位彼此毫无关联）。
+  //
+  // 【★状态放在哪】三盏灯本身就是三条 `pickups`（kind 'lantern'），
+  //   与宝箱/神龛/血祭坛共用同一个列表、同一个快照字段 —— 协议一个字节都不用加。
+  //   但「点了几盏 / 还差几盏」是**服务端事实**，记在 w.lanternRound 上，
+  //   客户端只通过事件播报知道进度（快照里没有它，也不该有：
+  //   一串「2/3」的进度条会把顶栏挤满，而这个玩法的进度天然由「地上还剩几盏灯」表达）。
+  //
+  // 【★为什么灯不被磁石吸走】见 updatePickups 的排除名单：
+  //   被吸过来就等于「路过自动点亮」，路线规划这件事就没了。
+  //
+  // ★★与挑战者 / 山魈 / 双生妖 / 陨星同一条铁律：整段**不许碰 nextRand**。
+  //   三盏灯的角度与半径全部走 affixHash 散列：可复现、两端一致、不污染主随机流。
+
+  // 场上还剩几盏没点着的灯（同屏上限与「新一组能不能开」都看它）
+  function countAliveLanterns(w) {
+    let n = 0;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].kind === 'lantern') n += 1;
+    }
+    return n;
+  }
+
+  // 选一盏灯的位置：锚在「主线玩家」周围 ringMin~ringMax 的环带上，散列定角度与半径。
+  // k = 这一组里的第几盏（0..count-1），roundIdx = 本局第几组。
+  // ★三点必须铺满 360°（k * 2π/3），否则三盏灯会挤在同一侧，
+  //   「先跑哪一盏」就退化成「顺着走一遍」。散列只在每个方位上抖动 ±0.28 弧度。
+  function pickLanternPoint(w, k, roundIdx) {
+    const rule = C.LANTERN;
+    const anchor = w.self || w.players[0];
+    if (!anchor) return null;
+    const pad = 70;
+    const total = rule.count > 0 ? rule.count : 1;
+
+    // 基准方位（每局每组不同，但同一组的三盏只差 2π/3）
+    const baseA = affixHash(roundIdx + 6101, 23, 'lantern') * Math.PI * 2;
+    // 每盏自己的抖动与半径（同样走散列，不取随机数）
+    const jitter = (affixHash(roundIdx + 6101, 71 + k, 'lantern') - 0.5) * 0.56;
+    const rad = rule.ringMin + affixHash(roundIdx + 6101, 131 + k, 'lantern') * (rule.ringMax - rule.ringMin);
+    const base = baseA + (k * Math.PI * 2) / total + jitter;
+
+    // 撞障碍就按 1/8 圈转着试（纯确定性）；全撞就放弃这一盏
+    for (let t = 0; t < 8; t++) {
+      const a = base + (t * Math.PI) / 4;
+      let x = anchor.x + Math.cos(a) * rad;
+      let y = anchor.y + Math.sin(a) * rad;
+      x = clamp(x, pad, w.map.w - pad);
+      y = clamp(y, pad, w.map.h - pad);
+      // 不能落在石头里：走不进去的灯等于没亮
+      if (pointBlocked(w, x, y, 26)) continue;
+      return { x: x, y: y };
+    }
+    return null;
+  }
+
+  // 点亮一组引魂灯。返回这一组的记录（有灯放不下时返回 null）。
+  // 【为什么不「有几盏放几盏」】三盏缺一盏就点不齐，那这一组注定拿不到奖励，
+  //   还会白占 26 秒的同屏闸。宁可整组不刷，等 2 秒重试（与双生妖同一口径）。
+  function spawnLanterns(w) {
+    const rule = C.LANTERN;
+    const idx = (w.lanternSpawned || 0) + 1;
+
+    const pts = [];
+    for (let k = 0; k < rule.count; k++) {
+      const pt = pickLanternPoint(w, k, idx);
+      if (!pt) return null;
+      pts.push(pt);
+    }
+
+    // 三盏灯之间必须真的拉开距离：贴在一起的三盏等于一盏（26 秒内一步点完，
+    // 「路线」这件事就不存在了）。最小间距取环带跨度的 40%。
+    const minGap = (rule.ringMax - rule.ringMin) * 0.4;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        if (distance(pts[i].x, pts[i].y, pts[j].x, pts[j].y) < minGap) return null;
+      }
+    }
+
+    for (let k = 0; k < rule.count; k++) {
+      // ★第七参不传：这批灯的位置已经算好，不需要再散列（spawnPickup 也不接受随机）。
+      spawnPickup(w, 'lantern', pts[k].x, pts[k].y, k, rule.lifeSec);
+    }
+
+    w.lanternSpawned = idx;
+    // 新一组开始：进度归零、到期时刻记下来（到期就作废，不需要逐盏判寿命）
+    w.lanternRound = {
+      id: idx,
+      lit: 0,
+      total: rule.count,
+      done: false,
+      expireTick: w.tick + Math.round(rule.lifeSec * C.TICK_HZ)
+    };
+    w.lanternLit = 0;
+
+    w.events.push({
+      type: 'lantern',
+      x: Math.round(pts[0].x), y: Math.round(pts[0].y),
+      count: rule.count,
+      sec: rule.lifeSec
+    });
+    return w.lanternRound;
+  }
+
+  // 每帧调一次（放在血祭坛之后）。
+  // 【为什么「清理上一组」放在最前面、而且在所有 return 之前】
+  //   一轮作废之后玩家可能半分钟都不再触发新的（时间未到 / 剧情关 / 同屏闸），
+  //   如果清理写在后面，w.lanternRound 就会一直挂着上一轮的死数据 ——
+  //   下一次点灯时会「凭空多出一盏的进度」，而中间没有任何报错。
+  function maybeSpawnLanterns(w) {
+    const rule = C.LANTERN;
+    if (!rule) return null;
+
+    // ① 先收尾：这一组已经作废（时间过了 / 三盏都灭了）就把记录清掉
+    const round = w.lanternRound;
+    if (round && !round.done) {
+      if (countAliveLanterns(w) === 0) {
+        // 剩下的一盏都没了（自然熄灭）：安静作废，**不惩罚、不播报** ——
+        // 与灵泉 16 秒到点同一条口径：「奖励没拿到」本身就是代价。
+        w.lanternRound = null;
+        return null;
+      }
+      if (w.tick >= round.expireTick) {
+        // ★到点：把没点着的灯直接抹掉。它们的 life 也快到了，但**必须由这里抹**，
+        //   因为「三盏灯同时消失」是一个事件（一组作废），而不是三次各自到期。
+        for (let i = w.pickups.length - 1; i >= 0; i--) {
+          if (w.pickups[i].kind === 'lantern') w.pickups.splice(i, 1);
+        }
+        w.lanternRound = null;
+        return null;
+      }
+    }
+
+    // ② 主线《补天纪》一律没有（与挑战者 / 神龛 / 赤月 / 陨星 / 山魈 / 灵泉 / 血祭坛 / 双生妖
+    //    同一条纪律）：剧情关逐关手工配平，凭空多一条「跑三个方向拿两个宝箱」会破坏配好的压力曲线。
+    if (w.storyStage) return null;
+
+    // ③ 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ④ 还没到下一组的时点
+    if (w.tick < w.lanternNextTick) return null;
+
+    // ⑤ 场上还有没点完的灯：**短等 2 秒**，不顺延整个间隔 ——
+    //    否则玩家一直不去，后面的排期会被整体推到很久之后（陨星那一轮踩过的同款坑）。
+    if (countAliveLanterns(w) > 0) {
+      w.lanternNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+
+    const r = spawnLanterns(w);
+    if (!r) {
+      // 三盏里有一盏找不到空位（贴边 + 障碍）：短等重试，理由同上
+      w.lanternNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+    w.lanternNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return r;
+  }
+
+  // 踩亮一盏灯（由 updatePickups 的 'lantern' 分支转进来）。
+  // 【三种情况，顺序不能乱】
+  //   ① 没有进行中的组 / 已经结算 → 什么都不做（防御：正常走不到）
+  //   ② 还差不止一盏 → 播「N/3」，什么都不给
+  //   ③ 这是最后一盏 → 结算奖励 + 收尾冲击
+  function onLanternLit(w, it, p) {
+    const rule = C.LANTERN;
+    const round = w.lanternRound;
+    if (!rule || !round || round.done) return false;
+
+    round.lit += 1;
+    w.lanternLit = (w.lanternLit || 0) + 1;
+
+    // 点着的那一下：脚下溅开一团暖光。
+    // ★用自绘的 `lanterncore`（不是 `boom`、也不是 `ring`）：理由与 ④ 那段完全一样 ——
+    //   琥珀金的 boom 在 pixelfx 里是**金色雷击**（点一盏灯却劈下一道雷），
+    //   ring 是巨大的白色符文线框（一盏灯亮起却铺满半个屏幕），两个都不对。
+    w.effects.push({
+      kind: 'lanterncore', x: it.x, y: it.y, r: 52,
+      life: 0.34, maxLife: 0.34, color: rule.color
+    });
+
+    if (round.lit < round.total) {
+      w.events.push({
+        type: 'lantern_lit',
+        x: Math.round(it.x), y: Math.round(it.y),
+        lit: round.lit, total: round.total,
+        left: round.total - round.lit
+      });
+      return true;
+    }
+
+    // ---------- 三盏齐了 ----------
+    round.done = true;
+    w.lanternRound = null;     // 这一组结束，下一组要重新开
+
+    // 归属：奖励与冲击都算在踩亮最后一盏的那个人头上
+    if (p) setCtx(w, p);
+
+    // ① 宝箱：两个错开 18px 摆开（叠在一点会被一次性吸走，看着像只掉了一个）
+    const chests = rule.chest || 0;
+    for (let i = 0; i < chests; i++) {
+      const a = (Math.PI * 2 / (chests || 1)) * i + 0.3;
+      spawnPickup(w, 'chest',
+        it.x + Math.cos(a) * 18, it.y + Math.sin(a) * 18, 1, C.DROPS.chest.life);
+    }
+
+    // ② 金币：小环撒开
+    const gn = rule.goldDrops || 0;
+    for (let i = 0; i < gn; i++) {
+      const a = (Math.PI * 2 / (gn || 1)) * i + 0.7;
+      spawnPickup(w, 'gold',
+        it.x + Math.cos(a) * 20, it.y + Math.sin(a) * 20, C.DROPS.goldValue);
+    }
+
+    // ③ 收尾冲击：清掉身边这一圈散兵（**不静音连杀** —— 与灵泉同一条：
+    //    这是玩家跑出来的，不是天上掉下来的）。
+    damageInCircle(w, it.x, it.y, rule.burstRadius, C.lanternDmgAt(w.wave), 50, {
+      stunSec: rule.stunSec, src: 'lantern'
+    });
+
+    // ④ 表现两条：lanterncore 给"灯火炸开"、lanternring 给**作用边界**。
+    //   ★★★这一支试过三次才对，两次都是被真浏览器截图推翻的（必须记一笔）：
+    //     ① 先用 `boom` + 琥珀金 → pixelfx 把金色 boom 映射成**雷部神锤的金色雷击**，
+    //        截图里是一道从天上垂下来的雷柱，与「三盏灯在你脚下齐亮」完全不是一回事
+    //        （和灵泉那一轮"圣水被画成水洼"同款坑）。
+    //     ② 改用 `ring`（库里的贴地符文阵）→ r=240 换算成 scale 2.67，
+    //        画出来是一圈**巨大的白色线框符文**，铺满半个屏幕、把战场全糊住。
+    //     ③ 最终：自己画一个 `lanterncore`（见 render.js 的 drawEffects）——
+    //        暖白核心 → 琥珀 → 透明的径向光，走 lighter 混合，只占判定半径的六成，
+    //        干净、不抢戏，而且**颜色完全可控**（不用赌库里的调色板）。
+    //   ★为什么还要 lanternring：光晕本身没有"边界"，240 的判定圈必须有一条明确的环，
+    //     否则玩家不理解「站在 241px 处为什么没被扫到」（灵泉那一轮踩过的同款）。
+    w.effects.push({
+      kind: 'lanterncore', x: it.x, y: it.y, r: rule.burstRadius,
+      life: 0.5, maxLife: 0.5, color: rule.color
+    });
+    w.effects.push({
+      kind: 'lanternring', x: it.x, y: it.y, r: rule.burstRadius,
+      life: 0.45, maxLife: 0.45, color: rule.color
+    });
+
+    w.events.push({
+      type: 'lantern_done',
+      slot: p ? p.slot : 0,
+      x: Math.round(it.x), y: Math.round(it.y),
+      chest: chests, gold: gn
+    });
+    return true;
+  }
+
+  // ============================================================
+  // 饕餮（第四十七轮：专吃地上精魄的窃贼）
+  // ============================================================
+  //
+  // 【它是什么】一只**不追玩家**的精英：在场 38 秒，一路把地上的经验球与金币吸进肚子
+  //   （越吃越肥、血越厚、体形越大），吃满 14 份或时间到就**钻地跑掉**，把吃掉的东西带走；
+  //   打死它则全额吐回来，外加精英的常规掉落。详见 const.js 的 DEVOURER 段。
+  //
+  // 【为什么它是「第一个会拿走东西」的机制】
+  //   前面十二件增量的失败分支都是「奖励没拿到」（灵泉凉了 / 灯灭了 / 双生站起来了），
+  //   代价是**机会成本**；饕餮的失败分支是「你的东西没了」—— 全项目第一次真的动玩家的存量。
+  //
+  // 【★吃哪一颗为什么用「最近」而不是随机】
+  //   随机要取 nextRand，会污染主随机流（后面每一波落点都会整体错位）；
+  //   「最近」是纯几何判断，可复现、双端一致（与 affixHash 那一套同一个出发点）。
+  //
+  // 【★为什么它只吃 exp / gold】
+  //   宝箱、神龛、血祭坛、引魂灯、红心都是「要你专门走过去」或「救命」的东西 ——
+  //   被偷走会让玩家觉得这机制在阴人，而不是在提要求。这条由 simtest 钉死
+  //   （把四类东西摆在它嘴边推进 5 秒，一份都不许少）。
+
+  // 场上还活着几只（同屏上限与「能不能开下一只」都看它）
+  function countAliveDevourers(w) {
+    const id = C.DEVOURER.mobId;
+    let n = 0;
+    for (let i = 0; i < w.mobs.length; i++) {
+      const m = w.mobs[i];
+      if (m.alive && m.defId === id) n += 1;
+    }
+    return n;
+  }
+
+  // 找一份食物：searchR 内最近的 exp / gold（纯几何，不取随机数）
+  function findDevourFood(w, m) {
+    const rule = C.DEVOURER;
+    const r2 = rule.searchR * rule.searchR;
+    let best = null;
+    let bestD2 = r2;
+    const list = w.pickups;
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i];
+      // ★只认这两类。其余掉落物一律不许碰（见本段开头的说明，simtest 有反向断言）
+      if (it.kind !== 'exp' && it.kind !== 'gold') continue;
+      const dx = it.x - m.x;
+      const dy = it.y - m.y;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < bestD2) { bestD2 = d2; best = it; }
+    }
+    return best;
+  }
+
+  // 吞一份：从 w.pickups 里摘掉，记进肚子。
+  // 【为什么在这里就摘掉、而不是给它打个「已吃」标记】
+  //   掉落物列表每帧会被 updatePickups 就地压缩；留标记等于要多维护一种状态，
+  //   而摘掉之后它连快照都不会再进 —— 队友那边看到的就是「球被那只怪吃了」，语义正好。
+  function devourPickup(w, m, idx) {
+    const rule = C.DEVOURER;
+    const it = w.pickups[idx];
+    if (!it) return false;
+    w.pickups.splice(idx, 1);
+
+    m.devourCount = (m.devourCount || 0) + 1;
+    if (it.kind === 'exp') {
+      // ★存**总经验值**而不是只存份数：吐回来时要「一分不少」，
+      //   按份数还原只能还原颗数、还原不了大小（大球小球的价值不一样）。
+      m.eatenExp = (m.eatenExp || 0) + (it.value || 0);
+      m.eatenExpN = (m.eatenExpN || 0) + 1;
+    } else {
+      m.eatenGold = (m.eatenGold || 0) + 1;
+    }
+    w.devourerEaten = (w.devourerEaten || 0) + 1;
+
+    // 越吃越肥：血更厚、半径更大。
+    // ★半径必须真的变（它对快照里的 `r`），客户端才有东西可画 ——
+    //   把「吃了多少」只放在服务端的字段里，玩家就完全看不出它在变肥。
+    m.maxHp += rule.hpPerEat;
+    m.hp = Math.min(m.maxHp, m.hp + rule.hpPerEat);
+    m.r = Math.min(m.def.r + rule.growMax, m.def.r + m.devourCount * rule.growPer);
+
+    // 表现：一圈往回收的光（"被吸进去了"，见 render.js 的 devour 分支）
+    w.effects.push({
+      kind: 'devour', x: it.x, y: it.y, r: rule.eatRadius,
+      life: 0.3, maxLife: 0.3, color: rule.color
+    });
+    return true;
+  }
+
+  // 钻地跑掉：带着吃掉的东西消失。
+  // 【★绝不走 killMob】它没死 —— 击杀数、连杀（血怒）、掉落、宝箱、图鉴一条都不该发生。
+  //   直接置 alive=false，由 step 末尾的 compactMobs 统一摘掉：
+  //   在 updateMobs 的循环里 splice 会让遍历整体错位（后面的怪被跳过一帧）。
+  function devourerFlee(w, m) {
+    if (!m.alive) return false;
+    m.alive = false;
+    m.fled = 1;
+    m.vx = 0; m.vy = 0; m.kx = 0; m.ky = 0;
+    const rule = C.DEVOURER;
+    w.effects.push({
+      kind: 'devour', x: m.x, y: m.y, r: rule.eatRadius + 10,
+      life: 0.45, maxLife: 0.45, color: rule.color
+    });
+    w.events.push({
+      type: 'devourer_flee',
+      x: Math.round(m.x), y: Math.round(m.y),
+      eaten: m.devourCount || 0,
+      exp: Math.round(m.eatenExp || 0),
+      name: (w.nameTable && w.nameTable.mob[m.defId]) || m.def.name
+    });
+    return true;
+  }
+
+  // 每帧：追逐 / 吞吃 / 两种离场。
+  // 【为什么移动也在这一支里做，而不是像召唤系那样只做附加动作】
+  //   它的目标物不是玩家 —— 现有的「追最近玩家」那一支给不了它正确的方向。
+  //   移动仍走 moveMobToward：全套速度层（光环 / 词缀 / 赤月 / 定身 / 绕障）在里面，
+  //   自己算一份就等于把「赤月加速」这类乘区复制一遍，迟早漏一个（山魈那轮定下的规矩）。
+  function tickDevourer(w, m, dt) {
+    const rule = C.DEVOURER;
+    if (!rule) return;
+
+    // ① 在场计时 + 饱腹上限：两者任一满足就钻地
+    m.pocketT = (m.pocketT || 0) + dt;
+    if (m.pocketT >= rule.holdSec || (m.devourCount || 0) >= rule.eatCap) {
+      devourerFlee(w, m);
+      return;
+    }
+
+    // ② 被定身（灵泉冲击 / 引魂灯收尾）：既不动也不吃。
+    //    能把它定住，是这场追逐里唯一的操作空间 —— 让它在定身里继续吞就白定了。
+    if (m.stun > 0) { m.vx = 0; m.vy = 0; return; }
+
+    // ③ 朝最近的那颗球走；视野内没球就慢慢蹭向玩家（它不是完全不危险）
+    const food = findDevourFood(w, m);
+    if (food) {
+      moveMobToward(w, m, food.x, food.y, dt);
+    } else {
+      const p = nearestPlayer(w, m.x, m.y);
+      if (p) moveMobToward(w, m, p.x, p.y, dt, rule.idleChaseMul);
+    }
+
+    // ④ 吞：按固定间隔一颗一颗吃（一次吞一堆的话，玩家只会看到球凭空消失）
+    m.eatCd = (m.eatCd || 0) - dt;
+    if (m.eatCd > 0) return;
+
+    const r2 = rule.eatRadius * rule.eatRadius;
+    for (let i = 0; i < w.pickups.length; i++) {
+      const it = w.pickups[i];
+      if (it.kind !== 'exp' && it.kind !== 'gold') continue;
+      const dx = it.x - m.x;
+      const dy = it.y - m.y;
+      if (dx * dx + dy * dy > r2) continue;
+      devourPickup(w, m, i);
+      m.eatCd = rule.eatIntervalSec;
+      return;
+    }
+    // 没吃到：eatCd 停在负值上，下一帧继续判（不重置 —— 重置会让它永远差一帧吃不到）
+  }
+
+  // 被打死：把肚子里的东西全额吐出来。
+  // 【为什么要「一分不少」】它吃的是**你打出来的**精魄，打死它却只吐一半的话，
+  //   「回头去收它」就永远不如「当没看见」—— 那这个机制的正解就变成了不玩它。
+  //   simtest 钉的是「地上所有经验球的 value 之和 == 吃进去的总值」，不是颗数。
+  function onDevourerKilled(w, m) {
+    const rule = C.DEVOURER;
+    const expTotal = Math.round(m.eatenExp || 0);
+
+    // 经验：总量按颗数均分，除不尽的余数塞进第一颗 ——
+    // 这样「地上所有球加起来」永远精确等于吃进去的总数（余数丢在除法里是最容易漏的一分）。
+    if (expTotal > 0) {
+      const cnt = Math.max(1, Math.min(m.eatenExpN || 1, rule.refundMaxOrbs));
+      const each = Math.floor(expTotal / cnt);
+      const rest = expTotal - each * cnt;
+      for (let i = 0; i < cnt; i++) {
+        const v = each + (i === 0 ? rest : 0);
+        const a = (Math.PI * 2 / cnt) * i + 0.35;
+        spawnPickup(w, 'exp',
+          m.x + Math.cos(a) * 16, m.y + Math.sin(a) * 16,
+          v, 0, v >= C.DROPS.expValueBig);
+      }
+    }
+
+    // 金币：一枚一枚原样吐出来（局内金币没有大小之分，落地的 value 永远是 goldValue）
+    const gn = m.eatenGold || 0;
+    for (let i = 0; i < gn; i++) {
+      const a = (Math.PI * 2 / (gn || 1)) * i + 1.1;
+      spawnPickup(w, 'gold',
+        m.x + Math.cos(a) * 26, m.y + Math.sin(a) * 26, C.DROPS.goldValue);
+    }
+
+    w.events.push({
+      type: 'devourer_down',
+      x: Math.round(m.x), y: Math.round(m.y),
+      eaten: m.devourCount || 0,
+      exp: expTotal, gold: gn,
+      name: (w.nameTable && w.nameTable.mob[m.defId]) || m.def.name
+    });
+  }
+
+  // 造一只饕餮。返回那只怪（实体上限不够 / 定义缺失时返回 null）。
+  function spawnDevourer(w) {
+    const rule = C.DEVOURER;
+    const def = C.MOB_MAP[rule.mobId];
+    if (!def) return null;
+    // ★上限必须自己判：spawnMob 自己没有 MAX_MOBS 闸（双生妖那轮踩过，那段闸一度是死代码）
+    if (w.mobs.length >= C.MAX_MOBS - 2) return null;
+
+    const anchor = pickChallengerAnchor(w, 'taotie');
+    const ax = anchor ? anchor.x : w.map.w / 2;
+    const ay = anchor ? anchor.y : w.map.h / 2;
+
+    // 落点：常规刷怪环外一点。角度与距离都用散列定，不取 nextRand
+    // （盐换成 'taotie'：同一 tick 里就算和挑战者一起出，也不会站在同一个方向）
+    const ang = affixHash(w.tick, 19, 'taotie') * Math.PI * 2;
+    const radius = w.spawnRadius + rule.spawnPad;
+    const pad = 40;
+    let x = 0;
+    let y = 0;
+    // 撞障碍就按 1/6 圈转着试（纯确定性）；全撞就直接用这个点，碰撞层会把它推出来
+    for (let k = 0; k < 6; k++) {
+      const a = ang + k * (Math.PI / 3);
+      x = ax + Math.cos(a) * radius;
+      y = ay + Math.sin(a) * radius;
+      if (x < pad) x = pad;
+      if (x > w.map.w - pad) x = w.map.w - pad;
+      if (y < pad) y = pad;
+      if (y > w.map.h - pad) y = w.map.h - pad;
+      if (!pointBlocked(w, x, y, def.r + 4)) break;
+    }
+
+    // 血量跟波次成长（与同期普通怪同一条曲线），否则后期它是个纸糊的袋子
+    const hpMul = C.waveHpMul(w.wave) * w.diff.hpMul;
+    // ★第七参传相位：这次生成零随机（理由见 spawnMob 的 seed 说明）
+    const m = spawnMob(w, rule.mobId, x, y, hpMul, 0, 2.3);
+    if (!m) return null;
+
+    // 肚子里的账，从 0 开始
+    m.devourCount = 0;
+    m.eatenExp = 0;
+    m.eatenExpN = 0;
+    m.eatenGold = 0;
+    m.pocketT = 0;
+    // 第一口不要"贴脸就吞"：给一个完整间隔，玩家才看得到它先走到球边上
+    m.eatCd = rule.eatIntervalSec;
+
+    w.devourerSpawned = (w.devourerSpawned || 0) + 1;
+    w.events.push({
+      type: 'devourer', name: def.name,
+      x: Math.round(x), y: Math.round(y),
+      holdSec: rule.holdSec, eatCap: rule.eatCap, hp: Math.round(m.maxHp)
+    });
+    return m;
+  }
+
+  // 每帧调一次（放在引魂灯之后）。
+  function maybeSpawnDevourer(w) {
+    const rule = C.DEVOURER;
+    if (!rule) return null;
+
+    // ① 主线《补天纪》一律没有（与挑战者/神龛/赤月/陨星/山魈/灵泉/血祭坛/双生妖/引魂灯
+    //    同一条纪律）：剧情关逐关手工配平，多一条「地上东西会被偷」会破坏配好的压力曲线。
+    if (w.storyStage) return null;
+
+    // ② 时间未到（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return null;
+
+    // ③ 还没到下一只的时点
+    if (w.tick < w.devourerNextTick) return null;
+
+    // ④ 场上还有一只：**短等 2 秒**，不顺延整个间隔 ——
+    //    否则玩家一直不去收它，后面的排期会被整体推到很久之后（陨星/引魂灯踩过同款坑）
+    if (countAliveDevourers(w) >= rule.maxAlive) {
+      w.devourerNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+
+    const m = spawnDevourer(w);
+    if (!m) {
+      w.devourerNextTick = w.tick + Math.round(2 * C.TICK_HZ);
+      return null;
+    }
+    w.devourerNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+    return m;
+  }
+
   function spawnWave(w) {
     w.wave += 1;
     const wave = w.wave;
@@ -3690,12 +5681,47 @@
         tickSummoner(w, m, dt);
       }
 
+      // ---------- 饕餮（第四十七轮）：它追的不是玩家，是地上的精魄 ----------
+      // 【为什么必须单独一支】上面两种（冲锋 / 召唤）与下面的「直追」目标都是**玩家**，
+      //   而饕餮的目标是掉落物 —— 用「追最近玩家」那一支它就会踩着球堆冲过来，一颗都不吃。
+      // 【为什么只改方向、不动位置整合】moveMobToward 里是整套速度层，
+      //   位置整合仍在外面统一做（与其它怪完全同一条管线）。
+      else if (def.kind === 'devourer') {
+        tickDevourer(w, m, dt);
+        // 它可能刚刚钻地跑了（alive=false）：这一帧不要再走接触伤害
+        // （下面的 m.alive 判断就是为这一帧准备的 —— 逃走的怪不该再咬人一口）
+      }
+
+      // ---------- 影傀（第五十轮）：它追的不是玩家，是另一半 ----------
+      // 【为什么又开一个 kind】现有六种行为的目标分别是：玩家（直冲 / 冲锋 /
+      //   保持距离）、周围的怪（光环加速）、地上的掉落物（饕餮）。
+      //   影傀的目标是**另一只怪** —— 目标物再换一次，就又得单开一支。
+      // 【为什么落单了要回来追玩家】玩家点掉一只之后，另一只若无目标就站着不动，
+      //   看起来像"卡住了"；让它退化成一个普通的小怪，玩家的击杀才有个交代。
+      // 【为什么仍走 moveMobToward】那里面有全套速度层（光环 / 词缀 / 赤月 / 定身），
+      //   自己算一份就等于把「赤月加速」这类乘区复制一遍，迟早漏一个。
+      else if (def.kind === 'merge') {
+        const mate = findMergeMate(w, m);
+        if (mate) moveMobToward(w, m, mate.x, mate.y, dt);
+        else moveMobToward(w, m, p.x, p.y, dt);
+      }
+
       // ---------- 其余（小怪 / 精英 / 指挥 / Boss）：直接追 ----------
       else {
         moveMobToward(w, m, p.x, p.y, dt);
       }
       // 说明：Boss 既走上面的光环分支，也走这里的「直接追」—— 光环只是附加伤害，
       // 不代表它站着不动。
+
+      // ---------- 镇妖钟（第四十九轮）：钟声在响时，范围内妖物的方向改指钟心 ----------
+      // 【为什么放在这里而不是在那几个 kind 分支里】牵引是**所有行为共用的一层**，
+      //   塞进每个分支就等于复制五遍，而且以后加新 kind 时必然会漏一个
+      //   （「加新怪忘了接某条通用规则」是这个项目最常见的静默失败）。
+      //   这里的位置刚好在「AI 已经写好 vx/vy、位置还没整合」之间 ——
+      //   改的是同一对字段，不动任何一条既有行为。
+      // 【为什么它排在 Boss 光环伤害之后】光环是「贴身就掉血」的既有规则，
+      //   与「往哪走」无关：被牵走的 Boss 也照旧该烧你（虽然 Boss 本来就不被牵）。
+      applyBellPull(w, m);
 
       // 位置整合：AI 速度 + 击退冲量（带地形碰撞，会沿障碍滑行而不是插进去）
       // 第五个参数 = 允许自动绕障（只有怪开；玩家自己控制方向，不需要代劳）
@@ -3706,8 +5732,10 @@
       m.y = clamp(m.y, m.r, w.map.h - m.r);
 
       // 与玩家接触伤害（每个怪自己带冷却，避免一帧叠死）
+      // ★`m.alive` 这一条是给饕餮留的：它可能在 tickDevourer 里刚刚钻地跑了，
+      //   这一帧不该再咬人一口（逃走的怪还能咬人，是最容易被当成 bug 的那种小事）。
       const contact = distance(m.x, m.y, p.x, p.y);
-      if (contact <= m.r + p.r && m.hitCd <= 0 && p.alive) {
+      if (contact <= m.r + p.r && m.hitCd <= 0 && p.alive && m.alive) {
         m.hitCd = 0.6;
         damagePlayer(w, p, def.dmg, m.x, m.y);
       }
@@ -4216,7 +6244,21 @@
     for (let i = 0; i < list.length; i++) {
       const it = list[i];
       it.life -= dt;
-      if (it.life <= 0) continue;
+      if (it.life <= 0) {
+        // ★大人之市（第五十二轮）到点收摊必须说一声：它不像金币/经验球那样
+        //   "反正还会再掉"，一座摊子是**这一局只有这一次**的便宜 ——
+        //   不播报的话玩家会以为自己看错了，或者以为被谁偷偷买走了。
+        //   这里紧跟着 life 归零这一刻发（摊子已被 continue 掉，天然只发一次）。
+        if (it.kind === 'market') {
+          w.events.push({ type: 'market_gone', item: it.value, offer: it.offer || '' });
+        }
+        // ★炼魂鼎到点消散也要说一声：它是"这一局只有这一次"的修为换命机会 ——
+        //   不播报的话玩家会以为鼎被谁偷走了，或者以为自己记错了时间。
+        if (it.kind === 'cauldron' && !it.used) {
+          w.events.push({ type: 'cauldron_gone' });
+        }
+        continue;
+      }
 
       // 多人要点：每颗掉落物各归「离它最近的那个活人」——
       // 谁近就吸给谁、吃到算谁的经验/金币/回血。
@@ -4235,6 +6277,63 @@
       const dx = p.x - it.x;
       const dy = p.y - it.y;
       const d = Math.sqrt(dx * dx + dy * dy) || 1;
+
+      // ---------- 引魂灯（第四十六轮）----------
+      // ★★判定半径**写死在 LANTERN.lightRadius 里，不吃 p.attrs.pickupRadius**。
+      //   【为什么单独拎出来、而且放在 `d <= pickupR` 之前】
+      //   宝箱 / 神龛 / 血祭坛用的都是拾取半径（"走到物件上"这件事玩家已经学会了），
+      //   但灯不能这样：拾取半径会被「磁石」被动一路放大到 100+，
+      //   那样灯在几百像素外就被"吸着点亮"了 ——
+      //   「先跑哪一盏、要不要为第三盏横穿整张图」这个唯一的新东西会整个消失。
+      //   所以这里自己判、自己 continue，与磁石、经验球吸力完全无关。
+      if (it.kind === 'lantern') {
+        const R = C.LANTERN;
+        if (R && d <= R.lightRadius) onLanternLit(w, it, p);
+        // 没点着就原地留着（★不写 return、不写 write++：点着的那一盏是被"吃掉"的）
+        else list[write++] = it;
+        continue;
+      }
+
+      // ---------- 精卫（第五十一轮）----------
+      // ★★她必须在这里**原地留下**。下面那个 `if (d <= pickupR)` 的默认分支会把
+      //   「进了拾取半径、但谁都不认识」的 kind 直接吃掉（不写回数组 = 被丢弃）——
+      //   也就是说玩家只要从她身上走过去，精卫就会凭空消失：没有播报、没有奖励、
+      //   连羽毛都没有。这个坑是本段最贵的一条（simtest 专门钉了一条"走过去不许消失"）。
+      if (it.kind === 'escort') {
+        list[write++] = it;
+        continue;
+      }
+
+      // ---------- 大人之市（第五十二轮）----------
+      // ★★它是「走到摊前才成交」的，所以判定半径自己写死在 MARKET.buyRadius，
+      //   **不吃 p.attrs.pickupRadius**：磁石被动会把拾取半径顶到 100+，
+      //   那样隔着两个身位就"买"了 —— 而"走过去"是它唯一的成本（钟/灯同一套理由）。
+      // ★★拒绝时必须把摊子写回数组（`list[write++] = it`）：`applyMarket` 返回 false
+      //   的那几种情况（钱不够 / 血是满的 / 血契石满层）都要求摊子**留在原地**，
+      //   漏了写回这一行，玩家会看到"提示条说我钱不够，然后摊子没了"
+      //   —— 而「生成 / 成交 / 收摊」三种断言照样全绿（精卫那轮踩过的那个坑）。
+      if (it.kind === 'market') {
+        const rule = C.MARKET;
+        if (rule && d <= rule.buyRadius && applyMarket(w, p, it)) continue;
+        // 没成交（站得不够近 / 被拒绝）：留在原地
+        if (!rule || d > rule.buyRadius) it.denied = 0;   // 走开就重置节流，回来还能再听一次
+        list[write++] = it;
+        continue;
+      }
+
+      // ---------- 炼魂鼎（第五十三轮）----------
+      // ★★同样是"走到跟前才成交"的点位：判定半径写死在 CAULDRON.buyRadius，
+      //   **不吃 p.attrs.pickupRadius**（磁石会把它顶到 100+，那样隔着两个身位就炼了）。
+      // ★★拒绝（满血 / 经验不足）时 `applyCauldron` 返回 false，鼎必须写回数组留在原地，
+      //   否则玩家会看到"提示说修为不足，然后鼎凭空消失"——而生成/成交断言照样全绿。
+      if (it.kind === 'cauldron') {
+        const rule = C.CAULDRON;
+        if (rule && d <= rule.buyRadius && applyCauldron(w, p, it)) continue;
+        // 没成交（站得不够近 / 被拒绝）：留在原地；走开就重置节流，回来还能再听一次
+        if (!rule || d > rule.buyRadius) it.denied = 0;
+        list[write++] = it;
+        continue;
+      }
 
       // 进入拾取半径直接吃；在吸引范围内则被吸过来
       if (d <= pickupR) {
@@ -4291,14 +6390,45 @@
             continue;
           }
           continue;
+        } else if (it.kind === 'boon') {
+          // 歧路双碑（第四十八轮）：取一座 → 另一座在这段循环结束后统一碎掉
+          // （见函数末尾那段「收尾摘除」，这里只登记组号）。
+          // ★它**没有拒绝分支**：加成永远是纯收益，唯一的代价是另一座会没 ——
+          //   而那个代价是玩家自己踩下去换来的，不是系统拒绝他。
+          if (!applyBoon(w, p, it)) {
+            list[write++] = it;
+            continue;
+          }
+          continue;
+        } else if (it.kind === 'bell') {
+          // 镇妖钟（第四十九轮）：踩上去敲响。
+          // ★★敲响之后**必须把它写回数组**：钟要一直画在钟声圈的中央（响完才消失）——
+          //   如果在这里 continue 掉它，玩家会看到「圈还在、钟没了」，
+          //   而下一秒钟声停下时那一圈怪会回头找你，中间没有任何提示。
+          //   已经在响的（value === 1）再踩什么都不做（不重复计时、不重复播报）。
+          tollBell(w, p, it);
+          list[write++] = it;
+          continue;
         }
         continue;
       }
 
-      // 【宝箱 / 神龛 / 血祭坛刻意不被磁石吸走】它们都是「要专门走过去」的地面物件，
-      // 会被自动吸过来的话，那一刻就消失了 —— 而整局里正好需要这么几个
+      // 【宝箱 / 神龛 / 血祭坛 / 歧路双碑 / 镇妖钟刻意不被磁石吸走】它们都是「要专门走过去」
+      // 的地面物件，会被自动吸过来的话，那一刻就消失了 —— 而整局里正好需要这么几个
       // 「主动走过去」的瞬间。其余掉落物照旧吸附，别改。
-      if (it.kind === 'chest' || it.kind === 'shrine' || it.kind === 'pact') {
+      // ★歧路双碑尤其不能被吸：两座碑只隔一百来像素，被磁石一拉就并到一起，
+      //   「取了哪一座」这件事在画面上就说不清了。
+      // ★镇妖钟更不能被吸：**走过去敲**是它唯一的成本 ——
+      //   被磁石隔着两百像素吸过来，就等于「路过自动敲响」，
+      //   「什么时候敲」这个唯一的决定整个消失（而整段玩法就是那个决定）。
+      // ★引魂灯不在这张名单里：它在上面就已经自己判完并 continue 了
+      //   （它的判定半径与拾取半径不同，见那一支的说明）。
+      // ★大人之市同理（第五十二轮）：它也在上面自己判完并 continue 了 ——
+      //   所以这里**不该**再列它，列了也是死代码（同一类"看起来在防守、其实永远走不到"）。
+      // ★炼魂鼎/引魂灯/大市不在这张名单里：它们都在上面自己判完半径并 continue 了
+      //   （判定半径与拾取半径不同），列在这里是永远走不到的死代码。
+      if (it.kind === 'chest' || it.kind === 'shrine' || it.kind === 'pact' ||
+        it.kind === 'boon' || it.kind === 'bell') {
         list[write++] = it;
         continue;
       }
@@ -4312,6 +6442,37 @@
       list[write++] = it;
     }
     list.length = write;
+
+    // ---------- 歧路双碑：另一座当场碎裂（第四十八轮） ----------
+    // 【为什么必须等到循环结束才摘】上面整段都在用 write 指针原地压缩同一个数组；
+    //   在循环里删「前面那一座」（已经搬完了的）会直接把后面还没搬的项挤掉 ——
+    //   表现是「地上凭空少了几颗球」，而查起来只会往掉落逻辑上想。
+    // 【为什么"碎"要单独一记特效】它必须被玩家看见：没有那一下的话，
+    //   「另一座是自己跑掉的」和「另一座被系统吃掉的」在画面上分不出来，
+    //   而这一整轮的代价恰恰就是"另一座没了"。
+    if (w.boonChosenGroup) {
+      const g = w.boonChosenGroup;
+      w.boonChosenGroup = 0;
+      const rule = C.BOON;
+      let keep = 0;
+      for (let i = 0; i < list.length; i++) {
+        const it = list[i];
+        if (it.kind === 'boon' && it.group === g) {
+          const oc = rule ? rule.options[it.value === 2 ? 1 : 0] : null;
+          w.effects.push({
+            kind: 'boonshatter',
+            x: it.x, y: it.y,
+            r: 34,
+            life: 0.5, maxLife: 0.5,
+            // 颜色取「碎掉的那一座」自己的色（两色都已在串池里，不会走长格式）
+            color: (oc && oc.color) || '#b8b3a2'
+          });
+          continue;                    // 不写回 = 被丢掉
+        }
+        list[keep++] = it;
+      }
+      list.length = keep;
+    }
   }
 
   // 升级带来的血量增长：把「上限 +8、当前血也 +8」这件事做准。
@@ -4436,6 +6597,11 @@
     if (!item) return { ok: false, reason: '没有这一项' };
     if (!p) return { ok: false, reason: '找不到玩家' };
 
+    // 单价：默认用表里的 price；大人之市（第五十二轮）通过 opt.price 传「打折价」进来。
+    // ★为什么不加第五个形参：加形参就得改商店面板那四个调用点（漏一个就是参数错位），
+    //   而 opt 本来就是「这次结算的附加信息」—— 价格正是其中一项，形状本来就该在这里。
+    const price = (opt && typeof opt.price === 'number' && opt.price >= 0) ? opt.price : item.price;
+
     // 血契石有层数上限：满层时要说清是「满了」而不是含糊的「买不了」
     let stacks = 0;
     if (item.cost && item.cost.dmgMul) stacks = Math.round(p.shopBuffDmg / item.cost.dmgMul);
@@ -4521,14 +6687,16 @@
       addId = want;
     }
 
-    if (p.shopGold < item.price) {
+    if (p.shopGold < price) {
       // 差多少直接说：玩家能据此判断「再打一波就买得起了」，
       // 只说「金币不够」的话他不知道还差 5 枚还是 500 枚。
-      const lack = item.price - p.shopGold;
-      return { ok: false, reason: '还差 ' + lack + ' 金币' };
+      // ★这里用的是 price（可能就是打折价）：差多少必须按**这一笔真实的价钱**算，
+      //   否则大人之市上会显示「还差 21 金币」而实际只需 0 枚就够（差得离谱）。
+      const lack = Math.round(price - p.shopGold);
+      return { ok: false, reason: '还差 ' + lack + ' 金币', lack: lack };
     }
 
-    p.shopGold -= item.price;
+    p.shopGold -= price;
 
     if (item.cost && item.cost.hp) {
       healPlayer(w, item.cost.hp);
@@ -5103,6 +7271,76 @@
     //   所以它没有陨星那种「这一帧刚刷完、场上是空的」落空问题。
     maybeSpawnPact(w);
 
+    // ---------- 2.42 歧路双碑（第四十八轮：两座只能取一座） ----------
+    // 【为什么夹在血祭坛与引魂灯之间】三者都是「往地上放一个请你走过去的点位」，
+    //   但方向各不相同：灵泉是白给的（站 2 秒换清场）、血祭坛要你先付账、
+    //   双碑要你**放弃另一个**。摆在同一段里，一眼能看出这三个点位的关系。
+    // 【为什么不读场上怪的位置】与灵泉/祭坛/灯同一条：碑锚在玩家周围，
+    //   与密度无关 —— 所以它没有陨星那种「这一帧刚刷完、场上是空的」落空问题。
+    maybeSpawnBoons(w);
+
+    // ---------- 2.43 镇妖钟（第四十九轮：把妖群牵到你要的地方） ----------
+    // 【为什么排在双碑之后、引魂灯之前】前四个（灵泉/祭坛/双碑/灯）都是「往地上放点位」，
+    //   钟也是 —— 但它放的这一口**不是一个奖励**，而是一个「把妖群换个地方」的开关。
+    //   摆在同一个位置，一眼能看出这一串点位的分工。
+    // 【为什么 tickBell 排在这里】钟声到期要**在 updateMobs 之前**清掉状态，
+    //   否则这一帧的怪还会按着上一帧的钟声再走一步（到期那一帧多牵一次）。
+    tickBell(w);
+    maybeSpawnBell(w);
+
+    // ---------- 2.44 影傀 / 罔两（第五十轮：两只靠近就会合体的一对） ----------
+    // 【为什么排在钟之后、灯之前】前四十六到四十九轮这几件都是「往地上放点位」，
+    //   而这一件放的是**两只怪** —— 它是这一串里唯一一个「事件本身会动」的增量，
+    //   所以单独占一段，紧挨着其它"场上有东西出现"的排期，一眼能看出它属于同一族。
+    // 【为什么没有 tick 放在这里】合体判定需要**本帧位置整合之后**的距离，
+    //   所以 tickMerge 在 updateMobs 之后（见第 3 段末尾）。
+    maybeSpawnMerge(w);
+
+    // ---------- 2.46 精卫衔石（第五十一轮：会自己飞走的目标） ----------
+    // 【为什么排在这里、而不在前面那一串"往地上放点位"的段里】
+    //   前面十四~五十轮这一整串放的都是**不会动的东西**（石台、灯、钟、碑）
+    //   或者**朝你走来的东西**（挑战者、山魈、双生妖、影傀）。精卫是第一个
+    //   「放出来就开始离你远去」的东西 —— 她的存在本身就是"你现在得决定跟不跟"，
+    //   所以单独占一行，紧挨着"场上有东西出现"这一族的末尾。
+    // 【为什么不在这里 tick】她的推进要读**本帧最终的妖物位置**（谁贴着她），
+    //   所以 tickEscort 在 updateMobs 与 updatePickups 之后（见第 7.2 段）。
+    maybeSpawnEscort(w);
+
+    // ---------- 2.45 引魂灯（第四十六轮：三盏一组的路线规划） ----------
+    // 【为什么排在血祭坛之后】它同样是「往地上放点位」，但这是全项目唯一一个
+    //   **一次放三个**的点位 —— 摆在这一段末尾，一眼能看出「前面几个都是一个点，
+    //   这个是三个点连成一条路线」。
+    // 【为什么不读场上怪的位置】与灵泉/祭坛同一条：灯锚在玩家周围，与密度无关，
+    //   所以它没有陨星那种「这一帧刚刷完、场上是空的」落空问题。
+    maybeSpawnLanterns(w);
+
+    // ---------- 2.47 饕餮（第四十七轮：专吃地上精魄的窃贼） ----------
+    // 【为什么排在引魂灯之后、updateMobs 之前】它要读「地上现在有哪些球」，
+    //   而这一帧的掉落物是上一帧结束时留下的（本帧的击杀还没发生）——
+    //   差一帧无所谓，但顺序上「先把新东西放完，再让怪去捡」更自然。
+    // 【为什么不在 2.2 那一串里】那几个都是「从环外走进来的精英」，它虽然也从环外来，
+    //   但它的对象是**地上已经有的东西**，与那四个「冲着玩家来」的不是同一类。
+    maybeSpawnDevourer(w);
+
+    // ---------- 2.48 大人之市（第五十二轮：把攒着的金币当场花掉） ----------
+    // 【为什么排在饕餮之后、剧情节拍之前】它是这一整串「往地上放东西」里的最后一件，
+    //   而且性质与前面全都不同：灵泉/祭坛/双碑/灯/钟/摊子都要你走过去，但只有它
+    //   **要你掏钱**。摆在队尾，一眼能看出「这一族到此为止，后面是玩法层的东西」。
+    // 【为什么不读场上怪的位置】与灵泉/祭坛/双碑/灯/钟同一条：摊子锚在玩家周围，
+    //   与密度无关 —— 所以它没有陨星那种「这一帧刚刷完、场上是空的」落空问题。
+    // 【★为什么排在饕餮之后而不是之前】饕餮会吃地上的东西，但它的食物名单里只有
+    //   exp / gold（见 findDevourFood）；摊子是新 kind，天然不在菜单上。
+    //   顺序仍然按「先放怪再放物」排，避免以后有人误以为摊子会被吃掉。
+    maybeSpawnMarket(w);
+
+    // ---------- 2.49 炼魂鼎（第五十三轮：把攒着的经验炼成一口血） ----------
+    // 【为什么排在大市之后、这一串"往地上放东西"的队尾】它与大市是仅有的两件
+    //   "要你付出一样攒着的东西"的点位（一个花钱、一个花经验）。放在一起，
+    //   一眼能看出这一族到此为止：前面都是白给/付时间/付上限，最后两个才是付存量。
+    // 【为什么不读场上怪的位置】与前面那些点位同一条：鼎锚在玩家周围，与密度无关 ——
+    //   所以它没有陨星那种"这一帧刚刷完、场上是空的"落空问题。
+    maybeSpawnCauldron(w);
+
     // ---------- 2.5 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -5130,6 +7368,13 @@
 
     // ---------- 3. 怪物 AI ----------
     updateMobs(w, dt);
+
+    // ---------- 3.5 影傀合体判定（第五十轮） ----------
+    // 【为什么必须在 updateMobs 之后】它的输入是「两只本帧移动完之后相距多远」。
+    //   放进 updateMobs 的循环里读到的是半截位移，而且合体时 push 进 mobs 的新怪
+    //   会在同一帧被循环遍历到（那一帧它还没走过 AI，但位置整合却已经跑过一遍）。
+    //   放在这里，新生成的罔两从**下一帧**开始行动，与其它事件刷出来的怪一致。
+    tickMerge(w, dt);
 
     // ---------- 4. 武器开火（逐个玩家） ----------
     for (let i = 0; i < players.length; i++) {
@@ -5179,6 +7424,13 @@
 
     // ---------- 7. 掉落拾取 ----------
     updatePickups(w, dt);
+
+    // ---------- 7.2 精卫的飞行与折翼（第五十一轮） ----------
+    // 【为什么必须在 updatePickups 之后】① 她的位置要按「本帧最终的妖物位置」
+    //   判谁贴着她；② 她抵达时要 push 两条宝箱 —— 放在拾取循环之后 push，
+    //   这一帧就不会再被拾取循环扫一遍（否则玩家站着不动也会"当场吸走刚落的宝箱"，
+    //   画面上是宝箱闪了一下就没了）。
+    tickEscort(w, dt);
 
     // ---------- 7.5 双生妖的同命倒计时（第四十五轮） ----------
     // 【为什么必须在 8 之前】复活要 spawnMob 一只新的，而 8 会压掉死怪；
@@ -5708,6 +7960,74 @@
     updateTwins: updateTwins,
     countAliveTwins: countAliveTwins,
     countAlivePacts: countAlivePacts,
+    // ---------- 引魂灯（第四十六轮）----------
+    // 逐个导出：要验「三盏必须铺满三个方向」「缺一盏就整组不刷」
+    // 「26 秒内点不齐就作废且不惩罚」「点齐才落奖励」，都得在精确的 tick 上手动推进 ——
+    // 靠 step 跑到 246 秒既慢，又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    maybeSpawnLanterns: maybeSpawnLanterns,
+    spawnLanterns: spawnLanterns,
+    onLanternLit: onLanternLit,
+    countAliveLanterns: countAliveLanterns,
+    pickLanternPoint: pickLanternPoint,
+    // ---------- 饕餮（第四十七轮）----------
+    // 逐个导出：要验「只吃经验球与金币」「吃满 / 到点就钻地」「打死必须一分不少地吐回来」
+    // 「逃走的怪不许算击杀」，都得在精确的 frame 上手动推进 ——
+    // 靠 step 跑到 276 秒既慢，又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    maybeSpawnDevourer: maybeSpawnDevourer,
+    spawnDevourer: spawnDevourer,
+    tickDevourer: tickDevourer,
+    devourerFlee: devourerFlee,
+    onDevourerKilled: onDevourerKilled,
+    countAliveDevourers: countAliveDevourers,
+    findDevourFood: findDevourFood,
+    // ---------- 歧路双碑（第四十八轮）----------
+    // 逐个导出：要验「到点立起正好两座、且是两种」「取一座另一座必须当场碎掉」
+    // 「取完之后不许再给」「五组给完就没有了」，都得在精确的 tick / 帧上手动推进 ——
+    // 靠 step 跑到 186 秒既慢，又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
+    maybeSpawnBoons: maybeSpawnBoons,
+    spawnBoons: spawnBoons,
+    applyBoon: applyBoon,
+    countAliveBoons: countAliveBoons,
+    pickBoonPoints: pickBoonPoints,
+    // 镇妖钟（第四十九轮）
+    maybeSpawnBell: maybeSpawnBell,
+    spawnBell: spawnBell,
+    tollBell: tollBell,
+    tickBell: tickBell,
+    applyBellPull: applyBellPull,
+    bellPullable: bellPullable,
+    countAliveBells: countAliveBells,
+    pickBellPoint: pickBellPoint,
+    // 影傀 / 罔两（第五十轮）
+    maybeSpawnMerge: maybeSpawnMerge,
+    spawnMergePair: spawnMergePair,
+    fuseDuo: fuseDuo,
+    tickMerge: tickMerge,
+    findMergeMate: findMergeMate,
+    countAliveMergeFamily: countAliveMergeFamily,
+    isMergeSoul: isMergeSoul,
+    // 第五十一轮：精卫衔石（会自己飞走的目标）
+    maybeSpawnEscort: maybeSpawnEscort,
+    spawnEscort: spawnEscort,
+    pickEscortPath: pickEscortPath,
+    tickEscort: tickEscort,
+    countAliveEscorts: countAliveEscorts,
+    loseEscort: loseEscort,
+    finishEscort: finishEscort,
+    // 第五十二轮：大人之市（把攒着的金币当场花掉）
+    maybeSpawnMarket: maybeSpawnMarket,
+    spawnMarket: spawnMarket,
+    pickMarketPoint: pickMarketPoint,
+    applyMarket: applyMarket,
+    countAliveMarkets: countAliveMarkets,
+    marketOfferOf: marketOfferOf,
+    marketPriceOf: marketPriceOf,
+    // 第五十三轮：炼魂鼎（把攒着的经验炼成一口血）
+    maybeSpawnCauldron: maybeSpawnCauldron,
+    spawnCauldron: spawnCauldron,
+    pickCauldronPoint: pickCauldronPoint,
+    applyCauldron: applyCauldron,
+    countAliveCauldrons: countAliveCauldrons,
     // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
     //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
     spawnPickup: spawnPickup,
