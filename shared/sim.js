@@ -1013,6 +1013,23 @@
       cauldronTaken: 0,
       // 生成序号自增：每一座从不同方位浮现（角度走 affixHash，不消费主随机流）
       cauldronSeq: 0,
+      // ---------- 猎妖悬赏（第五十四轮：限时击杀目标） ----------
+      // ★全部是**服务端事实**，一个都不进快照：客户端只要四条播报就够了，
+      //   进度走 toast 文字（开局/过半/达成/到期），不动 HUD 也不动协议。
+      // 下一轮的排期 tick（0 = 还没排期）
+      bountyNextTick: 0,
+      // 当前是否在进行中（0/1）。它同时是「击杀要不要计数」的唯一判据 ——
+      //   不在窗口内的击杀一律不算，否则玩家能靠"平时攒数"白拿奖励。
+      bountyActive: 0,
+      // 本轮的到期时刻（w.time 口径，秒）
+      bountyDeadline: 0,
+      // 本轮的目标数/已击杀数
+      bountyNeed: 0,
+      bountyKilled: 0,
+      // 本局发过几轮 / 达成几轮 / 过期几轮（只用于观察与测试，不参与逻辑）
+      bountyRounds: 0,
+      bountyDone: 0,
+      bountyFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1523,6 +1540,112 @@
     }
   }
 
+  // ============================================================
+  // 猎妖悬赏（第五十四轮：限时击杀目标）
+  // ============================================================
+  //
+  // 【为什么是两个函数而不是塞进 updateMobs / killMob】
+  //   tickBounty 管"时间到了开一轮 / 到期没完成"，是**时间**的事；
+  //   onBountyKill 管"这一下击杀算不算、够不够发奖"，是**击杀**的事。
+  //   两者都只改 w 上的几个数字，谁也不读怪的位置、谁也不抽随机数 ——
+  //   所以可以脱离整局，单独在测试里造个世界、直接调入口精确验。
+  //
+  // ★★整段不许碰 nextRand：悬赏在任意 tick 插进来，取走一次随机数就会让
+  //   后面每一波的落点整体错位（陨星那轮踩过）。目标数按轮号线性增长，
+  //   奖励落在"最后一只怪的尸体处"，都是纯函数，没有任何随机。
+
+  // 第 round 轮（0 起）的目标击杀数。上限封顶防后期白送。
+  function bountyNeedFor(round) {
+    const B = C.BOUNTY;
+    return Math.min(B.maxKills, B.needKills + (round || 0) * B.killStep);
+  }
+
+  // 每帧调一次（step 第 2.5 段，放在所有"往地上放东西"的排期之后）。
+  function tickBounty(w) {
+    const B = C.BOUNTY;
+    if (!B) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，限时击杀会把配平冲掉。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.bountyActive) {
+      if (w.time < w.bountyDeadline) return;
+      // 到期还没凑够：★什么都不给，且**不责备**（与精卫折翼/收摊同一口径）。
+      // 只播一句"还差几只"——玩家没拿到是事实，不需要系统再踩一脚。
+      w.bountyActive = 0;
+      w.bountyFailed = (w.bountyFailed || 0) + 1;
+      w.events.push({
+        type: 'bounty_fail',
+        need: w.bountyNeed,
+        killed: w.bountyKilled,
+        left: Math.max(0, w.bountyNeed - w.bountyKilled)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻（比较 tick 而不是 time，避免浮点比较）。
+    //    ★这一道不能省：bountyNextTick 初值是 0，没有它的话开局第一帧就开一轮。
+    if (w.tick < Math.round(B.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮（初值 0 = 已经可以开，与 maybeSpawnChallenger 同一条写法）。
+    //    ★千万别写成 `!w.bountyNextTick` —— 初值就是 0，那一写等于永远不开轮。
+    if (w.tick < w.bountyNextTick) return;
+
+    // ⑤ 开一轮。目标按轮号增长；到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.bountyRounds = (w.bountyRounds || 0) + 1;
+    w.bountyNeed = bountyNeedFor(w.bountyRounds - 1);
+    w.bountyKilled = 0;
+    w.bountyActive = 1;
+    w.bountyDeadline = w.time + B.windowSec;
+    w.bountyNextTick = w.tick + Math.round(B.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'bounty_start', need: w.bountyNeed, sec: B.windowSec, round: w.bountyRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 里（"打死一只"这件事只有那里知道全貌）。
+  // ★m 是最后一击那只怪 —— 奖励就落在它的尸体处，玩家不用满地图找。
+  function onBountyKill(w, m) {
+    if (!w.bountyActive || w.storyStage) return;
+    // 达标那一帧已经把 active 清掉，这句是防御：绝不重复发奖。
+    if (w.bountyKilled >= w.bountyNeed) return;
+
+    w.bountyKilled += 1;
+    if (w.bountyKilled < w.bountyNeed) {
+      // 过半只报一次：正好踩在 ceil(need/2) 那一帧。
+      // 没有实时进度条，这一句是玩家唯一能"看到自己快完成了"的地方。
+      if (w.bountyKilled === Math.ceil(w.bountyNeed / 2)) {
+        w.events.push({
+          type: 'bounty_half', killed: w.bountyKilled, left: w.bountyNeed - w.bountyKilled
+        });
+      }
+      return;
+    }
+
+    // 达标：发奖 + 清状态。★先清 active 再 spawnPickup ——
+    // 宝箱/金币的掉落不走 killMob 那条路，不会回头再调本函数，但先清仍是好习惯：
+    // 万一以后掉落加了击杀钩子，也不会出现"发奖那一下又算了一次击杀"。
+    w.bountyActive = 0;
+    w.bountyDone = (w.bountyDone || 0) + 1;
+    const B = C.BOUNTY;
+    const x = m.x;
+    const y = m.y;
+    for (let i = 0; i < (B.rewardChest || 0); i++) {
+      spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+    }
+    // 金币按小环撒开（与山魈/影傀同一套）：叠在一个点上会被一次吸走，看着像只掉一枚。
+    const gn = B.goldDrops || 0;
+    for (let i = 0; i < gn; i++) {
+      const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+      spawnPickup(w, 'gold',
+        x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, B.rewardGold);
+    }
+    w.events.push({
+      type: 'bounty_done', killed: w.bountyKilled, need: w.bountyNeed,
+      chest: B.rewardChest || 0, gold: gn * (B.rewardGold || 0),
+      x: Math.round(x), y: Math.round(y)
+    });
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -1530,6 +1653,9 @@
     // 血怒的连杀计数（第三十八轮）。放在这里而不是掉落逻辑里：
     // 「打死一只」是唯一的事实，掉落那些分支会随 tier 走不同路径，漏一条就少算。
     bumpRage(w);
+    // 猎妖悬赏的击杀计数（第五十四轮）。与血怒并列在同一处：
+    // ★两者互不干扰——血怒是连杀窗口，悬赏是限时总量，各记各的字段。
+    onBountyKill(w, m);
 
     // 掉落经验球
     const def = m.def;
@@ -7341,7 +7467,16 @@
     //   所以它没有陨星那种"这一帧刚刷完、场上是空的"落空问题。
     maybeSpawnCauldron(w);
 
-    // ---------- 2.5 剧情节拍 ----------
+    // ---------- 2.5 猎妖悬赏（第五十四轮：限时击杀目标） ----------
+    // 【为什么排在这一串"往地上放东西"的队尾】悬赏**不放任何东西**：
+    //   它是全项目第一件只发几句话的目标制玩法。放在队尾，
+    //   一眼能看出"前面那些是物件，到这里是玩法层"。
+    // 【为什么 tick 在这一段、而不是 updateMobs 里】它只读时间与几个计数，
+    //   不碰怪的位置；放在生成之后、击杀之前，保证"到点开一轮"和
+    //   "这一帧的击杀算进这一轮"在同一帧里先后有序。
+    tickBounty(w);
+
+    // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
     //
@@ -8028,6 +8163,10 @@
     pickCauldronPoint: pickCauldronPoint,
     applyCauldron: applyCauldron,
     countAliveCauldrons: countAliveCauldrons,
+    // 第五十四轮：猎妖悬赏（只发播报的服务端目标制玩法，零快照字段）
+    tickBounty: tickBounty,
+    onBountyKill: onBountyKill,
+    bountyNeedFor: bountyNeedFor,
     // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
     //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
     spawnPickup: spawnPickup,

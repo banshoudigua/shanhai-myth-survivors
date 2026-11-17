@@ -1397,6 +1397,7 @@ testEscort();console.log('');
 
 testMarket();console.log('');
 testCauldron();console.log('');
+testBounty();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -5272,6 +5273,7 @@ function testDevourer() {
     w.twinNextTick = 1e9;
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
+    w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5639,6 +5641,7 @@ function testBoon() {
     w.twinNextTick = 1e9;
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
+    w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6041,6 +6044,7 @@ function testBell() {
     w.twinNextTick = 1e9;
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
+    w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6541,6 +6545,7 @@ function testMerge() {
     w.twinNextTick = 1e9;
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
+    w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7045,6 +7050,7 @@ function testEscort() {
     w.twinNextTick = 1e9;
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
+    w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7433,6 +7439,7 @@ function testMarket() {
     w.twinNextTick = 1e9;
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
+    w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7836,6 +7843,7 @@ function testCauldron() {
     w.twinNextTick = 1e9;
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
+    w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8157,4 +8165,272 @@ function testCauldron() {
     storyAlive && cauldrons(wS2).length === 0 && evs(wS2, 'cauldron').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
     + ' / 鼎 ' + cauldrons(wS2).length + ' 座 / 播报 ' + evs(wS2, 'cauldron').length + ' 条');
+}
+
+// ============================================================
+// 第五十四轮：猎妖悬赏（限时击杀目标）
+// ============================================================
+function testBounty() {
+  console.log('[第五十四轮] 猎妖悬赏：第一件「不在地上放东西」的玩法（限时击杀目标）');
+  const B = C.BOUNTY;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(B.startSec * HZ);
+  const everyTick = Math.round(B.everySec * HZ);
+
+  function evs(w, type) {
+    return w.events.filter(function (e) { return e.type === type; });
+  }
+  // 干净世界：其它事件全推远、关掉武器与金币掉落，只留悬赏这一条轴。
+  // ★清掉 pickups 是必要的：createWorld 会按地图放 3 个宝箱，
+  //   而"失败不许发奖"这条断言要钉的就是**一个掉落物都不多**。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.attrs.goldMul = 0;          // 怪不掉金币 → 场上的金币只可能来自悬赏奖励
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;       // 默认不排期：要开一轮的世界自己设为 0
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    return w;
+  }
+  // 把世界挪到首发帧并开一轮（直接调入口，不跑 step，变量最少）。
+  function openRound(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.bountyNextTick = 0;
+    SIM.tickBounty(w);
+  }
+  // 造一只普通怪并一击打死。返回它（奖励落点要按它的坐标验）。
+  function killOne(w, x, y) {
+    const m = SIM.spawnMob(w, 'corpse',
+      x === undefined ? w.player.x + 30 : x,
+      y === undefined ? w.player.y : y, 1, 0, 0);
+    SIM.damageMob(w, m, 1e9, 0, 0, 'test');
+    return m;
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则刚刷的怪还在 700px 外，45 秒先跑掉小半）',
+    B.startSec % 30 !== 0, B.startSec + ' % 30 = ' + (B.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起）',
+    B.windowSec > 15 && B.windowSec < B.everySec, B.windowSec + ' / ' + B.everySec);
+  expect('目标数在合理区间（12~40 只，太少白送、太多打不完）',
+    B.needKills >= 12 && B.needKills <= 40, String(B.needKills));
+  expect('逐轮增长且封顶（后期怪多但血厚，维持难度）',
+    B.killStep > 0 && B.maxKills > B.needKills && SIM.bountyNeedFor(100) === B.maxKills,
+    'step=' + B.killStep + ' cap=' + B.maxKills);
+  expect('奖励是「一个宝箱 + 一小笔零钱」，不是能随便扫货的巨款',
+    B.rewardChest === 1 && B.goldDrops >= 2 && B.rewardGold >= 1 && B.rewardGold <= 3,
+    JSON.stringify({ chest: B.rewardChest, drops: B.goldDrops, each: B.rewardGold }));
+  expect('★目标数按轮号真的会涨（第 2 轮 ≠ 第 1 轮）',
+    SIM.bountyNeedFor(1) === B.needKills + B.killStep,
+    SIM.bountyNeedFor(0) + ' → ' + SIM.bountyNeedFor(1));
+
+  // ---------- 2. 不消费主随机流 ----------
+  const wR = cleanWorld(901);
+  wR.tick = startTick - 1;
+  wR.time = wR.tick / HZ;
+  SIM.tickBounty(wR);
+  const rngBefore = wR.rngState;
+  wR.tick = startTick;
+  wR.time = wR.tick / HZ;
+  wR.bountyNextTick = 0;
+  SIM.tickBounty(wR);
+  expect('★★开一轮不消费主随机流（否则后面每一波的落点整体错位）',
+    wR.rngState === rngBefore, rngBefore + ' → ' + wR.rngState);
+  // ★必须直接调钩子：走 killOne 会连带跑怪的经验/金币掉落（那些本来就要抽随机），
+  //   把"悬赏抽没抽"和"怪抽没抽"混在一起，测出来的红是假红。
+  const rngBefore2 = wR.rngState;
+  for (let i = 0; i < B.needKills - 1; i++) SIM.onBountyKill(wR, { x: 60, y: 60 });
+  SIM.onBountyKill(wR, { x: 60, y: 60 });
+  expect('★★达成与发奖也不消费主随机流（奖励落在击杀点，不抽角度）',
+    wR.rngState === rngBefore2 && wR.bountyDone === 1,
+    rngBefore2 + ' → ' + wR.rngState + ' / done=' + wR.bountyDone);
+
+  // ---------- 3. 开局时序 ----------
+  const wT = cleanWorld(902);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  wT.bountyNextTick = 0;
+  SIM.tickBounty(wT);
+  expect('到点前一帧：零轮、零播报',
+    wT.bountyActive === 0 && wT.bountyRounds === 0 && wT.events.length === 0,
+    'active=' + wT.bountyActive + ' rounds=' + wT.bountyRounds);
+  openRound(wT);
+  expect('到点正好开一轮且只开一轮',
+    wT.bountyActive === 1 && wT.bountyRounds === 1 && evs(wT, 'bounty_start').length === 1,
+    'active=' + wT.bountyActive + ' rounds=' + wT.bountyRounds
+    + ' 播报=' + evs(wT, 'bounty_start').length);
+  expect('目标数、窗口、到期时刻都正确',
+    wT.bountyNeed === B.needKills && wT.bountyKilled === 0
+    && Math.abs(wT.bountyDeadline - (B.startSec + B.windowSec)) < 0.001,
+    JSON.stringify({ need: wT.bountyNeed, deadline: wT.bountyDeadline }));
+  expect('开局播报一次说全「几秒 / 几只 / 第几轮」',
+    evs(wT, 'bounty_start').length === 1
+    && evs(wT, 'bounty_start')[0].sec === B.windowSec
+    && evs(wT, 'bounty_start')[0].need === B.needKills
+    && evs(wT, 'bounty_start')[0].round === 1,
+    JSON.stringify(evs(wT, 'bounty_start')[0] || {}));
+  expect('★开了之后同一帧再 tick 不会重复开第二轮',
+    (SIM.tickBounty(wT), wT.bountyRounds === 1 && evs(wT, 'bounty_start').length === 1),
+    'rounds=' + wT.bountyRounds);
+
+  // ---------- 4. 计数与过半 ----------
+  const wC = cleanWorld(903);
+  killOne(wC); killOne(wC); killOne(wC);
+  expect('★★不在窗口内的击杀一律不计数（不能靠平时攒数白拿奖励）',
+    wC.bountyKilled === 0 && evs(wC, 'bounty_done').length === 0,
+    'killed=' + wC.bountyKilled);
+  openRound(wC);
+  wC.events.length = 0;
+  killOne(wC);
+  expect('窗口内击杀一只就记一只',
+    wC.bountyKilled === 1, 'killed=' + wC.bountyKilled);
+  // 已杀 1 只，再杀到 ceil(need/2)-1 只，离过半还差一只。
+  for (let i = 0; i < Math.ceil(B.needKills / 2) - 2; i++) killOne(wC);
+  expect('★过半之前一句都不报（不刷屏）',
+    evs(wC, 'bounty_half').length === 0, JSON.stringify(evs(wC, 'bounty_half')));
+  killOne(wC);
+  expect('过半恰好报一条，而且带已杀与还差',
+    evs(wC, 'bounty_half').length === 1
+    && evs(wC, 'bounty_half')[0].killed === Math.ceil(B.needKills / 2)
+    && evs(wC, 'bounty_half')[0].left === B.needKills - Math.ceil(B.needKills / 2),
+    JSON.stringify(evs(wC, 'bounty_half')[0] || {}));
+
+  // ---------- 5. 达成 ----------
+  const wD = cleanWorld(904);
+  openRound(wD);
+  wD.events.length = 0;
+  for (let i = 0; i < B.needKills - 1; i++) killOne(wD);
+  expect('差一只时不许提前发奖',
+    wD.bountyActive === 1 && byKind(wD, 'chest').length === 0
+    && evs(wD, 'bounty_done').length === 0,
+    'active=' + wD.bountyActive + ' chest=' + byKind(wD, 'chest').length);
+  // 最后一击固定在 (555,333)，钉住"奖励落在尸体处"。
+  const last = killOne(wD, 555, 333);
+  expect('达标那一刻立即收起窗口、记一次达成',
+    wD.bountyActive === 0 && wD.bountyDone === 1 && wD.bountyKilled === B.needKills,
+    JSON.stringify({ active: wD.bountyActive, done: wD.bountyDone, killed: wD.bountyKilled }));
+  expect('★宝箱正好一个（不是一堆）',
+    byKind(wD, 'chest').length === B.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币正好 N 枚，面值正确',
+    byKind(wD, 'gold').length === B.goldDrops
+    && byKind(wD, 'gold').every(function (it) { return it.value === B.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  expect('★★宝箱落在最后一击那只怪的尸体处，不在玩家脚下',
+    byKind(wD, 'chest').length === 1
+    && byKind(wD, 'chest')[0].x === last.x && byKind(wD, 'chest')[0].y === last.y
+    && (last.x !== wD.player.x || last.y !== wD.player.y),
+    JSON.stringify({ box: byKind(wD, 'chest')[0], corpse: { x: last.x, y: last.y } }));
+  expect('达成播报恰好一条，带击杀数与奖品种类',
+    evs(wD, 'bounty_done').length === 1
+    && evs(wD, 'bounty_done')[0].killed === B.needKills
+    && evs(wD, 'bounty_done')[0].chest === B.rewardChest
+    && evs(wD, 'bounty_done')[0].gold === B.goldDrops * B.rewardGold,
+    JSON.stringify(evs(wD, 'bounty_done')[0] || {}));
+  const chestAfter = byKind(wD, 'chest').length;
+  const goldAfter = byKind(wD, 'gold').length;
+  wD.events.length = 0;
+  wD.tick += Math.round(3 * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickBounty(wD);
+  killOne(wD, 777, 444);
+  expect('★★达成后再推 3 秒、再杀怪：不许二次发奖',
+    byKind(wD, 'chest').length === chestAfter && byKind(wD, 'gold').length === goldAfter
+    && evs(wD, 'bounty_done').length === 0,
+    'chest ' + chestAfter + '→' + byKind(wD, 'chest').length
+    + ' / gold ' + goldAfter + '→' + byKind(wD, 'gold').length);
+  expect('★达成后的击杀不再计入（窗口真的关了）',
+    wD.bountyKilled === B.needKills, 'killed=' + wD.bountyKilled);
+
+  // ---------- 6. 失败（这一节全在钉「不该发生的事」） ----------
+  const wF = cleanWorld(905);
+  openRound(wF);
+  wF.events.length = 0;
+  wF.tick = Math.round((B.startSec + B.windowSec) * HZ);
+  wF.time = wF.tick / HZ;
+  SIM.tickBounty(wF);
+  expect('到期未达标：收起窗口、记一次过期',
+    wF.bountyActive === 0 && wF.bountyFailed === 1 && wF.bountyDone === 0,
+    JSON.stringify({ active: wF.bountyActive, failed: wF.bountyFailed, done: wF.bountyDone }));
+  expect('★★失败时一个掉落物都不许多（宝箱/金币都不给）',
+    wF.pickups.length === 0, 'pickups=' + wF.pickups.length);
+  expect('★★失败时绝不出现「达成」播报',
+    evs(wF, 'bounty_done').length === 0, JSON.stringify(evs(wF, 'bounty_done')));
+  expect('过期播报恰好一条，带还差几只、语气不责备',
+    evs(wF, 'bounty_fail').length === 1
+    && evs(wF, 'bounty_fail')[0].left === B.needKills
+    && evs(wF, 'bounty_fail')[0].killed === 0,
+    JSON.stringify(evs(wF, 'bounty_fail')[0] || {}));
+  wF.events.length = 0;
+  killOne(wF);
+  expect('★失败后击杀不再计数（没有后遗症）',
+    wF.bountyKilled === 0, 'killed=' + wF.bountyKilled);
+  wF.tick += Math.round(3 * HZ);
+  wF.time = wF.tick / HZ;
+  SIM.tickBounty(wF);
+  expect('★失败后再推 3 秒不重复播报',
+    evs(wF, 'bounty_fail').length === 0 && evs(wF, 'bounty_done').length === 0,
+    JSON.stringify(wF.events));
+  const wB = cleanWorld(906);
+  openRound(wB);
+  wB.tick = Math.round((B.startSec + B.windowSec) * HZ) - 1;
+  wB.time = wB.tick / HZ;
+  SIM.tickBounty(wB);
+  expect('到期前一帧窗口还开着（边界不错杀）',
+    wB.bountyActive === 1 && evs(wB, 'bounty_fail').length === 0,
+    'active=' + wB.bountyActive);
+
+  // ---------- 7. 剧情关隔离（双管） ----------
+  const wS = cleanWorld(907);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch4' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.bountyNextTick = 0;
+  SIM.tickBounty(wS);
+  expect('★★直接调入口：剧情关不挂悬赏、零播报',
+    wS.bountyActive === 0 && wS.bountyRounds === 0 && evs(wS, 'bounty_start').length === 0,
+    'active=' + wS.bountyActive + ' rounds=' + wS.bountyRounds);
+  wS.bountyActive = 1;
+  wS.bountyNeed = B.needKills;
+  SIM.onBountyKill(wS, { x: 100, y: 100 });
+  expect('★★即便被强行激活，剧情关也不计数、不发奖（双保险）',
+    wS.bountyKilled === 0 && byKind(wS, 'chest').length === 0
+    && evs(wS, 'bounty_done').length === 0,
+    'killed=' + wS.bountyKilled + ' chest=' + byKind(wS, 'chest').length);
+  // 走 step 那一遍：悬赏首发 186 秒，推到 216 秒 → 用 ch4（420 秒上限）。
+  // ★ch1(240) 虽也够，但要钉"世界还在跑"，ch4 留的余量更宽。
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 908, modId: 'myth', stageId: 'ch4' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((B.startSec + k * 30) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch4）走完整条 step 也没有悬赏，且那一刻世界确实还在跑',
+    storyAlive && wS2.bountyActive === 0 && evs(wS2, 'bounty_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
+    + ' / active=' + wS2.bountyActive);
 }
