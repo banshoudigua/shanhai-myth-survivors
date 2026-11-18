@@ -1063,6 +1063,22 @@
       gleanRounds: 0,
       gleanDone: 0,
       gleanFailed: 0,
+      // ---------- 破军令（第五十八轮：限时打出伤害的目标） ----------
+      // ★和悬赏/守心/拾荒一样全是**服务端事实**，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      forgeNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是「这一下伤害要不要计数」的唯一判据。
+      forgeActive: 0,
+      // 本轮已累计伤害 / 目标伤害 / 到期时刻（w.time 口径，秒）
+      forgeDamage: 0,
+      forgeNeed: 0,
+      forgeDeadline: 0,
+      // 过半播报只发一次的标记（伤害是连续量，不能像拾荒那样用 === 判定）
+      forgeHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      forgeRounds: 0,
+      forgeDone: 0,
+      forgeFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1474,6 +1490,12 @@
     m.hp -= dmg;
     w.stats.dmgDealt += dmg;
 
+    // 破军令（第五十八轮）：只把"真·玩家输出"计进限时伤害目标。
+    // ★isWorld（天火/灵泉/引魂灯）不算——那是世界伤害，不随 build 变化，
+    //   让它们替玩家达标等于白送。钩子本身零随机（只加一个数字）。
+    // ★过半/达标的播报与发奖全在 tickForge 里做，这里只累计，职责单一。
+    if (!isWorld) onForgeHit(w, dmg);
+
     // 伤害构成（第三十六轮）：按来源（武器 id / 'thorns' / 'other'）分别累计。
     // ★必须在「暴击、斩杀、词缀减伤」之后记 —— 玩家看到的是实际打出的数字，
     //   记录原始 dmg 会让结算页的总和对不上「造成伤害」那一格（两处数字打架最难解释）。
@@ -1838,6 +1860,104 @@
     if (w.gleanCount === Math.ceil(w.gleanNeed / 2)) {
       w.events.push({
         type: 'glean_half', got: w.gleanCount, left: w.gleanNeed - w.gleanCount
+      });
+    }
+  }
+
+  // ============================================================
+  // 破军令（第五十八轮：限时打出伤害）—— 目标制零实体第四件
+  // ============================================================
+  //
+  // 【两个函数怎么分工】与拾荒令同构：tickForge 管"到点开窗 / 到期结算"（时间的事），
+  //   onForgeHit 管"这一下伤害算不算"（战斗的事）。两者都只读写 w 上几个数字，
+  //   不读怪的位置、不抽随机 —— 可脱离整局精确验。
+  // 【为什么计数钩子不催随机】它只在 damageMob 的 !isWorld 分支被调用，
+  //   而且是直接调入口验计数，不经过武器/暴击那一层（那些本来就要抽 nextRand）。
+
+  // 某一轮要累计打多少伤害：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function forgeNeedFor(roundIndex) {
+    const F = C.ONSLAUGHT;
+    if (!F) return 0;
+    return Math.min(F.maxDamage, F.needDamage + (roundIndex || 0) * F.damageStep);
+  }
+
+  // 每帧调一次（step 第 2.57 段，紧挨 tickGlean —— 都是目标制、零实体）。
+  function tickForge(w) {
+    const F = C.ONSLAUGHT;
+    if (!F) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，限时伤害会把配平冲掉。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.forgeActive) {
+      // ★达标优先于到期：最后一帧刚好打够也算数（与悬赏/拾荒同口径）。
+      if (w.forgeDamage >= w.forgeNeed) {
+        w.forgeActive = 0;
+        w.forgeDone = (w.forgeDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，防止撒出去的金币被捡回时又计进本轮
+        //   （虽然 count 钩子不认 gold，但保持与其它三件一致的结算顺序）。
+        for (let i = 0; i < (F.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = F.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, F.rewardGold);
+        }
+        w.events.push({
+          type: 'forge_done', got: Math.round(w.forgeDamage), need: w.forgeNeed,
+          chest: F.rewardChest || 0, gold: gn * (F.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.forgeDeadline) return;
+      // 到期还没打够：★什么都不给，且**不责备**（与悬赏到期/守心破功/拾荒落空同一口径）。
+      w.forgeActive = 0;
+      w.forgeFailed = (w.forgeFailed || 0) + 1;
+      w.events.push({
+        type: 'forge_fail', need: w.forgeNeed, got: Math.round(w.forgeDamage),
+        left: Math.max(0, Math.ceil(w.forgeNeed - w.forgeDamage))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：forgeNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(F.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.forgeNextTick` —— 初值就是 0。
+    if (w.tick < w.forgeNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.forgeRounds = (w.forgeRounds || 0) + 1;
+    w.forgeActive = 1;
+    w.forgeDamage = 0;
+    w.forgeHalfNoted = 0;
+    w.forgeNeed = forgeNeedFor(w.forgeRounds - 1);
+    w.forgeDeadline = w.time + F.windowSec;
+    w.forgeNextTick = w.tick + Math.round(F.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'forge_start', need: w.forgeNeed, sec: F.windowSec, round: w.forgeRounds
+    });
+  }
+
+  // 伤害计数钩子：挂在 damageMob 的 !isWorld 分支（真·玩家输出才算）。
+  // 【为什么只加数字、不发奖】达标/落空的结算全在 tickForge 里做，钩子只累计。
+  // 【过半为什么用 >= + 标记位】伤害是连续量，一发可能直接跨过半程；=== 会漏报。
+  function onForgeHit(w, dmg) {
+    if (!w.forgeActive || w.storyStage) return;
+    if (!(dmg > 0)) return;
+    w.forgeDamage += dmg;
+    const half = w.forgeNeed / 2;
+    if (!w.forgeHalfNoted && w.forgeDamage >= half) {
+      w.forgeHalfNoted = 1;
+      w.events.push({
+        type: 'forge_half', got: Math.round(w.forgeDamage), need: w.forgeNeed,
+        left: Math.max(0, Math.ceil(w.forgeNeed - w.forgeDamage))
       });
     }
   }
@@ -7886,6 +8006,15 @@
     //   那会在 updatePickups 的数组压缩循环里 push，造成一次达标刷出一地球。
     tickGlean(w);
 
+    // ---------- 2.57 破军令（第五十八轮：限时打出伤害） ----------
+    // 【为什么紧跟拾荒】同为"目标制、零实体、只发播报"——四件（悬赏/守心/拾荒/破军）
+    //   摆在一起，一眼能看出这一族的四条轴：限时杀几只 / 限时别挨打 / 限时捡几份 /
+    //   限时打多少伤害。前三件数的是"次数/份数"（大小一样），破军令数是"伤害量"
+    //   （逼你集火厚血目标而不是补刀凑数）。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   伤害计数钩子挂在 damageMob（武器结算那一层），所以 tick 只管状态迁移。
+    tickForge(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -8594,6 +8723,11 @@
     tickGlean: tickGlean,
     onGleanPickup: onGleanPickup,
     gleanNeedFor: gleanNeedFor,
+    // 第五十八轮：破军令（限时打出伤害）—— 三个入口单独导出，测试要能在精确 tick
+    //   上开一轮、精确注入一次伤害，而不必真去跑 342 秒并造一场战斗。
+    tickForge: tickForge,
+    onForgeHit: onForgeHit,
+    forgeNeedFor: forgeNeedFor,
     // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
     //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
     spawnPickup: spawnPickup,

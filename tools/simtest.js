@@ -1401,6 +1401,7 @@ testBounty();console.log('');
 testHealer();console.log('');
 testSerenity();console.log('');
 testGlean();console.log('');
+testForge();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2794,6 +2795,7 @@ function testRage() {
     w.player.attrs.exec = 0;
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -2984,6 +2986,7 @@ function testMoon() {
     w.player.attrs.exec = 0;
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5284,6 +5287,7 @@ function testDevourer() {
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5655,6 +5659,7 @@ function testBoon() {
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6061,6 +6066,7 @@ function testBell() {
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6565,6 +6571,7 @@ function testMerge() {
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7073,6 +7080,7 @@ function testEscort() {
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7465,6 +7473,7 @@ function testMarket() {
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7872,6 +7881,7 @@ function testCauldron() {
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8236,6 +8246,7 @@ function testBounty() {
     w.healerNextTick = 1e9;       // 第五十五轮：回春巫默认推远（悬赏测试推到 216s 不会碰它，仍统一补上）
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8507,6 +8518,7 @@ function testHealer() {
     w.healerNextTick = 1e9;       // 默认推远：要验它的世界自己设为 0
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8780,6 +8792,7 @@ function testSerenity() {
     w.bountyNextTick = 1e9;
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
+    w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9033,6 +9046,7 @@ function testGlean() {
     w.bountyNextTick = 1e9;
     w.serenityNextTick = 1e9;
     w.gleanNextTick = 1e9;    // 默认不排期：要开窗的世界自己设为 0
+    w.forgeNextTick = 1e9;    // 破军令 342s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9292,4 +9306,316 @@ function testGlean() {
     evs(wS2, 'glean_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
     + ' / active=' + wS2.gleanActive);
+}
+
+function testForge() {
+  console.log('[第五十八轮] 破军令：第一件「限时伤害量」目标（只数真·玩家输出，零实体）');
+  const F = C.ONSLAUGHT;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(F.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 干净世界：其它机制全推远、关武器、清掉落，只留破军令这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    // 保证 damageMob 不抽随机、不叠暴击/血怒乘区，伤害计数可精确断言
+    p.attrs.crit = 0;
+    p.attrs.exec = 0;
+    p.rage = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;    // 默认不排期：要开窗的世界自己设为 0
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.forgeNextTick = 0;
+    SIM.tickForge(w);
+  }
+  // 直接调钩子注入伤害：隔离掉战斗/暴击，专门验计数与随机流。
+  function feed(w, dmg) {
+    SIM.onForgeHit(w, dmg);
+  }
+  // 造一只高血量怪，用真实 damageMob 路径验"世界伤害不计入"。
+  // seed 参数让它零随机生成；1000 倍血量保证四次小伤打不死（不触发 killMob）。
+  function hitMob(w, dmg, src) {
+    if (!w._mob) {
+      const id = Object.keys(C.MOB_MAP)[0];
+      w._mob = SIM.spawnMob(w, id, w.self.x + 40, w.self.y, 1000, 0, 0.5);
+    }
+    SIM.damageMob(w, w._mob, dmg, 0, 0, src);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则窗口刚开时场上是空场，没怪可打）',
+    F.startSec % 30 !== 0, F.startSec + ' % 30 = ' + (F.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起）',
+    F.windowSec > 8 && F.windowSec < F.everySec, F.windowSec + ' / ' + F.everySec);
+  expect('目标伤害按轮递增且封顶（第 2 轮 +step，第 99 轮到 max）',
+    SIM.forgeNeedFor(0) === F.needDamage &&
+    SIM.forgeNeedFor(1) === F.needDamage + F.damageStep &&
+    SIM.forgeNeedFor(99) === F.maxDamage,
+    '0=' + SIM.forgeNeedFor(0) + ' 1=' + SIM.forgeNeedFor(1) + ' 99=' + SIM.forgeNeedFor(99));
+  expect('目标伤害与窗口长度合理（每秒 30~120 点，站着不动/只补刀绝无可能）',
+    F.needDamage > 0 && F.needDamage <= F.maxDamage &&
+    F.needDamage / F.windowSec >= 30 && F.needDamage / F.windowSec <= 120,
+    'need=' + F.needDamage + ' / ' + F.windowSec + ' 秒 = ' + (F.needDamage / F.windowSec));
+  expect('奖励仍是"一箱 + 零钱"（与悬赏/守心/拾荒同口径，不是巨款）',
+    F.rewardChest >= 1 && F.rewardChest <= 2 && F.goldDrops >= 1 &&
+    F.rewardGold >= 1 && F.rewardGold <= 5,
+    'chest=' + F.rewardChest + ' gold=' + F.goldDrops + '×' + F.rewardGold);
+  expect('首发时刻错开所有既有事件（避免同一帧挤进两条播报）',
+    [C.BOUNTY, C.SERENITY, C.GLEAN, C.CAULDRON, C.BELL, C.HEALER].every(function (x) {
+      return !x || x.startSec !== F.startSec;
+    }), 'forge=' + F.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉掉落/暴击）----------
+  const wR1 = cleanWorld(9501);
+  const rngA = wR1.rngState;
+  openWindow(wR1);
+  expect('★★开一轮前后 rngState 逐位一致（不能让后面每波落点整体错位）',
+    wR1.rngState === rngA, 'before=' + rngA + ' after=' + wR1.rngState);
+  const wR2 = cleanWorld(9502);
+  openWindow(wR2);
+  const rngB = wR2.rngState;
+  feed(wR2, 500);
+  expect('★★打进 500 点伤害前后 rngState 逐位一致',
+    wR2.rngState === rngB, 'before=' + rngB + ' after=' + wR2.rngState);
+  const wR3 = cleanWorld(9503);
+  openWindow(wR3);
+  feed(wR3, F.needDamage);
+  wR3.time = wR3.forgeDeadline;
+  const rngC = wR3.rngState;
+  SIM.tickForge(wR3);
+  expect('★★达标发奖前后 rngState 逐位一致',
+    wR3.rngState === rngC, 'before=' + rngC + ' after=' + wR3.rngState);
+  const wR4 = cleanWorld(9504);
+  openWindow(wR4);
+  wR4.time = wR4.forgeDeadline;
+  const rngD = wR4.rngState;
+  SIM.tickForge(wR4);
+  expect('★★到期落空前后 rngState 逐位一致',
+    wR4.rngState === rngD, 'before=' + rngD + ' after=' + wR4.rngState);
+
+  // ---------- 3. 时序与"零实体" ----------
+  const wT = cleanWorld(9510);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  wT.forgeNextTick = 0;
+  SIM.tickForge(wT);
+  expect('到点前零轮、零播报、未开窗',
+    wT.forgeRounds === 0 && wT.forgeActive === 0 &&
+    evs(wT, 'forge_start').length === 0, 'rounds=' + wT.forgeRounds);
+  feed(wT, 1000);
+  expect('★★窗口外打出的伤害不许计数（早打不算）',
+    wT.forgeDamage === 0, 'damage=' + wT.forgeDamage);
+  openWindow(wT);
+  expect('到点正好一轮、开窗、只发一条播报',
+    wT.forgeRounds === 1 && wT.forgeActive === 1 &&
+    evs(wT, 'forge_start').length === 1, 'rounds=' + wT.forgeRounds);
+  expect('开窗本身一个实体都不放（场上本来就有的怪才是目标）',
+    wT.pickups.length === 0 && wT.mobs.length === 0,
+    'pickups=' + wT.pickups.length + ' mobs=' + wT.mobs.length);
+  const st = evs(wT, 'forge_start')[0];
+  expect('开窗播报一次说清"多久 / 打多少 / 第几轮"',
+    st.sec === F.windowSec && st.need === F.needDamage && st.round === 1,
+    JSON.stringify(st));
+  expect('到期时刻 = 开窗时刻 + 窗口长度（w.time 口径无漂移）',
+    Math.abs(wT.forgeDeadline - (startTick / HZ + F.windowSec)) < 0.02,
+    'deadline=' + wT.forgeDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.forgeNextTick === startTick + Math.round(F.everySec * HZ),
+    'next=' + wT.forgeNextTick);
+  const roundsBefore = wT.forgeRounds;
+  SIM.tickForge(wT);
+  expect('同帧再 tick 不重复开窗',
+    wT.forgeRounds === roundsBefore && evs(wT, 'forge_start').length === 1,
+    'rounds=' + wT.forgeRounds);
+
+  // ---------- 4. 伤害累计与过半（连续量：>= 阈值 + 标记位）----------
+  const wD = cleanWorld(9520);
+  openWindow(wD);
+  feed(wD, F.needDamage / 2 - 1);
+  expect('过半前一条过半播报都没有',
+    evs(wD, 'forge_half').length === 0 && wD.forgeDamage === F.needDamage / 2 - 1,
+    'damage=' + wD.forgeDamage);
+  feed(wD, 1);
+  expect('正好打到半程才播报过半',
+    evs(wD, 'forge_half').length === 1 &&
+    evs(wD, 'forge_half')[0].got === Math.round(F.needDamage / 2),
+    JSON.stringify(evs(wD, 'forge_half')[0]));
+  feed(wD, 10);
+  expect('★★过半播报只发一次（后续多打不刷屏）',
+    evs(wD, 'forge_half').length === 1, 'n=' + evs(wD, 'forge_half').length);
+  // 一发直接跨过半程也要报（伤害是连续量，=== 会永远错过）
+  const wD2 = cleanWorld(9521);
+  openWindow(wD2);
+  feed(wD2, F.needDamage - 1);
+  expect('★★★一发就跨过半程也照报（=== 判定在这里会漏，>= + 标记位才对）',
+    evs(wD2, 'forge_half').length === 1 &&
+    evs(wD2, 'forge_half')[0].got === F.needDamage - 1,
+    JSON.stringify(evs(wD2, 'forge_half')[0]));
+  wD.time = wD.forgeDeadline - 1 / HZ;
+  SIM.tickForge(wD);
+  expect('到期前一帧窗口还开着、一个奖励都不发',
+    wD.forgeActive === 1 && wD.pickups.length === 0 &&
+    evs(wD, 'forge_done').length === 0, 'active=' + wD.forgeActive);
+
+  // ---------- 5. 达标 ----------
+  feed(wD, F.needDamage - wD.forgeDamage);
+  wD.time = wD.forgeDeadline;
+  const px = wD.self.x, py = wD.self.y;
+  SIM.tickForge(wD);
+  expect('到期正好够数：窗口关闭、达成 +1、一条达成播报',
+    wD.forgeActive === 0 && wD.forgeDone === 1 &&
+    evs(wD, 'forge_done').length === 1,
+    'active=' + wD.forgeActive + ' done=' + wD.forgeDone);
+  expect('★★宝箱正好一个（达成的一次免费升级）',
+    byKind(wD, 'chest').length === F.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  const dg = byKind(wD, 'gold');
+  expect('金币枚数与每枚面值都正确',
+    dg.length === F.goldDrops && dg.every(function (it) { return it.value === F.rewardGold; }),
+    'n=' + dg.length + ' value=' + (dg[0] || {}).value);
+  expect('★★奖励落在玩家脚下（不是地图中央，玩家不用满地图找）',
+    byKind(wD, 'chest')[0].x === px && byKind(wD, 'chest')[0].y === py,
+    'chest=' + byKind(wD, 'chest')[0].x + ',' + byKind(wD, 'chest')[0].y +
+    ' player=' + px + ',' + py);
+  const dn = evs(wD, 'forge_done')[0];
+  expect('达成播报带"打了几伤 + 掉了什么"，数字全来自事件',
+    dn.got === F.needDamage && dn.chest === F.rewardChest &&
+    dn.gold === F.goldDrops * F.rewardGold, JSON.stringify(dn));
+  const pickupsAfterDone = wD.pickups.length;
+  wD.time = wD.forgeDeadline + 5;
+  feed(wD, 1000);
+  SIM.tickForge(wD);
+  expect('★★达标后再打、再推时间都不二次发奖，也不算落空',
+    wD.forgeDone === 1 && wD.forgeFailed === 0 &&
+    wD.pickups.length === pickupsAfterDone,
+    'done=' + wD.forgeDone + ' failed=' + wD.forgeFailed);
+  // 下一轮：目标涨、伤害清零（不能把上一轮的伤害带进下一轮）
+  wD.tick = startTick + Math.round(F.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickForge(wD);
+  expect('下一轮目标按轮号递增、伤害从零开始',
+    wD.forgeRounds === 2 && wD.forgeDamage === 0 &&
+    wD.forgeNeed === SIM.forgeNeedFor(1) && wD.forgeHalfNoted === 0,
+    'rounds=' + wD.forgeRounds + ' need=' + wD.forgeNeed);
+
+  // ---------- 6. 到期落空（"什么都不给、不责备"）----------
+  const wF = cleanWorld(9530);
+  openWindow(wF);
+  feed(wF, F.needDamage - 1);
+  wF.time = wF.forgeDeadline;
+  SIM.tickForge(wF);
+  expect('差一点到期就落空：窗口关闭、失败 +1、只发一条到期播报',
+    wF.forgeActive === 0 && wF.forgeFailed === 1 &&
+    evs(wF, 'forge_fail').length === 1,
+    'active=' + wF.forgeActive + ' failed=' + wF.forgeFailed);
+  expect('★★★落空后一个掉落物都不多（绝不偷偷发奖）',
+    wF.pickups.length === 0, 'pickups=' + wF.pickups.length);
+  expect('★★落空后绝不出现"达成"播报',
+    evs(wF, 'forge_done').length === 0 && wF.forgeDone === 0,
+    'done=' + wF.forgeDone);
+  const fn = evs(wF, 'forge_fail')[0];
+  expect('到期播报只陈述"还差几点伤害"（不责备玩家）',
+    fn.left === 1 && fn.got === F.needDamage - 1 && fn.need === F.needDamage,
+    JSON.stringify(fn));
+  const beforeLate = wF.pickups.length;
+  wF.time = wF.forgeDeadline + 10;
+  feed(wF, 1000);
+  SIM.tickForge(wF);
+  expect('★★落空后即使推到很晚、再打也不补发',
+    wF.forgeDone === 0 && wF.pickups.length === beforeLate,
+    'done=' + wF.forgeDone + ' pickups=' + wF.pickups.length);
+  expect('★★落空后再喂也不计数（active 已清）',
+    wF.forgeDamage === F.needDamage - 1, 'damage=' + wF.forgeDamage);
+
+  // ---------- 7. ★世界伤害隔离（核心新轴：只认真·玩家输出）----------
+  const wW = cleanWorld(9540);
+  openWindow(wW);
+  hitMob(wW, 50, 'weapon_test');
+  expect('玩家武器伤害计入（正向对照：这条路必须通）',
+    wW.forgeDamage === 50, 'damage=' + wW.forgeDamage);
+  hitMob(wW, 50, 'meteor');
+  expect('★★★天火伤害一个都不计入（世界伤害不替玩家达标）',
+    wW.forgeDamage === 50, 'damage=' + wW.forgeDamage);
+  hitMob(wW, 50, 'ley');
+  expect('★★地脉灵泉伤害不计入',
+    wW.forgeDamage === 50, 'damage=' + wW.forgeDamage);
+  hitMob(wW, 50, 'lantern');
+  expect('★★引魂灯收尾伤害不计入',
+    wW.forgeDamage === 50, 'damage=' + wW.forgeDamage);
+  hitMob(wW, 50, 'weapon_test');
+  expect('世界伤害之后玩家伤害继续正常计入（没被误关闸）',
+    wW.forgeDamage === 100, 'damage=' + wW.forgeDamage);
+  // 剧情关里即使调 damageMob 也不计数（钩子 story 闸）
+  const wWS = cleanWorld(9541);
+  wWS.modId = 'myth';
+  wWS.storyStage = { id: 'ch5' };
+  openWindow(wWS);
+  hitMob(wWS, 500, 'weapon_test');
+  expect('★★剧情关里调 damageMob 也不计数（钩子有 story 闸）',
+    wWS.forgeDamage === 0, 'damage=' + wWS.forgeDamage);
+
+  // ---------- 8. 剧情关隔离（双管）----------
+  const wS = cleanWorld(9550);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.forgeNextTick = 0;
+  SIM.tickForge(wS);
+  feed(wS, 100000);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.forgeActive === 0 && wS.forgeRounds === 0 && wS.forgeDamage === 0 &&
+    evs(wS, 'forge_start').length === 0,
+    'active=' + wS.forgeActive + ' damage=' + wS.forgeDamage);
+  wS.forgeActive = 1;
+  feed(wS, 500);
+  expect('★★剧情关里强行激活也不计数（钩子有 story 闸）',
+    wS.forgeDamage === 0, 'damage=' + wS.forgeDamage);
+  // 走 step 那一遍：ch5 有 480 秒上限，确保 342 秒那一刻世界还在跑
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9551, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((F.startSec + k * 20) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有破军令，且那一刻世界确实还在跑',
+    storyAlive && wS2.forgeActive === 0 &&
+    evs(wS2, 'forge_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
+    + ' / active=' + wS2.forgeActive);
 }
