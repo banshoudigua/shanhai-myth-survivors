@@ -1079,6 +1079,22 @@
       forgeRounds: 0,
       forgeDone: 0,
       forgeFailed: 0,
+      // ---------- 逐日步（第五十九轮：限时走位距离的目标） ----------
+      // ★和悬赏/守心/拾荒/破军一样全是**服务端事实**，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      strideNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是「这一步位移要不要计数」的唯一判据。
+      strideActive: 0,
+      // 本轮已走距离 / 目标距离 / 到期时刻（w.time 口径，秒）
+      strideDist: 0,
+      strideNeed: 0,
+      strideDeadline: 0,
+      // 过半播报只发一次的标记（距离是连续量，不能像拾荒那样用 === 判定）
+      strideHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      strideRounds: 0,
+      strideDone: 0,
+      strideFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1958,6 +1974,107 @@
       w.events.push({
         type: 'forge_half', got: Math.round(w.forgeDamage), need: w.forgeNeed,
         left: Math.max(0, Math.ceil(w.forgeNeed - w.forgeDamage))
+      });
+    }
+  }
+
+  // ============================================================
+  // 逐日步（第五十九轮：限时走位距离）—— 目标制零实体第五件
+  // ============================================================
+  //
+  // 【两个函数怎么分工】与破军令同构：tickStride 管"到点开窗 / 到期结算"（时间的事），
+  //   onStrideMove 管"这一步位移算不算"（移动的事）。两者只读写 w 上几个数字，
+  //   不读怪的位置、不抽随机 —— 可脱离整局精确验。
+  // 【为什么计数钩子挂在 movePlayer 里、而不是 step 里比 px/py】
+  //   step 开头记的 px/py 是**渲染插值用**的，传送门瞬移、阵亡复活都会让它跳变；
+  //   挂在 movePlayer 里能拿到"这一帧脚下真的走了多少"，且天然在 tryPortal 之前，
+  //   瞬移一分都不算。★这是本件最重要的一条边界，simtest 单独钉死。
+  // 【为什么多人合计数】和悬赏的击杀、拾荒的份数一样：联机一屋里谁走的都算，
+  //   这是"一局共同目标"，不是个人成就（个人成就需要每人一套字段，属另造体系）。
+
+  // 某一轮要走多少距离：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function strideNeedFor(roundIndex) {
+    const S = C.STRIDE;
+    if (!S) return 0;
+    return Math.min(S.maxDist, S.needDist + (roundIndex || 0) * S.distStep);
+  }
+
+  // 每帧调一次（step 第 2.58 段，紧挨 tickForge —— 都是目标制、零实体）。
+  function tickStride(w) {
+    const S = C.STRIDE;
+    if (!S) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，逼着跑够距离会冲掉配平。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.strideActive) {
+      // ★达标优先于到期：最后一帧刚好走够也算数（与前四件同口径）。
+      if (w.strideDist >= w.strideNeed) {
+        w.strideActive = 0;
+        w.strideDone = (w.strideDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，保持与破军令/拾荒一致的结算顺序。
+        for (let i = 0; i < (S.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = S.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, S.rewardGold);
+        }
+        w.events.push({
+          type: 'stride_done', got: Math.round(w.strideDist), need: w.strideNeed,
+          chest: S.rewardChest || 0, gold: gn * (S.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.strideDeadline) return;
+      // 到期没走够：★什么都不给，且**不责备**（与悬赏/守心/拾荒/破军同一口径）。
+      w.strideActive = 0;
+      w.strideFailed = (w.strideFailed || 0) + 1;
+      w.events.push({
+        type: 'stride_fail', need: w.strideNeed, got: Math.round(w.strideDist),
+        left: Math.max(0, Math.ceil(w.strideNeed - w.strideDist))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：strideNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(S.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.strideNextTick` —— 初值就是 0。
+    if (w.tick < w.strideNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.strideRounds = (w.strideRounds || 0) + 1;
+    w.strideActive = 1;
+    w.strideDist = 0;
+    w.strideHalfNoted = 0;
+    w.strideNeed = strideNeedFor(w.strideRounds - 1);
+    w.strideDeadline = w.time + S.windowSec;
+    w.strideNextTick = w.tick + Math.round(S.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'stride_start', need: w.strideNeed, sec: S.windowSec, round: w.strideRounds
+    });
+  }
+
+  // 位移计数钩子：movePlayer 走完地形碰撞与边界裁剪之后、传送门之前调。
+  // 【为什么只加数字、不发奖】达标/落空的结算全在 tickStride 里做，钩子只累计。
+  // 【过半为什么用 >= + 标记位】距离是连续量，一帧跨过半程是常事；=== 会漏报。
+  function onStrideMove(w, dist) {
+    if (!w.strideActive || w.storyStage) return;
+    if (!(dist > 0)) return;
+    w.strideDist += dist;
+    const half = w.strideNeed / 2;
+    if (!w.strideHalfNoted && w.strideDist >= half) {
+      w.strideHalfNoted = 1;
+      w.events.push({
+        type: 'stride_half', got: Math.round(w.strideDist), need: w.strideNeed,
+        left: Math.max(0, Math.ceil(w.strideNeed - w.strideDist))
       });
     }
   }
@@ -8015,6 +8132,15 @@
     //   伤害计数钩子挂在 damageMob（武器结算那一层），所以 tick 只管状态迁移。
     tickForge(w);
 
+    // ---------- 2.58 逐日步（第五十九轮：限时走位距离） ----------
+    // 【为什么紧跟破军】同为"目标制、零实体、只发播报"——五件摆在一起，
+    //   一眼能看出这一族的五条轴：限时杀几只 / 别挨打 / 捡几份 / 打多少伤害 /
+    //   走多远。前四件站着也能做，逐日步是唯一把"移动本身"变成目标的一件。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   位移计数钩子挂在 movePlayer（本帧第 1 段，且在传送门之前），
+    //   所以这里的 tick 只管状态迁移，天然晚于本帧所有玩家走的步数。
+    tickStride(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -8140,6 +8266,12 @@
       my /= mag;
     }
 
+    // 逐日步（第五十九轮）：先记下这一帧走之前的位置。
+    // ★必须在 moveWithObstacles 之前记：它可能因撞墙/卡住修正位置，
+    //   那也是"真的挪过"，要算进走位距离。
+    const strideX = p.x;
+    const strideY = p.y;
+
     // 位移走「带地形碰撞」的版本：撞到障碍时自动沿墙滑行，
     // 而不是一头扎进墙里。地图上没有障碍时它退化成普通加法，开销可忽略。
     // ★血怒的移速加成（第三十八轮）乘在这里，**不写回 attrs**：
@@ -8151,6 +8283,13 @@
     // 地图边界
     p.x = clamp(p.x, p.r, w.map.w - p.r);
     p.y = clamp(p.y, p.r, w.map.h - p.r);
+
+    // 逐日步计数（第五十九轮）：★必须放在传送门之前 ——
+    //   瞬移不是"走过去"，一步都不算；放在 tryPortal 之后会把跨图传送
+    //   算成上千像素，玩家站着按门就能白拿奖励。
+    const walked = Math.sqrt((p.x - strideX) * (p.x - strideX) +
+      (p.y - strideY) * (p.y - strideY));
+    if (walked > 0.001) onStrideMove(w, walked);
 
     // 面向：移动时朝移动方向；站住不动时朝最近的怪，方便武器自动瞄准
     if (mx || my) {
@@ -8728,6 +8867,11 @@
     tickForge: tickForge,
     onForgeHit: onForgeHit,
     forgeNeedFor: forgeNeedFor,
+    // 第五十九轮：逐日步（限时走位距离）—— 三个入口单独导出，测试要能在精确 tick
+    //   上开一轮、精确注入一段位移，而不必真去跑 354 秒并让玩家绕场跑。
+    tickStride: tickStride,
+    onStrideMove: onStrideMove,
+    strideNeedFor: strideNeedFor,
     // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
     //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
     spawnPickup: spawnPickup,
