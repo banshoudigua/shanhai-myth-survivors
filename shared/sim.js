@@ -1049,6 +1049,20 @@
       serenityRounds: 0,
       serenityDone: 0,
       serenityBroken: 0,
+      // ---------- 拾荒令（第五十七轮：限时收集地上的球） ----------
+      // ★和悬赏/守心一样全是**服务端事实**，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      gleanNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是「捡到的球要不要计数」的唯一判据。
+      gleanActive: 0,
+      // 本轮已捡份数 / 目标份数 / 到期时刻（w.time 口径，秒）
+      gleanCount: 0,
+      gleanNeed: 0,
+      gleanDeadline: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      gleanRounds: 0,
+      gleanDone: 0,
+      gleanFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1732,6 +1746,100 @@
     w.serenityBroken = (w.serenityBroken || 0) + 1;
     // ★不责备（与悬赏到期/精卫折翼/大市收摊同一个口径）：只说"受了伤，这次没守住"。
     w.events.push({ type: 'serenity_broken', sec: C.SERENITY.windowSec, name: p.name });
+  }
+
+  // ============================================================
+  // 拾荒令（第五十七轮：限时收集地上的球）—— 目标制零实体第三件
+  // ============================================================
+  //
+  // 【两个函数怎么分工】tickGlean 管"到点开窗 / 到期结算"，是**时间**的事；
+  //   onGleanPickup 管"这一份被吃进去算不算"，是**拾取**的事。
+  //   ★关键：onGleanPickup 只做 gleanCount++，**绝不发奖、绝不 spawnPickup**——
+  //     它挂在 updatePickups 原地压缩数组的循环里，在那里往 w.pickups push 会让
+  //     新生成的掉落物当帧又被遍历到（一次达成刷出一地球）。发奖全在 tickGlean。
+  //   ★两者都只读写 w 上几个数字，不读怪的位置、不抽随机 —— 可脱离整局精确验。
+
+  // 某一轮要捡多少份：按轮号线性增长，封顶。抽出来是为了表自洽断言能单独验。
+  function gleanNeedFor(roundIndex) {
+    const G = C.GLEAN;
+    if (!G) return 0;
+    return Math.min(G.maxPickups, G.needPickups + (roundIndex || 0) * G.pickupStep);
+  }
+
+  // 每帧调一次（step 第 2.56 段，紧挨 tickSerenity —— 都是目标制、零实体）。
+  function tickGlean(w) {
+    const G = C.GLEAN;
+    if (!G) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，限时收集会把配平冲掉。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.gleanActive) {
+      // ★达标优先于到期：最后一帧刚好捡够也算数（与悬赏同口径）。
+      if (w.gleanCount >= w.gleanNeed) {
+        w.gleanActive = 0;
+        w.gleanDone = (w.gleanDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：撒出去的金币下一帧被捡到时不会被本轮重复计数。
+        for (let i = 0; i < (G.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = G.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, G.rewardGold);
+        }
+        w.events.push({
+          type: 'glean_done', got: w.gleanCount, need: w.gleanNeed,
+          chest: G.rewardChest || 0, gold: gn * (G.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.gleanDeadline) return;
+      // 到期还没捡够：★什么都不给，且**不责备**（与精卫折翼/收摊/悬赏同一口径）。
+      w.gleanActive = 0;
+      w.gleanFailed = (w.gleanFailed || 0) + 1;
+      w.events.push({
+        type: 'glean_fail', need: w.gleanNeed, got: w.gleanCount,
+        left: Math.max(0, w.gleanNeed - w.gleanCount)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：gleanNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(G.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.gleanNextTick` —— 初值就是 0。
+    if (w.tick < w.gleanNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.gleanRounds = (w.gleanRounds || 0) + 1;
+    w.gleanActive = 1;
+    w.gleanCount = 0;
+    w.gleanNeed = gleanNeedFor(w.gleanRounds - 1);
+    w.gleanDeadline = w.time + G.windowSec;
+    w.gleanNextTick = w.tick + Math.round(G.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'glean_start', need: w.gleanNeed, sec: G.windowSec, round: w.gleanRounds
+    });
+  }
+
+  // 拾取钩子：挂在 updatePickups 里 exp / gold 真正被吃进去的那两处分支。
+  // 【为什么不碰随机】它只加一个计数，开轮/达标/发奖都在 tickGlean 里做——
+  //   同一帧里即使达标，拖到下一帧的 tick 段才发奖，差一帧无所谓（40 秒窗口）。
+  function onGleanPickup(w) {
+    if (!w.gleanActive || w.storyStage) return;
+    w.gleanCount += 1;
+    // 过半只报一次：正好踩在 ceil(need/2) 那一份（没有实时进度条，这是唯一进度反馈）。
+    if (w.gleanCount === Math.ceil(w.gleanNeed / 2)) {
+      w.events.push({
+        type: 'glean_half', got: w.gleanCount, left: w.gleanNeed - w.gleanCount
+      });
+    }
   }
 
   function killMob(w, m) {
@@ -6745,6 +6853,8 @@
           //   「同一个球，赤月里吃 13 点、赤月后吃 10 点」——同一颗球两个价，最难解释。
           const moonExp = w.moonOn ? C.BLOOD_MOON.expMul : 1;
           gainExp(w, it.value * p.attrs.expMul * moonExp);
+          // 拾荒令（第五十七轮）：这一份精魄算进"限时收集"。★只计数、不在这里发奖。
+          onGleanPickup(w);
         } else if (it.kind === 'gold') {
           // 难度金币倍率在这里乘，而不是结算时再乘：
           // 让 HUD 上跳的数字、结算面板里的数字、落库的数字永远是同一个 ——
@@ -6753,6 +6863,8 @@
           w.stats.gold += got;
           // 可花余额：金币现在有实际用途了（暂停面板的商店，见 const.js 的 SHOP）
           p.shopGold += got;
+          // 拾荒令（第五十七轮）：这一枚金币同样算一份收集。★只计数、不在这里发奖。
+          onGleanPickup(w);
         } else if (it.kind === 'heart') {
           healPlayer(w, it.value);
         } else if (it.kind === 'chest') {
@@ -7765,6 +7877,15 @@
     //   "这一帧的受伤算破功"在同一帧里先后有序（先开窗，后受伤）。
     tickSerenity(w);
 
+    // ---------- 2.56 拾荒令（第五十七轮：限时收集地上的球） ----------
+    // 【为什么紧跟守心】同为"目标制、零实体、只发播报"，三者（悬赏/守心/拾荒）
+    //   摆在一起，一眼能看出这一族的三条轴：限时杀几只 / 限时别挨打 / 限时捡几份。
+    // 【为什么 tick 在 updatePickups 之前、而发奖又在这里】开窗与到期结算只读写几个
+    //   数字；达标发奖时往 pickups push 的宝箱/金币会在本帧稍后的 updatePickups 里
+    //   被正常处理（撒在玩家脚下 → 当帧或下一帧捡起）。★绝不能把发奖放进拾取钩子，
+    //   那会在 updatePickups 的数组压缩循环里 push，造成一次达标刷出一地球。
+    tickGlean(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -8468,6 +8589,11 @@
     // 测试要能在精确 tick 上开一轮 / 精确注入一次受伤，而不必跑满 174 秒。
     tickSerenity: tickSerenity,
     onSerenityHit: onSerenityHit,
+    // 第五十七轮：拾荒令（限时收集）—— 三个入口单独导出，测试要能在精确 tick
+    //   上开一轮、精确注入一次拾取，而不必真去跑 204 秒并造一堆球。
+    tickGlean: tickGlean,
+    onGleanPickup: onGleanPickup,
+    gleanNeedFor: gleanNeedFor,
     // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
     //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
     spawnPickup: spawnPickup,

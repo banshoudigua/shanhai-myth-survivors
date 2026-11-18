@@ -1400,6 +1400,7 @@ testCauldron();console.log('');
 testBounty();console.log('');
 testHealer();console.log('');
 testSerenity();console.log('');
+testGlean();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2791,7 +2792,8 @@ function testRage() {
     // 暴击 / 斩杀会随机改伤害，做「伤害正好 ×1.30」这类断言时必须先关掉
     w.player.attrs.crit = 0;
     w.player.attrs.exec = 0;
-    w.serenityNextTick = 1e9;   // 第五十六轮：守心劫 174s 开窗，默认推远（这批测试推到 200s+ 会碰它）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -2980,7 +2982,8 @@ function testMoon() {
     // 暴击 / 斩杀会随机改伤害，这一套里有「吃什么都不该变多」的对照，先关掉
     w.player.attrs.crit = 0;
     w.player.attrs.exec = 0;
-    w.serenityNextTick = 1e9;   // 第五十六轮：守心劫 174s 开窗，默认推远（赤月对照测试推到 200s+ 会碰它）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5279,7 +5282,8 @@ function testDevourer() {
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
-    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5649,7 +5653,8 @@ function testBoon() {
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
-    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6054,7 +6059,8 @@ function testBell() {
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
-    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6557,7 +6563,8 @@ function testMerge() {
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
-    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7064,7 +7071,8 @@ function testEscort() {
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
-    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7455,7 +7463,8 @@ function testMarket() {
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
-    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7861,7 +7870,8 @@ function testCauldron() {
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
     w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
-    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8224,7 +8234,8 @@ function testBounty() {
     w.cauldronNextTick = 1e9;
     w.bountyNextTick = 1e9;       // 默认不排期：要开一轮的世界自己设为 0
     w.healerNextTick = 1e9;       // 第五十五轮：回春巫默认推远（悬赏测试推到 216s 不会碰它，仍统一补上）
-    w.serenityNextTick = 1e9;     // 第五十六轮：守心劫默认推远（统一补上）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8494,7 +8505,8 @@ function testHealer() {
     w.cauldronNextTick = 1e9;
     w.bountyNextTick = 1e9;
     w.healerNextTick = 1e9;       // 默认推远：要验它的世界自己设为 0
-    w.serenityNextTick = 1e9;     // 第五十六轮：守心劫默认推远（统一补上）
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8766,7 +8778,8 @@ function testSerenity() {
     w.marketNextTick = 1e9;
     w.cauldronNextTick = 1e9;
     w.bountyNextTick = 1e9;
-    w.serenityNextTick = 1e9;     // 默认不排期：要开窗的世界自己设为 0
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8973,4 +8986,310 @@ function testSerenity() {
     evs(wS2, 'serenity_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
     + ' / active=' + wS2.serenityActive);
+}
+
+// ============================================================
+// 第五十七轮：拾荒令（限时收集地上的精魄/金币，目标制零实体第三件）
+// ============================================================
+// 这一族三件玩法分别钉三条轴：限时杀几只（悬赏）/ 限时别挨打（守心）/ 限时捡几份（本轮）。
+// ★最要紧的两条判据：①「不该数的东西不许数」——红心、宝箱、剧情关、窗口外，
+//   全都不许把 gleanCount 顶上去；②「达标发奖不许发生在拾取循环里」——
+//   发奖若在 updatePickups 压缩数组时 spawnPickup，新球当帧又被遍历到会刷出一地球。
+function testGlean() {
+  console.log('[第五十七轮] 拾荒令：第一件「限时收集」目标（只数 exp/gold，零实体）');
+  const G = C.GLEAN;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(G.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 干净世界：其它机制全推远、关武器、清掉落，只留拾荒这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;    // 默认不排期：要开窗的世界自己设为 0
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.gleanNextTick = 0;
+    SIM.tickGlean(w);
+  }
+  // 直接调拾取钩子注入 n 份：隔离掉战斗/掉落/暴击，专门验计数与随机流。
+  function feed(w, n) {
+    for (let i = 0; i < n; i++) SIM.onGleanPickup(w);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则窗口里刚刷的怪都还在 700px 外，地上没球可捡）',
+    G.startSec % 30 !== 0, G.startSec + ' % 30 = ' + (G.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起）',
+    G.windowSec > 8 && G.windowSec < G.everySec, G.windowSec + ' / ' + G.everySec);
+  expect('目标份数按轮递增且封顶（第 2 轮 +step，第 99 轮到 max）',
+    SIM.gleanNeedFor(0) === G.needPickups &&
+    SIM.gleanNeedFor(1) === G.needPickups + G.pickupStep &&
+    SIM.gleanNeedFor(99) === G.maxPickups,
+    '0=' + SIM.gleanNeedFor(0) + ' 1=' + SIM.gleanNeedFor(1) + ' 99=' + SIM.gleanNeedFor(99));
+  expect('目标份数与窗口长度合理（每秒约 1 份，站着不动绝无可能）',
+    G.needPickups > 0 && G.needPickups <= G.maxPickups &&
+    G.needPickups / G.windowSec >= 0.5 && G.needPickups / G.windowSec <= 3,
+    'need=' + G.needPickups + ' / ' + G.windowSec + ' 秒');
+  expect('奖励仍是"一箱 + 零钱"（与悬赏/守心同口径，不是巨款）',
+    G.rewardChest >= 1 && G.rewardChest <= 2 && G.goldDrops >= 1 &&
+    G.rewardGold >= 1 && G.rewardGold <= 5,
+    'chest=' + G.rewardChest + ' gold=' + G.goldDrops + '×' + G.rewardGold);
+  expect('首发时刻错开所有既有事件（避免同一帧挤进两条播报）',
+    [C.BOUNTY, C.SERENITY, C.BLOODPACT, C.BOUNTY, C.HEALER, C.BELL].every(function (x) {
+      return !x || x.startSec !== G.startSec;
+    }), 'glean=' + G.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉掉落/暴击）----------
+  const wR1 = cleanWorld(9401);
+  const rngA = wR1.rngState;
+  openWindow(wR1);
+  expect('★★开一轮前后 rngState 逐位一致（不能让后面每波落点整体错位）',
+    wR1.rngState === rngA, 'before=' + rngA + ' after=' + wR1.rngState);
+  const wR2 = cleanWorld(9402);
+  openWindow(wR2);
+  const rngB = wR2.rngState;
+  feed(wR2, 5);
+  expect('★★收进 5 份前后 rngState 逐位一致',
+    wR2.rngState === rngB, 'before=' + rngB + ' after=' + wR2.rngState);
+  const wR3 = cleanWorld(9403);
+  openWindow(wR3);
+  feed(wR3, G.needPickups);
+  wR3.time = wR3.gleanDeadline;
+  const rngC = wR3.rngState;
+  SIM.tickGlean(wR3);
+  expect('★★达标发奖前后 rngState 逐位一致',
+    wR3.rngState === rngC, 'before=' + rngC + ' after=' + wR3.rngState);
+  const wR4 = cleanWorld(9404);
+  openWindow(wR4);
+  wR4.time = wR4.gleanDeadline;
+  const rngD = wR4.rngState;
+  SIM.tickGlean(wR4);
+  expect('★★到期落空前后 rngState 逐位一致',
+    wR4.rngState === rngD, 'before=' + rngD + ' after=' + wR4.rngState);
+
+  // ---------- 3. 时序与"零实体" ----------
+  const wT = cleanWorld(9410);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  wT.gleanNextTick = 0;
+  SIM.tickGlean(wT);
+  expect('到点前零轮、零播报、未开窗',
+    wT.gleanRounds === 0 && wT.gleanActive === 0 &&
+    evs(wT, 'glean_start').length === 0, 'rounds=' + wT.gleanRounds);
+  const beforeAny = wT.gleanCount;
+  feed(wT, 10);
+  expect('★★窗口外捡到的球不许计数（早捡不算数）',
+    wT.gleanCount === beforeAny, 'count=' + wT.gleanCount);
+  openWindow(wT);
+  expect('到点正好一轮、开窗、只发一条播报',
+    wT.gleanRounds === 1 && wT.gleanActive === 1 &&
+    evs(wT, 'glean_start').length === 1, 'rounds=' + wT.gleanRounds);
+  expect('开窗本身一个实体都不放（场上本来就有的球才是目标）',
+    wT.pickups.length === 0, 'pickups=' + wT.pickups.length);
+  const st = evs(wT, 'glean_start')[0];
+  expect('开窗播报一次说清"多久 / 捡几份 / 第几轮"',
+    st.sec === G.windowSec && st.need === G.needPickups && st.round === 1,
+    JSON.stringify(st));
+  expect('到期时刻 = 开窗时刻 + 窗口长度（w.time 口径无漂移）',
+    Math.abs(wT.gleanDeadline - (startTick / HZ + G.windowSec)) < 0.02,
+    'deadline=' + wT.gleanDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.gleanNextTick === startTick + Math.round(G.everySec * HZ),
+    'next=' + wT.gleanNextTick);
+  const roundsBefore = wT.gleanRounds;
+  SIM.tickGlean(wT);
+  expect('同帧再 tick 不重复开窗',
+    wT.gleanRounds === roundsBefore && evs(wT, 'glean_start').length === 1,
+    'rounds=' + wT.gleanRounds);
+
+  // ---------- 4. 收集、过半、达标 ----------
+  const wD = cleanWorld(9420);
+  openWindow(wD);
+  const half = Math.ceil(G.needPickups / 2);
+  feed(wD, half - 1);
+  expect('过半前一条过半播报都没有',
+    evs(wD, 'glean_half').length === 0 && wD.gleanCount === half - 1,
+    'count=' + wD.gleanCount);
+  feed(wD, 1);
+  expect('正好捡到第 ceil(need/2) 份才播报过半',
+    evs(wD, 'glean_half').length === 1 &&
+    evs(wD, 'glean_half')[0].got === half &&
+    evs(wD, 'glean_half')[0].left === G.needPickups - half,
+    JSON.stringify(evs(wD, 'glean_half')[0]));
+  feed(wD, 10);
+  expect('★★过半播报只发一次（后续多捡不刷屏）',
+    evs(wD, 'glean_half').length === 1, 'n=' + evs(wD, 'glean_half').length);
+  wD.time = wD.gleanDeadline - 1 / HZ;
+  SIM.tickGlean(wD);
+  expect('到期前一帧窗口还开着、一个奖励都不发',
+    wD.gleanActive === 1 && wD.pickups.length === 0 &&
+    evs(wD, 'glean_done').length === 0, 'active=' + wD.gleanActive);
+  feed(wD, G.needPickups - wD.gleanCount);
+  wD.time = wD.gleanDeadline;
+  const px = wD.self.x, py = wD.self.y;
+  SIM.tickGlean(wD);
+  expect('到期正好够数：窗口关闭、达成 +1、一条达成播报',
+    wD.gleanActive === 0 && wD.gleanDone === 1 &&
+    evs(wD, 'glean_done').length === 1,
+    'active=' + wD.gleanActive + ' done=' + wD.gleanDone);
+  expect('★★宝箱正好一个（达成的一次免费升级）',
+    byKind(wD, 'chest').length === G.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  const dg = byKind(wD, 'gold');
+  expect('金币枚数与每枚面值都正确',
+    dg.length === G.goldDrops && dg.every(function (it) { return it.value === G.rewardGold; }),
+    'n=' + dg.length + ' value=' + (dg[0] || {}).value);
+  expect('★★奖励落在玩家脚下（不是地图中央，玩家不用满地图找）',
+    byKind(wD, 'chest')[0].x === px && byKind(wD, 'chest')[0].y === py,
+    'chest=' + byKind(wD, 'chest')[0].x + ',' + byKind(wD, 'chest')[0].y +
+    ' player=' + px + ',' + py);
+  const dn = evs(wD, 'glean_done')[0];
+  expect('达成播报带"捡了几份 + 掉了什么"，数字全来自事件',
+    dn.got === G.needPickups && dn.chest === G.rewardChest &&
+    dn.gold === G.goldDrops * G.rewardGold, JSON.stringify(dn));
+  const pickupsAfterDone = wD.pickups.length;
+  wD.time = wD.gleanDeadline + 5;
+  SIM.tickGlean(wD);
+  feed(wD, 100);
+  expect('★★达标后再推时间、再捡都不二次发奖，也不算落空',
+    wD.gleanDone === 1 && wD.gleanFailed === 0 &&
+    wD.pickups.length === pickupsAfterDone,
+    'done=' + wD.gleanDone + ' failed=' + wD.gleanFailed);
+  // 下一轮：目标数涨、计数清零（不能把上一轮捡的带进下一轮）
+  wD.tick = startTick + Math.round(G.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickGlean(wD);
+  expect('下一轮目标按轮号递增、计数从零开始',
+    wD.gleanRounds === 2 && wD.gleanCount === 0 &&
+    wD.gleanNeed === SIM.gleanNeedFor(1),
+    'rounds=' + wD.gleanRounds + ' need=' + wD.gleanNeed);
+
+  // ---------- 5. 到期落空（"什么都不给、不责备"）----------
+  const wF = cleanWorld(9430);
+  openWindow(wF);
+  feed(wF, G.needPickups - 1);
+  wF.time = wF.gleanDeadline;
+  SIM.tickGlean(wF);
+  expect('差一份到期就落空：窗口关闭、失败 +1、只发一条到期播报',
+    wF.gleanActive === 0 && wF.gleanFailed === 1 &&
+    evs(wF, 'glean_fail').length === 1,
+    'active=' + wF.gleanActive + ' failed=' + wF.gleanFailed);
+  expect('★★★落空后一个掉落物都不多（绝不偷偷发奖）',
+    wF.pickups.length === 0, 'pickups=' + wF.pickups.length);
+  expect('★★落空后绝不出现"达成"播报',
+    evs(wF, 'glean_done').length === 0 && wF.gleanDone === 0,
+    'done=' + wF.gleanDone);
+  const fn = evs(wF, 'glean_fail')[0];
+  expect('到期播报只陈述"还差几份"（不责备玩家）',
+    fn.left === 1 && fn.got === G.needPickups - 1 && fn.need === G.needPickups,
+    JSON.stringify(fn));
+  const beforeLate = wF.pickups.length;
+  wF.time = wF.gleanDeadline + 10;
+  SIM.tickGlean(wF);
+  feed(wF, 100);
+  expect('★★落空后即使推到很晚、再捡也不补发',
+    wF.gleanDone === 0 && wF.pickups.length === beforeLate,
+    'done=' + wF.gleanDone + ' pickups=' + wF.pickups.length);
+  expect('★★落空后再喂也不计数（active 已清）',
+    wF.gleanCount === G.needPickups - 1, 'count=' + wF.gleanCount);
+
+  // ---------- 6. 真实拾取路径：只数 exp / gold ----------
+  const wP = cleanWorld(9440);
+  openWindow(wP);
+  const pP = wP.self;
+  // 一颗经验球 + 一枚金币贴脚生成，走真实 step 被吃掉。
+  SIM.spawnPickup(wP, 'exp', pP.x, pP.y, 5);
+  SIM.spawnPickup(wP, 'gold', pP.x, pP.y, 1);
+  SIM.step(wP, { mx: 0, my: 0 });
+  expect('★★真实拾取：一颗精魄 + 一枚金币正好算两份',
+    wP.gleanCount === 2 && wP.pickups.length === 0,
+    'count=' + wP.gleanCount + ' left=' + wP.pickups.length);
+  // 红心与宝箱不该被算进来（它们是"走到跟前才领"的点位，与拾取半径无关）
+  const wN = cleanWorld(9441);
+  openWindow(wN);
+  const pN = wN.self;
+  pN.hp = pN.maxHp - 10;
+  SIM.spawnPickup(wN, 'heart', pN.x, pN.y, 5);
+  SIM.spawnPickup(wN, 'chest', pN.x, pN.y, 1, C.DROPS.chest.life);
+  SIM.step(wN, { mx: 0, my: 0 });
+  expect('★★★红心与宝箱贴脚吃掉也不计数（目标只能是 exp/gold）',
+    wN.gleanCount === 0 && wN.pickups.length === 0,
+    'count=' + wN.gleanCount + ' left=' + wN.pickups.length);
+  // 达标奖励撒在脚边，被捡回时不能算进同一轮（先清 active 再发奖）
+  const wR = cleanWorld(9442);
+  openWindow(wR);
+  feed(wR, G.needPickups);
+  wR.time = wR.gleanDeadline;
+  SIM.tickGlean(wR);
+  const countAtDone = wR.gleanCount;
+  SIM.step(wR, { mx: 0, my: 0 });
+  expect('★★★达标撒出的金币被捡回也不重复计数（发奖在数组压缩循环之外）',
+    wR.gleanCount === countAtDone && wR.gleanActive === 0 &&
+    wR.gleanDone === 1,
+    'count=' + wR.gleanCount + ' done=' + wR.gleanDone);
+
+  // ---------- 7. 剧情关隔离（双管）----------
+  const wS = cleanWorld(9450);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch4' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.gleanNextTick = 0;
+  SIM.tickGlean(wS);
+  feed(wS, 100);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.gleanActive === 0 && wS.gleanRounds === 0 && wS.gleanCount === 0 &&
+    evs(wS, 'glean_start').length === 0,
+    'active=' + wS.gleanActive + ' count=' + wS.gleanCount);
+  // 双保险：剧情关里强行激活，也不计数
+  wS.gleanActive = 1;
+  feed(wS, 5);
+  expect('★★剧情关里强行激活也不计数（钩子有 story 闸）',
+    wS.gleanCount === 0, 'count=' + wS.gleanCount);
+  // 走 step 那一遍：ch5 有 540 秒上限，确保 204 秒那一刻世界还在跑
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9451, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((G.startSec + k * 20) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有拾荒令，且那一刻世界确实还在跑',
+    storyAlive && wS2.gleanActive === 0 &&
+    evs(wS2, 'glean_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
+    + ' / active=' + wS2.gleanActive);
 }
