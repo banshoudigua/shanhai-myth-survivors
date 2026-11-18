@@ -3392,7 +3392,11 @@
         // 双生妖（第四十五轮）= 冷青灰「这一对必须一起收」；
         // 饕餮（第四十七轮）= 墨绿「它正在把你的东西搬走」——
         //   四色必须两两拉得开，否则玩家会把「回头去收它」当成和别的精英一样的顺手事。
-        const mkColor = m.def.challenger ? '#f2c14e'
+        // 第五十五轮：回春巫 = 冷灰青「先点掉这个奶妈」——
+        //   ★与双生妖同为 #8fb6c8 是故意的：它们都是「你优先处理的目标」，
+        //   而回春巫另有名牌 + 施法时的青光环区分，不会混。
+        const mkColor = m.def.healer ? '#8fb6c8'
+          : (m.def.challenger ? '#f2c14e'
           : (m.def.summoner ? '#e0673f'
           : (m.def.twins ? '#8fb6c8'
           : (m.def.devourer ? '#8f9d5f'
@@ -3401,14 +3405,15 @@
           //   代价是「罔两值 2 个宝箱」这条信息读不出来 —— 那靠合体播报与名牌，
           //   不靠环色（环色只回答"它是不是事件怪"）。
           : ((m.def.mergeSoul || m.def.wangliang)
-              ? ((mergeRule && mergeRule.markColor) || '#dfe6ef') : null))));
+              ? ((mergeRule && mergeRule.markColor) || '#dfe6ef') : null)))));
         if (!mkColor) continue;
-        const mkLabel = m.def.challenger ? '挑战者'
+        const mkLabel = m.def.healer ? (m.def.name || '回春巫')
+          : (m.def.challenger ? '挑战者'
           : (m.def.summoner ? (m.def.name || '山魈')
           : (m.def.twins ? '双生'
           : (m.def.devourer ? (m.def.name || '饕餮')
           : (m.def.mergeSoul ? (m.def.name || '影傀')
-          : (m.def.wangliang ? (m.def.name || '罔两') : (m.def.name || ''))))));
+          : (m.def.wangliang ? (m.def.name || '罔两') : (m.def.name || '')))))));
         const pack = art[m.defId];
         if (!pack) continue;
         if (!visible(m.x, m.y, m.def.r + 40)) continue;
@@ -4072,6 +4077,28 @@
           ctx.lineWidth = 1.5;
           ctx.beginPath();
           ctx.arc(e.x, e.y, e.r * (0.2 + 0.8 * k), 0, TAU);
+          ctx.stroke();
+          ctx.globalAlpha = 1;
+          continue;
+        }
+
+        if (e.kind === 'healring') {
+          // 回春巫施法（第五十五轮）：一圈冷灰青从外向内**收缩**——
+          //   与地脉灵泉的「外扩冲击」方向相反，语义是「把散出去的血收回来」。
+          // ★这个 kind 在 pixelfx 里没有对应特效，一定落到这一支（不会被库吃掉）。
+          if (!visible(e.x, e.y, e.r)) continue;
+          const k = 1 - t;                       // 0 → 1：环从外往里收
+          ctx.globalAlpha = t * 0.85;
+          ctx.strokeStyle = e.color || '#a8b6c4';
+          ctx.lineWidth = 2 + 5 * t;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (1 - 0.55 * k), 0, TAU);
+          ctx.stroke();
+          // 内圈再补一道细环，收拢感更明显（单环在暗红地面上太单薄）
+          ctx.globalAlpha = t * 0.4;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(e.x, e.y, e.r * (0.7 - 0.5 * k), 0, TAU);
           ctx.stroke();
           ctx.globalAlpha = 1;
           continue;

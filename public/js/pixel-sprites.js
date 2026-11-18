@@ -792,6 +792,10 @@
     // 第五十轮：影傀 / 罔两（两只靠近就会合体的一对）
     shadow_puppet: SHADOW_PUPPET,
     wangliang: WANGLIANG,
+    // 第五十五轮：回春巫借巫傩的兜帽法师素材（同为「巫医」，语义贴切）。
+    // ★同一份数组挂两个 key 是故意的：靠 def.color（土黄褐 vs 巫傩的暗红）
+    //   和标记环/名牌区分，不画一张几乎一样的图（省一处「改一忘一」）。
+    huichun: BLOOD_PRIEST,
     blood_priest: BLOOD_PRIEST,
     bone_knight: BONE_KNIGHT,
     ghoul_matriarch: GHOUL_MATRIARCH,

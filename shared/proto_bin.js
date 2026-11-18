@@ -236,7 +236,14 @@
     //   bintest 直接扫 sim.js 源码里的 `spawnPickup(w, '...')`，漏了必红。
     //   ★代价/回报全按玩家当下状态现算（读 expNext / maxHp），不进协议；
     //     三色（#ff8c42 火橙 / #5fe0b0 玉青 / #ffd166 金）本来就在池里。
-    'cauldron'
+    'cauldron',
+    // ★第五十五轮：回春巫（事件型支援怪）。defId 与它的本体色都会进每帧快照，
+    //   不进池就走长格式（assertSchema 自检会点出来）。
+    //   · 'healring' 是它施法时那圈冷灰青的自绘特效（pixelfx 里没有这个名字 →
+    //     effectFor 返回 null → 落到 render.js 的 drawEffects）。
+    //   · 标记环色 #8fb6c8（双生妖那轮就在池里）、回血光色 #a8b6c4（圣水色，一开始就在池里）
+    //     都已有，一个都不用重复追加（重复会让「索引即协议」多一个坑）。
+    'huichun', '#c9b980', 'healring'
     //
     // 【角色配色为什么不在这里】玩家与怪物的快照都**只发 id**（players.charId / mobs.defId），
     // 颜色由客户端查表（CHARACTERS / MOBS）得到 —— 一个会变的色值（本轮刚换成马卡龙色系）

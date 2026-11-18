@@ -1030,6 +1030,25 @@
       bountyRounds: 0,
       bountyDone: 0,
       bountyFailed: 0,
+      // ---------- 回春巫（第五十五轮：给同类回血的支援妖） ----------
+      // ★全部是**服务端事实/单只怪自己的状态**，一个都不进快照 ——
+      //   客户端只按 defId 画精灵和标记环，不需要知道施法倒计时。
+      // 下一只的排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      healerNextTick: 0,
+      // 本局一共刷过几只（只用于观察与测试，不参与任何逻辑）
+      healerSpawned: 0,
+      // ---------- 守心劫（第五十六轮：限时不受伤的克制型目标） ----------
+      // ★和悬赏一样全部是**服务端事实**，一个都不进快照——客户端只要三条播报。
+      // 下一轮的排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      serenityNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是「受伤要不要算破功」的唯一判据。
+      serenityActive: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      serenityDeadline: 0,
+      // 本局发过几轮 / 守住几次 / 破功几次（只用于观察与测试，不参与逻辑）
+      serenityRounds: 0,
+      serenityDone: 0,
+      serenityBroken: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1646,6 +1665,75 @@
     });
   }
 
+  // ============================================================
+  // 守心劫（第五十六轮：限时不受伤的克制型目标）
+  // ============================================================
+  //
+  // 【为什么是三个函数】tickSerenity 管"到点开窗 / 到期没受伤就发奖"，是**时间**的事；
+  //   onSerenityHit 管"这一下扣血算不算破功"，是**受伤**的事。两者都只改 w 上几个数字，
+  //   不读怪的位置、不抽随机数 —— 可以脱离整局单独造世界精确验。
+  //   ★整段不许碰 nextRand：窗口在任意 tick 插进来，取走一次随机数就会让后面
+  //   每一波的落点整体错位（陨星那轮踩过）。
+  //
+  // 每帧调一次（step 第 2.5 段，紧挨 tickBounty —— 都是目标制、零实体）。
+  function tickSerenity(w) {
+    const S = C.SERENITY;
+    if (!S) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，限时目标会把配平冲掉。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.serenityActive) {
+      if (w.time < w.serenityDeadline) return;
+      // 到期还没破功 = 守住了：发奖 + 清状态。★先清 active 再发奖，防止重复。
+      w.serenityActive = 0;
+      w.serenityDone = (w.serenityDone || 0) + 1;
+      const p = w.self || w.player;
+      const x = p ? p.x : w.map.w / 2;
+      const y = p ? p.y : w.map.h / 2;
+      for (let i = 0; i < (S.rewardChest || 0); i++) {
+        spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+      }
+      const gn = S.goldDrops || 0;
+      for (let i = 0; i < gn; i++) {
+        const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+        spawnPickup(w, 'gold', x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, S.rewardGold);
+      }
+      w.events.push({
+        type: 'serenity_done', sec: S.windowSec,
+        chest: S.rewardChest || 0, gold: gn * (S.rewardGold || 0),
+        x: Math.round(x), y: Math.round(y)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：serenityNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(S.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.serenityNextTick` —— 初值就是 0。
+    if (w.tick < w.serenityNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.serenityRounds = (w.serenityRounds || 0) + 1;
+    w.serenityActive = 1;
+    w.serenityDeadline = w.time + S.windowSec;
+    w.serenityNextTick = w.tick + Math.round(S.everySec * C.TICK_HZ);
+    w.events.push({ type: 'serenity_start', sec: S.windowSec, round: w.serenityRounds });
+  }
+
+  // 破功钩子：挂在 damagePlayer 真正扣血那一行之后。
+  // 【为什么不在 damagePlayer 入口】那里有无敌帧 / 升级定格的 early return，
+  //   那两种"挨打"并不掉血，不该破功 —— 钩子必须在 p.hp 真的变小之后。
+  function onSerenityHit(w, p) {
+    if (!w.serenityActive || w.storyStage) return;
+    // 已经破功的窗口不会再有 active（下面立刻清掉）；这句是防御：绝不重复播报。
+    if (!p || !p.alive) return;
+    w.serenityActive = 0;
+    w.serenityBroken = (w.serenityBroken || 0) + 1;
+    // ★不责备（与悬赏到期/精卫折翼/大市收摊同一个口径）：只说"受了伤，这次没守住"。
+    w.events.push({ type: 'serenity_broken', sec: C.SERENITY.windowSec, name: p.name });
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -1878,6 +1966,14 @@
 
     p.hp -= real;
     p.invuln = C.PLAYER.invulnSec;
+
+    // ---------- 守心劫（第五十六轮）：只统计"真掉了血"的那一下 ----------
+    // 【为什么放在这里、而不是函数入口】入口那两道 early return（无敌帧 / 升级定格）
+    //   并不扣血，那种"挨打"不该破功。到这一行 p.hp 已经真的减少了。
+    // 【为什么在死亡判定之前】哪怕这一下打死了，"受了伤"也是事实，照破不误；
+    //   而 onSerenityHit 只读 active 与 p.alive，此时 p 还活着，播报照发。
+    onSerenityHit(w, p);
+
     w.effects.push({ kind: 'hitplayer', x: p.x, y: p.y, r: p.r + 6, life: 0.2, maxLife: 0.2, color: '#ff6b6b' });
 
     // ---------- 荆棘披风：受伤时反刺身边的怪 ----------
@@ -2400,6 +2496,164 @@
       w.effects.push({
         kind: 'boom', x: m.x, y: m.y, r: m.r * 2.2,
         life: 0.32, maxLife: 0.32, color: '#c9553a'
+      });
+    }
+  }
+
+  // ============================================================
+  // 回春巫（第五十五轮：全项目第一只「给同类回血」的支援妖）
+  // ============================================================
+  //
+  // ★★整段不许碰 nextRand：落点角度/相位/选目标全走 affixHash（与主随机流隔离）。
+  //   理由与山魈/双生妖完全相同——事件怪在任意 tick 插进来，抽一次主随机流
+  //   就会让后面每一波的落点整体错位，既有分布断言莫名其妙变红。
+
+  // 场上还活着几只回春巫。只在「该刷了」的那一帧调它，不做每帧扫描。
+  function countAliveHealers(w) {
+    const id = C.HEALER.mobId;
+    let n = 0;
+    for (let i = 0; i < w.mobs.length; i++) {
+      const m = w.mobs[i];
+      if (m.alive && m.defId === id) n += 1;
+    }
+    return n;
+  }
+
+  // 挑锚点玩家（回春巫围着谁出现）。散列取模、不消耗随机流。
+  function pickHealerAnchor(w) {
+    const alive = [];
+    for (let i = 0; i < w.players.length; i++) {
+      if (w.players[i].alive) alive.push(w.players[i]);
+    }
+    if (!alive.length) return null;
+    if (alive.length === 1) return alive[0];
+    const k = Math.floor(affixHash(w.tick, 67, 'huichun') * alive.length) % alive.length;
+    return alive[k];
+  }
+
+  // 造一只回春巫（返回那只怪；额度不够/定义缺失返回 null）
+  function spawnHealer(w) {
+    const rule = C.HEALER;
+    const def = C.MOB_MAP[rule.mobId];
+    if (!def) return null;
+    // 它是「加怪」实体，后期上千只时别再挤进去（与山魈同一条）
+    if (w.mobs.length >= C.MAX_MOBS - 2) return null;
+
+    const anchor = pickHealerAnchor(w);
+    const ax = anchor ? anchor.x : w.map.w / 2;
+    const ay = anchor ? anchor.y : w.map.h / 2;
+    const ang = affixHash(w.tick, 29, 'huichun') * Math.PI * 2;
+    const radius = w.spawnRadius + rule.spawnPad;
+    const pad = 40;
+    let x = 0;
+    let y = 0;
+    // 撞障碍按 1/6 圈转着试（纯确定性），与山魈/挑战者同一套兜底
+    for (let k = 0; k < 6; k++) {
+      const a = ang + k * (Math.PI / 3);
+      x = clamp(ax + Math.cos(a) * radius, pad, w.map.w - pad);
+      y = clamp(ay + Math.sin(a) * radius, pad, w.map.h - pad);
+      if (!pointBlocked(w, x, y, def.r + 4)) break;
+    }
+
+    const hpMul = C.waveHpMul(w.wave) * w.diff.hpMul;
+    // 第七参传相位：本次生成零随机
+    const m = spawnMob(w, rule.mobId, x, y, hpMul, 0, 1.7);
+    if (!m) return null;
+
+    // 施法倒计时挂在怪身上（联机时「这一只还剩几秒施法」是它自己的事）
+    m.healCd = rule.healEverySec;
+
+    w.healerSpawned = (w.healerSpawned || 0) + 1;
+    w.events.push({
+      type: 'healer', name: (w.nameTable && w.nameTable.mob[def.id]) || def.name,
+      x: Math.round(x), y: Math.round(y), hp: Math.round(m.maxHp)
+    });
+    return m;
+  }
+
+  // 每帧调一次（放在挑战者那一串里）。三道闸：剧情关 / 时间未到 / 未到下一次 / 场上已有。
+  function maybeSpawnHealer(w) {
+    const rule = C.HEALER;
+    if (!rule || !rule.mobId) return;
+    // ① 主线《补天纪》一律不刷（全部事件型玩法的总纪律）
+    if (w.storyStage) return;
+    // ② 还没到第一次出现的时刻（比较 tick 而不是 time，避免浮点比较）
+    if (w.tick < Math.round(rule.startSec * C.TICK_HZ)) return;
+    // ③ 还没到下一只的时点
+    if (w.tick < w.healerNextTick) return;
+    // ④ 场上已有活着的：只顺延一个间隔，不是整段丢弃
+    if (countAliveHealers(w) >= rule.maxAlive) {
+      w.healerNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+      return;
+    }
+    spawnHealer(w);
+    // 生成失败（额度满）也照样顺延，否则每帧都会重试到满额为止
+    w.healerNextTick = w.tick + Math.round(rule.everySec * C.TICK_HZ);
+  }
+
+  // 回春巫施法：给半径内、血量不满、非 Boss、非自己的妖物回一口血。
+  // 【为什么只回"缺血"的】额度有限（每轮最多 healCount 只），满血怪不该占名额。
+  // 【为什么排"缺血最多"优先】玩家看到的应该是「我刚打残的那几只又站起来了」——
+  //   回满血怪是隐形事件，回残血怪才是看得见的因果。
+  // 【为什么自己/Boss 不在名单里】自己是唯一解法、Boss 会破坏波次配平（见 const.js 说明）。
+  function tickHealer(w, m, dt) {
+    const rule = C.HEALER;
+    if (!rule) return;
+    if (!m.alive) return;
+    // 定身时不施法（陨星落地那一下应当把奶也封住，与山魈同纪律）
+    if (m.stun > 0) return;
+
+    m.healCd = (m.healCd === undefined ? rule.healEverySec : m.healCd) - dt;
+    if (m.healCd > 0) return;
+    m.healCd = rule.healEverySec;
+
+    const r2 = rule.healRadius * rule.healRadius;
+    // 收集候选人：缺血 + 非自己 + 非 Boss + 在半径内
+    const cand = [];
+    for (let i = 0; i < w.mobs.length; i++) {
+      const o = w.mobs[i];
+      if (!o.alive || o === m) continue;
+      if (o.def && o.def.kind === 'boss') continue;
+      if (o.hp >= o.maxHp - 0.5) continue;    // 满血（浮点留 0.5 余量）
+      const dx = o.x - m.x;
+      const dy = o.y - m.y;
+      if (dx * dx + dy * dy > r2) continue;
+      // 缺血量作排序键，散列作同分时的稳定裁决（零随机）
+      cand.push({ m: o, lack: o.maxHp - o.hp, tie: affixHash(o.id, w.tick, 'heal') });
+    }
+    if (!cand.length) return;
+    cand.sort(function (a, b) {
+      if (b.lack !== a.lack) return b.lack - a.lack;
+      return a.tie - b.tie;
+    });
+
+    let healed = 0;
+    for (let i = 0; i < cand.length && healed < rule.healCount; i++) {
+      const o = cand[i].m;
+      if (!o.alive) continue;                // 排序期间可能已被打死
+      const target = o.maxHp * rule.healPct;
+      const before = o.hp;
+      o.hp = Math.min(o.maxHp, o.hp + target);
+      // 逐目标的小光环：玩家由此看清「它到底给哪几只回了血」——
+      // 只有 healer 头顶一个大环时，混战里根本分不清哪几只被续了命（这是真实视觉需求）。
+      // ★它**无条件**写在每个被照顾的目标身上（哪怕血量没变），
+      //   所以满血怪若混进候选也会亮环 —— 满血闸必须把它们挡在候选之外，
+      //   这条因果由 simtest 的反向验证钉住（摘掉满血闸 → 满血怪亮环 → 断言红）。
+      w.effects.push({
+        kind: 'healring', x: o.x, y: o.y, r: o.r * 2.2,
+        life: 0.3, maxLife: 0.3, color: rule.healColor, forMob: o.id
+      });
+      if (o.hp > before) healed += 1;
+    }
+    // 施法给一圈冷灰青的大光环 + 一条播报（这是玩家看见"输出被抹掉"的唯一线索）
+    if (healed > 0) {
+      w.effects.push({
+        kind: 'healring', x: m.x, y: m.y, r: rule.healRadius,
+        life: 0.4, maxLife: 0.4, color: rule.healColor
+      });
+      w.events.push({
+        type: 'healer_cast', x: Math.round(m.x), y: Math.round(m.y),
+        n: healed, name: (w.nameTable && w.nameTable.mob[m.defId]) || m.def.name
       });
     }
   }
@@ -5807,6 +6061,27 @@
         tickSummoner(w, m, dt);
       }
 
+      // ---------- 回春巫（第五十五轮）：绕着你保持距离，给同类回血 ----------
+      // 【为什么与山魈同族却单独一支】两者目标都是「维持距离」，但一个召怪、一个奶怪，
+      //   施法入口不同 —— 写进山魈那支就成了 if(summoner)...if(healer)，迟早漏一个。
+      // 【为什么也走 moveMobToward】那里面有全套速度层（光环/词缀/赤月/定身），
+      //   自己算一份就等于把那些乘区复制一遍，迟早漏一个。
+      else if (def.kind === 'healer') {
+        const HL = C.HEALER;
+        const dx = m.x - p.x;
+        const dy = m.y - p.y;
+        const d = Math.sqrt(dx * dx + dy * dy) || 1;
+        const ux = dx / d;
+        const uy = dy / d;
+        const side = (m.id & 1) ? 1 : -1;
+        const kd = HL.keepDist;
+        const tx = p.x + ux * kd + (-uy) * kd * HL.strafeMul * side;
+        const ty = p.y + uy * kd + (ux) * kd * HL.strafeMul * side;
+        moveMobToward(w, m, tx, ty, dt);
+        // 施法与移动分开算：定身时它不动也不奶（见 tickHealer 的说明）
+        tickHealer(w, m, dt);
+      }
+
       // ---------- 饕餮（第四十七轮）：它追的不是玩家，是地上的精魄 ----------
       // 【为什么必须单独一支】上面两种（冲锋 / 召唤）与下面的「直追」目标都是**玩家**，
       //   而饕餮的目标是掉落物 —— 用「追最近玩家」那一支它就会踩着球堆冲过来，一颗都不吃。
@@ -7369,6 +7644,12 @@
     //   也应该算进这一帧的密度里（差一帧无所谓，但顺序上先加怪再选点更自然）。
     maybeSpawnSummoner(w);
 
+    // ---------- 2.26 回春巫（第五十五轮：给同类回血的支援妖） ----------
+    // 【为什么紧挨着山魈】两者都是「绕着你走」的事件精英，同一族排期规则；
+    //   放在一起，以后调「谁先出现」只看这一段。施法（tickHealer）在 updateMobs 那支里，
+    //   与山魈的召唤一样，要读本帧的位置才算得准。
+    maybeSpawnHealer(w);
+
     // ---------- 2.27 双生妖（第四十五轮：同命相连的一对） ----------
     // 【为什么紧跟在两个事件精英之后】三者共用同一套闸门与顺延规则，
     //   摆在一起，以后调「谁先出现」只看这几行。
@@ -7475,6 +7756,14 @@
     //   不碰怪的位置；放在生成之后、击杀之前，保证"到点开一轮"和
     //   "这一帧的击杀算进这一轮"在同一帧里先后有序。
     tickBounty(w);
+
+    // ---------- 2.55 守心劫（第五十六轮：限时不受伤） ----------
+    // 【为什么紧跟悬赏】两者都是"目标制、零实体、只发播报"——放在一起，
+    //   一眼能看出这一族有两条：悬赏是"限时杀几只"（进攻），守心是"限时别挨打"（克制）。
+    // 【为什么 tick 在这一段、而不是 damagePlayer 里】开窗与到期发奖只读写几个数字，
+    //   不碰怪的位置；放在生成之后、命中之前，保证"到点开窗"与
+    //   "这一帧的受伤算破功"在同一帧里先后有序（先开窗，后受伤）。
+    tickSerenity(w);
 
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
@@ -8071,6 +8360,14 @@
     maybeSpawnSummoner: maybeSpawnSummoner,
     countAliveSummoners: countAliveSummoners,
     tickSummoner: tickSummoner,
+    // ★导出回春巫入口（第五十五轮）：要验「满血不回 / 自己不回 / Boss 不回 / 定身不回」
+    //   这些「不该发生的事」，只能靠直接构造局部状态 + 精确 tick 调 tickHealer ——
+    //   靠 step 跑到 252 秒既慢，又会顺带刷出几十只怪，变量多到分不清因果。
+    spawnHealer: spawnHealer,
+    maybeSpawnHealer: maybeSpawnHealer,
+    countAliveHealers: countAliveHealers,
+    pickHealerAnchor: pickHealerAnchor,
+    tickHealer: tickHealer,
     // ★导出地脉灵泉（第四十二轮）：要验「站不满 2 秒不爆」「离开就回落」
     //   「16 秒没充能就安静消失」「圈外一滴血都不掉」，都得在精确的帧上手动推进 ——
     //   靠 step 跑到 102 秒既慢又会顺带跑掉一堆无关变量（升级、掉血、刷怪）。
@@ -8167,6 +8464,10 @@
     tickBounty: tickBounty,
     onBountyKill: onBountyKill,
     bountyNeedFor: bountyNeedFor,
+    // 第五十六轮：守心劫（限时不受伤）—— 两个入口单独导出，
+    // 测试要能在精确 tick 上开一轮 / 精确注入一次受伤，而不必跑满 174 秒。
+    tickSerenity: tickSerenity,
+    onSerenityHit: onSerenityHit,
     // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
     //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
     spawnPickup: spawnPickup,

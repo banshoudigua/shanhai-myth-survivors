@@ -1398,6 +1398,8 @@ testEscort();console.log('');
 testMarket();console.log('');
 testCauldron();console.log('');
 testBounty();console.log('');
+testHealer();console.log('');
+testSerenity();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2789,6 +2791,7 @@ function testRage() {
     // 暴击 / 斩杀会随机改伤害，做「伤害正好 ×1.30」这类断言时必须先关掉
     w.player.attrs.crit = 0;
     w.player.attrs.exec = 0;
+    w.serenityNextTick = 1e9;   // 第五十六轮：守心劫 174s 开窗，默认推远（这批测试推到 200s+ 会碰它）
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -2977,6 +2980,7 @@ function testMoon() {
     // 暴击 / 斩杀会随机改伤害，这一套里有「吃什么都不该变多」的对照，先关掉
     w.player.attrs.crit = 0;
     w.player.attrs.exec = 0;
+    w.serenityNextTick = 1e9;   // 第五十六轮：守心劫 174s 开窗，默认推远（赤月对照测试推到 200s+ 会碰它）
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5274,6 +5278,8 @@ function testDevourer() {
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
+    w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5642,6 +5648,8 @@ function testBoon() {
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
+    w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6045,6 +6053,8 @@ function testBell() {
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
+    w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6546,6 +6556,8 @@ function testMerge() {
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
+    w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7051,6 +7063,8 @@ function testEscort() {
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
+    w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7440,6 +7454,8 @@ function testMarket() {
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
+    w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7844,6 +7860,8 @@ function testCauldron() {
     w.lanternNextTick = 1e9;
     w.devourerNextTick = 1e9;
     w.bountyNextTick = 1e9;   // 第五十四轮：悬赏首发 186s，默认推远（要验它的世界自己打开）
+    w.healerNextTick = 1e9;   // 第五十五轮：回春巫首发 252s，默认推远（要验它的世界自己打开）
+    w.serenityNextTick = 1e9; // 第五十六轮：守心劫首发 174s，默认推远（要验它的世界自己打开）
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8205,6 +8223,8 @@ function testBounty() {
     w.marketNextTick = 1e9;
     w.cauldronNextTick = 1e9;
     w.bountyNextTick = 1e9;       // 默认不排期：要开一轮的世界自己设为 0
+    w.healerNextTick = 1e9;       // 第五十五轮：回春巫默认推远（悬赏测试推到 216s 不会碰它，仍统一补上）
+    w.serenityNextTick = 1e9;     // 第五十六轮：守心劫默认推远（统一补上）
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8433,4 +8453,524 @@ function testBounty() {
     storyAlive && wS2.bountyActive === 0 && evs(wS2, 'bounty_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
     + ' / active=' + wS2.bountyActive);
+}
+
+// ============================================================
+// 第五十五轮：回春巫（全项目第一只「给同类回血」的支援妖）
+// ============================================================
+function testHealer() {
+  console.log('[第五十五轮] 回春巫：给同类回血但不给自己/Boss/满血怪、定身闭嘴、剧情关没有它');
+
+  const HZ = C.TICK_HZ;
+  const RULE = C.HEALER;
+  const def = C.MOB_MAP[RULE.mobId];
+  const startTick = Math.round(RULE.startSec * HZ);
+
+  function evs(w, type) {
+    return w.events.filter(function (e) { return e.type === type; });
+  }
+  // 干净世界：其它事件全推远、关掉武器，只留回春巫这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.maxHp = 99999;
+    p.hp = 99999;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.healerNextTick = 1e9;       // 默认推远：要验它的世界自己设为 0
+    w.serenityNextTick = 1e9;     // 第五十六轮：守心劫默认推远（统一补上）
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  // 造一只缺血的怪：hp = maxHp × hpLeft，放在 (x,y)。返回它。
+  function hurtMob(w, x, y, hpLeft, mobId) {
+    const m = SIM.spawnMob(w, mobId || 'corpse', x, y, 1, 0, 0);
+    m.hp = m.maxHp * hpLeft;
+    return m;
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('★回春巫的定义在怪物表里、带 healer 标记（否则事件刷出来的是 null，静默没反应）',
+    !!def && def.healer === true, def ? ('tier=' + def.tier + ' kind=' + def.kind) : 'n/a');
+  expect('★★kind 必须是 healer（写成 melee 它就变成又一只贴脸怪，整个「先点奶妈」的选择消失）',
+    !!def && def.kind === 'healer', def ? def.kind : 'n/a');
+  expect('★tier 不是 boss（是 boss 就走 Boss 必掉宝箱 + 剧情通关那条老路）',
+    !!def && def.tier !== 'boss', def ? def.tier : 'n/a');
+  const tutorialSec = C.STAGES[0].to * C.WAVES.intervalSec;
+  expect('★★不许落在教学段（前 ' + C.STAGES[0].to + ' 波 = ' + tutorialSec + ' 秒）',
+    RULE.startSec > tutorialSec, 'startSec=' + RULE.startSec + ' / 教学段=' + tutorialSec);
+  expect('★★首发不许压在 30 秒波次网格上（陨星踩过：那一帧场上往往是刚刷在 700px 外的空场）',
+    RULE.startSec % C.WAVES.intervalSec !== 0,
+    'startSec=' + RULE.startSec + ' % ' + C.WAVES.intervalSec + ' = ' +
+    (RULE.startSec % C.WAVES.intervalSec));
+  expect('施法节奏为正（写成 0 就每帧都奶，玩家的输出被永久抹掉）',
+    RULE.healEverySec > 0.5, 'healEverySec=' + RULE.healEverySec);
+  expect('★回血比例在合理区间（0.1~0.4：太低看不见跳血，太高后期怪海无解）',
+    RULE.healPct > 0.1 && RULE.healPct < 0.4, 'healPct=' + RULE.healPct);
+  expect('★施法半径大于保持距离（够得到「你正在清的那一片」，否则支援行为永远不发生）',
+    RULE.healRadius > RULE.keepDist, 'healRadius=' + RULE.healRadius + ' / keepDist=' + RULE.keepDist);
+  expect('★每轮回血只数封顶且不为 0（无上限就是全场锁血，0 就是没有支援）',
+    RULE.healCount >= 2 && RULE.healCount <= 12, 'healCount=' + RULE.healCount);
+  // 配色不许发紫：紫 = 蓝与红都明显高于绿（照搬「绿≥红×0.9」会把青铜判成紫）
+  function notPurple(hex) {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    return !(b > g * 1.05 && r > g * 1.05);
+  }
+  expect('★本体色与两个标记色都不发紫（项目硬约定：禁紫/紫蓝）',
+    !!def && notPurple(def.color) && notPurple(RULE.markColor) && notPurple(RULE.healColor),
+    def ? (def.color + ' / ' + RULE.markColor + ' / ' + RULE.healColor) : 'n/a');
+
+  // ---------- 2. 关卡池 / 地图偏好里都不许有它 ----------
+  let inPool = [];
+  for (let i = 0; i < C.STAGES.length; i++) {
+    const pool = C.STAGES[i].pool || {};
+    if (pool[RULE.mobId]) inPool.push('STAGES[' + i + ']');
+  }
+  ['myth', 'magic'].forEach(function (modId) {
+    const mod = CP.MODS[modId];
+    if (!mod || !mod.stages) return;
+    for (let i = 0; i < mod.stages.length; i++) {
+      const pool = mod.stages[i].pool || {};
+      if (pool[RULE.mobId]) inPool.push(modId + '.' + mod.stages[i].id);
+    }
+  });
+  expect('★★关卡池（自由模式四段 + 两个剧情模组）里都不许出现回春巫（它只从事件入口来）',
+    inPool.length === 0, inPool.join(',') || '干净');
+
+  // ---------- 3. 到点才来、零随机 ----------
+  const w0 = cleanWorld(9201);
+  w0.tick = startTick - 1;
+  w0.time = w0.tick / HZ;
+  w0.healerNextTick = 0;
+  SIM.maybeSpawnHealer(w0);
+  expect('★★首发前一帧零只零播报',
+    SIM.countAliveHealers(w0) === 0 && evs(w0, 'healer').length === 0,
+    'n=' + SIM.countAliveHealers(w0));
+  w0.tick = startTick;
+  w0.time = w0.tick / HZ;
+  const rngBefore = w0.rngState;
+  SIM.maybeSpawnHealer(w0);
+  expect('★★到点正好一只、播报恰好一条',
+    SIM.countAliveHealers(w0) === 1 && evs(w0, 'healer').length === 1 &&
+    typeof evs(w0, 'healer')[0].n === 'undefined' && evs(w0, 'healer')[0].hp > 0,
+    'n=' + SIM.countAliveHealers(w0) + ' ev=' + evs(w0, 'healer').length);
+  expect('★★★生成不消费主随机流（事件怪插在任意 tick，抽一次随机流后面每波落点全错位）',
+    w0.rngState === rngBefore, 'before=' + rngBefore + ' after=' + w0.rngState);
+  // 落点在被围的那只玩家外侧（不是脚下），且在地图内
+  const spawned = w0.mobs.filter(function (m) { return m.defId === RULE.mobId; })[0];
+  expect('落点在地图内、且不在玩家脚下（是从外面走进来的，不是凭空冒在身边）',
+    !!spawned && spawned.x >= 0 && spawned.x <= w0.map.w && spawned.y >= 0 && spawned.y <= w0.map.h &&
+    Math.abs(spawned.x - w0.player.x) + Math.abs(spawned.y - w0.player.y) > 100,
+    spawned ? ('(' + spawned.x.toFixed(0) + ',' + spawned.y.toFixed(0) + ')') : 'n/a');
+  // 上限：已有一只时不再刷（顺延一个间隔）
+  const wCap = w0;
+  wCap.tick = startTick + Math.round(RULE.everySec * HZ);
+  wCap.time = wCap.tick / HZ;
+  wCap.healerNextTick = 0;
+  SIM.maybeSpawnHealer(wCap);
+  expect('★★场上已有一只时不再刷第二只（它是「该被点掉的目标」，不是一支军队）',
+    SIM.countAliveHealers(wCap) === 1 && evs(wCap, 'healer').length === 1,
+    'n=' + SIM.countAliveHealers(wCap));
+
+  // ---------- 4. 施法：核心是钉「不该发生的事」 ----------
+  function castWorld(seed) {
+    const w = cleanWorld(seed);
+    // 手动造一只回春巫放在玩家身边（不走排期，变量最少）
+    const h = SIM.spawnHealer(w);
+    // spawnHealer 用 affixHash 定落点，可能离玩家较远；强制挪到玩家右侧 120px
+    if (h) { h.x = w.player.x + 120; h.y = w.player.y; h.healCd = RULE.healEverySec; }
+    w.events.length = 0;
+    w.effects.length = 0;
+    return w;
+  }
+  function castOnce(w) {
+    const h = w.mobs.filter(function (m) { return m.defId === RULE.mobId; })[0];
+    // 直接调施法入口，推满一整个施法间隔（不跑 step，变量隔离）
+    SIM.tickHealer(w, h, RULE.healEverySec);
+    return h;
+  }
+
+  // ① 缺血怪会被回、且回的量正确
+  const wA = castWorld(9202);
+  const a1 = hurtMob(wA, wA.player.x + 150, wA.player.y, 0.3);
+  const beforeA = a1.hp;
+  castOnce(wA);
+  expect('★★缺血怪被回血，量 = 上限 × 22%（不是随便一个数）',
+    a1.hp > beforeA && Math.abs(a1.hp - (beforeA + a1.maxHp * RULE.healPct)) < 0.001,
+    'before=' + beforeA.toFixed(1) + ' after=' + a1.hp.toFixed(1));
+  expect('施法恰好一条播报，带「回了几只」的数字',
+    evs(wA, 'healer_cast').length === 1 && evs(wA, 'healer_cast')[0].n === 1,
+    JSON.stringify(evs(wA, 'healer_cast')));
+  expect('施法有一圈自绘的青光环特效（玩家看见「输出被抹掉」的唯一线索）',
+    wA.effects.some(function (e) { return e.kind === 'healring'; }),
+    JSON.stringify(wA.effects.map(function (e) { return e.kind; })));
+  expect('★缺血怪身上出现逐目标小光环（正向对照：证明下面的「满血不亮环」不是全场都没环）',
+    wA.effects.some(function (e) { return e.forMob === a1.id; }),
+    'a1.id=' + a1.id + ' / ' + JSON.stringify(wA.effects.map(function (e) { return e.forMob; })));
+
+  // ② 满血怪不许占回血名额
+  const wFull = castWorld(9203);
+  const full = hurtMob(wFull, wFull.player.x + 150, wFull.player.y, 1.0);
+  castOnce(wFull);
+  expect('★★★满血怪不许混进候选：身上不亮回血小环、不刷施法播报（否则玩家会看到满血的怪也在「被回血」，额度被白占）',
+    full.hp === full.maxHp && evs(wFull, 'healer_cast').length === 0 &&
+    !wFull.effects.some(function (e) { return e.forMob === full.id; }),
+    'hp=' + full.hp + '/' + full.maxHp + ' ev=' + evs(wFull, 'healer_cast').length +
+    ' 亮环=' + wFull.effects.some(function (e) { return e.forMob === full.id; }));
+
+  // ③ 自己不许回（否则「先点掉它」这条唯一解法变成无解）
+  const wSelf = castWorld(9204);
+  const selfBefore = wSelf.mobs.filter(function (m) { return m.defId === RULE.mobId; })[0];
+  selfBefore.hp = selfBefore.maxHp * 0.2;
+  castOnce(wSelf);
+  expect('★★回春巫绝不给自己回血（否则玩家打它只会让它满血，这只怪无解）',
+    selfBefore.hp === selfBefore.maxHp * 0.2, 'selfHp=' + selfBefore.hp.toFixed(1));
+
+  // ④ Boss 不许回（Boss 血厚，再回一口就是几十秒白打，冲掉波次配平）
+  const wBoss = castWorld(9205);
+  const boss = SIM.spawnMob(wBoss, 'blood_lord', wBoss.player.x + 150, wBoss.player.y, 1, 0, 0);
+  boss.hp = boss.maxHp * 0.3;
+  const bossBefore = boss.hp;
+  castOnce(wBoss);
+  expect('★★Boss 一滴都不回（回一口就是几十秒白打，主线波次配平会被冲掉）',
+    boss.hp === bossBefore, 'bossHp=' + boss.hp.toFixed(1));
+
+  // ⑤ 范围外不回
+  const wFar = castWorld(9206);
+  const far = hurtMob(wFar, wFar.player.x + RULE.healRadius + 500, wFar.player.y, 0.3);
+  const farBefore = far.hp;
+  castOnce(wFar);
+  expect('★★施法半径外的怪一滴都不回（范围就是边界，不是全屏）',
+    far.hp === farBefore, 'farHp=' + far.hp.toFixed(1));
+
+  // ⑥ 定身不施法（陨星落地那一下应当把奶也封住）
+  const wStun = castWorld(9207);
+  const s1 = hurtMob(wStun, wStun.player.x + 150, wStun.player.y, 0.3);
+  const stunBefore = s1.hp;
+  const hStun = wStun.mobs.filter(function (m) { return m.defId === RULE.mobId; })[0];
+  hStun.stun = 0.6;
+  castOnce(wStun);
+  expect('★★被定身时不施法（玩家砸中它那一下要看得见「它闭嘴了」）',
+    s1.hp === stunBefore && evs(wStun, 'healer_cast').length === 0,
+    'hp=' + s1.hp.toFixed(1) + ' ev=' + evs(wStun, 'healer_cast').length);
+
+  // ⑦ 额度封顶：造 healCount+3 只缺血怪，一轮最多回 healCount 只
+  const wCap2 = castWorld(9208);
+  const many = [];
+  for (let i = 0; i < RULE.healCount + 3; i++) {
+    const a = (i / (RULE.healCount + 3)) * Math.PI * 2;
+    const rr = 100 + i * 8;
+    many.push(hurtMob(wCap2, wCap2.player.x + 120 + Math.cos(a) * rr,
+      wCap2.player.y + Math.sin(a) * rr, 0.2));
+  }
+  castOnce(wCap2);
+  const nHealed = many.filter(function (m) { return m.hp > m.maxHp * 0.2 + 0.01; }).length;
+  expect('★★★一轮最多回 healCount 只（无上限就是全场锁血，玩家输出永远白打）',
+    nHealed === RULE.healCount && evs(wCap2, 'healer_cast')[0].n === RULE.healCount,
+    'healed=' + nHealed + ' / cap=' + RULE.healCount +
+    ' evN=' + (evs(wCap2, 'healer_cast')[0] || {}).n);
+  expect('回血不许溢出各自上限',
+    many.every(function (m) { return m.hp <= m.maxHp + 0.001; }),
+    'max=' + Math.max.apply(null, many.map(function (m) { return m.hp; })).toFixed(1));
+
+  // ⑧ 施法不消费主随机流（直接调施法入口，隔离掉武器/掉落）
+  const wRng = castWorld(9209);
+  hurtMob(wRng, wRng.player.x + 150, wRng.player.y, 0.3);
+  const rngB = wRng.rngState;
+  castOnce(wRng);
+  expect('★★★施法（含选目标）不消费主随机流',
+    wRng.rngState === rngB, 'before=' + rngB + ' after=' + wRng.rngState);
+
+  // ---------- 5. 剧情关隔离（双管） ----------
+  const wS = cleanWorld(9210);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.healerNextTick = 0;
+  SIM.maybeSpawnHealer(wS);
+  expect('★★直接调入口：剧情关不刷回春巫、零播报',
+    SIM.countAliveHealers(wS) === 0 && evs(wS, 'healer').length === 0,
+    'n=' + SIM.countAliveHealers(wS));
+  // 走 step 那一遍：回春巫首发 252 秒，用 ch5（540 秒上限）确保世界还在跑
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9211, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((RULE.startSec + k * 30) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有回春巫，且那一刻世界确实还在跑',
+    storyAlive && SIM.countAliveHealers(wS2) === 0 && evs(wS2, 'healer').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
+    + ' / n=' + SIM.countAliveHealers(wS2));
+}
+
+// ============================================================
+// 第五十六轮：守心劫（限时不受伤的克制型目标）
+// ============================================================
+function testSerenity() {
+  console.log('[第五十六轮] 守心劫：第一件「克制型」目标（限时不受伤，零实体）');
+  const S = C.SERENITY;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(S.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  // 干净世界：其它事件全推远、关武器与金币掉落，只留守心这一条轴。
+  // ★清 pickups 是必要的：createWorld 会按地图放 3 个宝箱，
+  //   而"破功不许发奖"要钉的就是**一个掉落物都不多**。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.hp = p.maxHp;
+    p.attrs.goldMul = 0;          // 怪不掉金币 → 场上的金币只可能来自守心奖励
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;     // 默认不排期：要开窗的世界自己设为 0
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    return w;
+  }
+  // 把世界挪到首发帧并开一轮（直接调入口，不跑 step，变量最少）。
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.serenityNextTick = 0;
+    SIM.tickSerenity(w);
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 真扣一次血：把无敌帧清零再走 damagePlayer —— 守心钩子在"真掉血那一行"之后。
+  function hurt(w, dmg) {
+    const p = w.self || w.player;
+    p.invuln = 0;
+    const before = p.hp;
+    SIM.damagePlayer(w, p, dmg || 10, p.x + 20, p.y);
+    return before - p.hp;
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则一开窗窗口里全是刚刷在 700px 外的空场）',
+    S.startSec % 30 !== 0, S.startSec + ' % 30 = ' + (S.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起）',
+    S.windowSec > 8 && S.windowSec < S.everySec, S.windowSec + ' / ' + S.everySec);
+  expect('窗口长度在合理区间（8~30 秒，太短白给、太长不可能）',
+    S.windowSec >= 8 && S.windowSec <= 30, String(S.windowSec));
+  expect('奖励是"一箱 + 零钱"而非巨款（与悬赏同口径）',
+    S.rewardChest >= 1 && S.rewardChest <= 2 && S.goldDrops >= 1 &&
+    S.rewardGold >= 1 && S.rewardGold <= 5,
+    'chest=' + S.rewardChest + ' gold=' + S.goldDrops + '×' + S.rewardGold);
+  expect('首发时刻错开所有既有事件（避免同一帧挤进两条播报）',
+    [C.BLOODPACT, C.BOUNTY, C.BLOOD_MOON, C.CHALLENGER, C.SUMMONER].every(function (x) {
+      return !x || x.startSec !== S.startSec;
+    }), 'serenity=' + S.startSec);
+
+  // ---------- 2. 不消费主随机流（直接调入口，隔离掉怪的掉落/暴击）----------
+  const wR1 = cleanWorld(9301);
+  const rngA = wR1.rngState;
+  openWindow(wR1);
+  expect('★★开一轮前后 rngState 逐位一致（窗口插进来不许让后面每波落点错位）',
+    wR1.rngState === rngA, 'before=' + rngA + ' after=' + wR1.rngState);
+  const wR2 = cleanWorld(9302);
+  openWindow(wR2);
+  wR2.time = wR2.serenityDeadline;
+  const rngB = wR2.rngState;
+  SIM.tickSerenity(wR2);
+  expect('★★守住发奖前后 rngState 逐位一致',
+    wR2.rngState === rngB, 'before=' + rngB + ' after=' + wR2.rngState);
+  const wR3 = cleanWorld(9303);
+  openWindow(wR3);
+  const rngC = wR3.rngState;
+  hurt(wR3, 10);
+  expect('★★破功前后 rngState 逐位一致',
+    wR3.rngState === rngC, 'before=' + rngC + ' after=' + wR3.rngState);
+
+  // ---------- 3. 时序 ----------
+  const wT = cleanWorld(9310);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  wT.serenityNextTick = 0;
+  SIM.tickSerenity(wT);
+  expect('到点前零轮、零播报、未激活',
+    wT.serenityRounds === 0 && wT.serenityActive === 0 &&
+    evs(wT, 'serenity_start').length === 0, 'rounds=' + wT.serenityRounds);
+  openWindow(wT);
+  expect('到点正好一轮、激活、一条开窗播报',
+    wT.serenityRounds === 1 && wT.serenityActive === 1 &&
+    evs(wT, 'serenity_start').length === 1, 'rounds=' + wT.serenityRounds);
+  const st = evs(wT, 'serenity_start')[0];
+  expect('开窗播报一次说清"多久 + 第几轮"',
+    st.sec === S.windowSec && st.round === 1, JSON.stringify(st));
+  expect('到期时刻 = 开窗时刻 + 窗口长度（w.time 口径无漂移）',
+    Math.abs(wT.serenityDeadline - (startTick / HZ + S.windowSec)) < 0.02,
+    'deadline=' + wT.serenityDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.serenityNextTick === startTick + Math.round(S.everySec * HZ),
+    'next=' + wT.serenityNextTick);
+  const roundsBefore = wT.serenityRounds;
+  SIM.tickSerenity(wT);
+  expect('同帧再 tick 不重复开窗',
+    wT.serenityRounds === roundsBefore && evs(wT, 'serenity_start').length === 1,
+    'rounds=' + wT.serenityRounds);
+
+  // ---------- 4. 守住 → 发奖 ----------
+  const wD = cleanWorld(9320);
+  openWindow(wD);
+  wD.time = wD.serenityDeadline - 1 / HZ;
+  SIM.tickSerenity(wD);
+  expect('到期前一帧窗口还开着、一个奖励都不发',
+    wD.serenityActive === 1 && wD.pickups.length === 0 &&
+    evs(wD, 'serenity_done').length === 0, 'active=' + wD.serenityActive);
+  const px = wD.self.x, py = wD.self.y;
+  wD.time = wD.serenityDeadline;
+  SIM.tickSerenity(wD);
+  expect('到期正好守住：窗口关闭、守住次数 +1、一条达成播报',
+    wD.serenityActive === 0 && wD.serenityDone === 1 &&
+    evs(wD, 'serenity_done').length === 1,
+    'active=' + wD.serenityActive + ' done=' + wD.serenityDone);
+  expect('★★宝箱正好一个（守住的一次免费升级）',
+    byKind(wD, 'chest').length === S.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  const dg = byKind(wD, 'gold');
+  expect('金币枚数与每枚面值都正确',
+    dg.length === S.goldDrops && dg.every(function (it) { return it.value === S.rewardGold; }),
+    'n=' + dg.length + ' value=' + (dg[0] || {}).value);
+  expect('★★奖励落在玩家脚下（不是地图中央，玩家不用满地图找）',
+    byKind(wD, 'chest')[0].x === px && byKind(wD, 'chest')[0].y === py,
+    'chest=' + byKind(wD, 'chest')[0].x + ',' + byKind(wD, 'chest')[0].y +
+    ' player=' + px + ',' + py);
+  const dn = evs(wD, 'serenity_done')[0];
+  expect('达成播报带"秒数 + 掉了什么"，数字全来自事件',
+    dn.sec === S.windowSec && dn.chest === S.rewardChest &&
+    dn.gold === S.goldDrops * S.rewardGold, JSON.stringify(dn));
+  const pickupsAfterDone = wD.pickups.length;
+  wD.time = wD.serenityDeadline + 5;
+  SIM.tickSerenity(wD);
+  hurt(wD, 10);
+  expect('守住后再推时间、再挨打都不二次发奖、也不算破功',
+    wD.serenityDone === 1 && wD.serenityBroken === 0 &&
+    wD.pickups.length === pickupsAfterDone,
+    'done=' + wD.serenityDone + ' broken=' + wD.serenityBroken);
+
+  // ---------- 5. 破功（"不该发生的事"的守门人）----------
+  const wB = cleanWorld(9330);
+  openWindow(wB);
+  const deadlineB = wB.serenityDeadline;
+  const dealt = hurt(wB, 10);
+  expect('窗口内一次真实扣血就破功',
+    dealt > 0 && wB.serenityActive === 0 && wB.serenityBroken === 1 &&
+    evs(wB, 'serenity_broken').length === 1,
+    'dealt=' + dealt + ' active=' + wB.serenityActive + ' broken=' + wB.serenityBroken);
+  expect('★★★破功后一个掉落物都不多（绝不偷偷发奖）',
+    wB.pickups.length === 0, 'pickups=' + wB.pickups.length);
+  expect('★★破功后绝不出现"达成"播报',
+    evs(wB, 'serenity_done').length === 0 && wB.serenityDone === 0,
+    'done=' + wB.serenityDone);
+  // 破功后再挨打：先把 invuln 清掉，验证"不重复播报"这一节流
+  hurt(wB, 10);
+  expect('破功后再受伤不重复播报（不刷屏）',
+    wB.serenityBroken === 1 && evs(wB, 'serenity_broken').length === 1,
+    'broken=' + wB.serenityBroken);
+  // 破功后推到原本的到期时刻，绝不补发
+  wB.tick = Math.round(deadlineB * HZ) + 2;
+  wB.time = deadlineB + 0.1;
+  SIM.tickSerenity(wB);
+  expect('★★破功后即使推到原到期时刻也不补发奖励',
+    wB.serenityDone === 0 && wB.pickups.length === 0 &&
+    evs(wB, 'serenity_done').length === 0, 'done=' + wB.serenityDone);
+
+  // 无敌帧 / 升级定格里的"挨打"不算破功：damagePlayer 在入口就 return，钩子根本走不到
+  const wI = cleanWorld(9331);
+  openWindow(wI);
+  const pI = wI.self;
+  pI.invuln = 5;
+  const hpI = pI.hp;
+  SIM.damagePlayer(wI, pI, 100, pI.x + 20, pI.y);
+  expect('★★无敌帧里的"挨打"没掉血，不算破功',
+    pI.hp === hpI && wI.serenityActive === 1 &&
+    evs(wI, 'serenity_broken').length === 0,
+    'hp=' + pI.hp + '/' + hpI + ' active=' + wI.serenityActive);
+  const wL = cleanWorld(9332);
+  openWindow(wL);
+  const pL = wL.self;
+  pL.state = 'levelup';
+  const hpL = pL.hp;
+  SIM.damagePlayer(wL, pL, 100, pL.x + 20, pL.y);
+  expect('★★升级三选一定格里的"挨打"没掉血，不算破功',
+    pL.hp === hpL && wL.serenityActive === 1 &&
+    evs(wL, 'serenity_broken').length === 0,
+    'hp=' + pL.hp + '/' + hpL + ' active=' + wL.serenityActive);
+
+  // ---------- 6. 剧情关隔离（双管）----------
+  const wS = cleanWorld(9340);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch4' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.serenityNextTick = 0;
+  SIM.tickSerenity(wS);
+  expect('★★直接调入口：剧情关不开窗、零播报',
+    wS.serenityActive === 0 && wS.serenityRounds === 0 &&
+    evs(wS, 'serenity_start').length === 0, 'active=' + wS.serenityActive);
+  // 双保险：剧情关里强行激活再受伤，也不算破功（onSerenityHit 有 story 闸）
+  wS.serenityActive = 1;
+  hurt(wS, 10);
+  expect('★★剧情关里强行激活也不算破功（双保险）',
+    wS.serenityActive === 1 && evs(wS, 'serenity_broken').length === 0,
+    'active=' + wS.serenityActive);
+  // 走 step 那一遍：守心首发 174 秒，ch4（420 秒上限）确保世界还在跑
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9341, modId: 'myth', stageId: 'ch4' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((S.startSec + k * 30) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch4）走完整条 step 也没有守心劫，且那一刻世界确实还在跑',
+    storyAlive && wS2.serenityActive === 0 &&
+    evs(wS2, 'serenity_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' + wS2.matchSec + ' 秒）'
+    + ' / active=' + wS2.serenityActive);
 }
