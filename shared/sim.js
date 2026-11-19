@@ -1143,6 +1143,23 @@
       perilRounds: 0,
       perilDone: 0,
       perilFailed: 0,
+
+      // ---------- 饮露诀（第六十三轮：限时捡到真回血红心的目标） ----------
+      // ★和前八件一样全是**服务端事实**，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      dewNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是"这颗红心要不要计数"的唯一判据。
+      dewActive: 0,
+      // 本轮已捡到的"真回血红心"颗数 / 目标颗数 / 到期时刻（w.time 口径，秒）
+      dewHearts: 0,
+      dewNeed: 0,
+      dewDeadline: 0,
+      // 过半播报只发一次的标记（颗数是整数次累加，标记位防的是刷屏）
+      dewHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      dewRounds: 0,
+      dewDone: 0,
+      dewFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -2429,6 +2446,102 @@
       w.events.push({
         type: 'peril_half', got: Math.round(w.perilLow), need: w.perilNeed,
         left: Math.max(0, Math.ceil(w.perilNeed - w.perilLow))
+      });
+    }
+  }
+
+  // ============================================================
+  // 饮露诀（第六十三轮：限时捡到真回血红心的目标，第九件"目标制零实体"）
+  // ============================================================
+
+  // 某一轮要捡几颗真回血红心：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function dewNeedFor(roundIndex) {
+    const P = C.DEW;
+    if (!P) return 0;
+    return Math.min(P.maxHearts, P.needHearts + (roundIndex || 0) * P.heartStep);
+  }
+
+  // 每帧调一次（step 第 2.62 段，紧挨 tickPeril —— 都是目标制、零实体）。
+  function tickDew(w) {
+    const P = C.DEW;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，逼着卖血捡红心会冲掉配平。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.dewActive) {
+      // ★达标优先于到期：最后一帧刚好捡够也算数（与前八件同口径）。
+      if (w.dewHearts >= w.dewNeed) {
+        w.dewActive = 0;
+        w.dewDone = (w.dewDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，保持与前八件一致的结算顺序。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'dew_done', got: w.dewHearts, need: w.dewNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.dewDeadline) return;
+      // 到期没捡够：★什么都不给，且**不责备**（与前八件同一口径）。
+      w.dewActive = 0;
+      w.dewFailed = (w.dewFailed || 0) + 1;
+      w.events.push({
+        type: 'dew_fail', need: w.dewNeed, got: w.dewHearts,
+        left: Math.max(0, Math.ceil(w.dewNeed - w.dewHearts))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：dewNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.dewNextTick` —— 初值就是 0。
+    if (w.tick < w.dewNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.dewRounds = (w.dewRounds || 0) + 1;
+    w.dewActive = 1;
+    w.dewHearts = 0;
+    w.dewHalfNoted = 0;
+    w.dewNeed = dewNeedFor(w.dewRounds - 1);
+    w.dewDeadline = w.time + P.windowSec;
+    w.dewNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'dew_start', need: w.dewNeed, sec: P.windowSec, round: w.dewRounds
+    });
+  }
+
+  // 红心真回血钩子：只在"捡到 kind='heart' 且真回进血条"那一颗时调一次。
+  // 【为什么传真增量 gained 而不是红了就算】★满血吃红心、回血溢出时
+  //   p.hp - before 为 0，白嫖不到奖励——这是本件最核心的"不该发生的事"。
+  // 【为什么只能挂红心分支】养元诀数所有来源的回血量（红心/绷带/技能都算），
+  //   本件只认红心本身。所以钩子**不进** healPlayer 通用层，只在红心拾取处调，
+  //   绷带/灵泉/击杀回血一律进不来。窗口外、剧情关、落空后也一律不计。
+  function onDewHeart(w, gained) {
+    const P = C.DEW;
+    if (!P || !w.dewActive || w.storyStage) return;
+    // ★只认真回进血条的那一段：满血吃红心 gained=0，不算。
+    if (!(gained > 0)) return;
+    w.dewHearts += 1;
+    const half = w.dewNeed / 2;
+    if (!w.dewHalfNoted && w.dewHearts >= half) {
+      w.dewHalfNoted = 1;
+      w.events.push({
+        type: 'dew_half', got: w.dewHearts, need: w.dewNeed,
+        left: Math.max(0, Math.ceil(w.dewNeed - w.dewHearts))
       });
     }
   }
@@ -7461,7 +7574,13 @@
           // 拾荒令（第五十七轮）：这一枚金币同样算一份收集。★只计数、不在这里发奖。
           onGleanPickup(w);
         } else if (it.kind === 'heart') {
+          // 饮露诀（第六十三轮）：★在 healPlayer 前后取真增量，只有"真回进血条"
+          //   的那颗红心才计一颗。满血吃红心、回血溢出时 hpBefore 与之后相等 → 0，
+          //   玩家白嫖不到奖励。钩子刻意不进 healPlayer 通用层：绷带/灵泉/击杀回血
+          //   都不算，本件只认红心本身（与养元诀"数所有回血"区分开）。
+          const hpBeforeHeart = w.player.hp;
           healPlayer(w, it.value);
+          onDewHeart(w, w.player.hp - hpBeforeHeart);
         } else if (it.kind === 'chest') {
           // 宝箱 = 一次免费升级。直接塞进 pendingLevels，复用现成的升级三选一流程：
           // 这样「开箱」走的是玩家最熟悉的那条路径，不需要为它发明新的界面。
@@ -8530,6 +8649,15 @@
     onPerilTime(w, dt);
     tickPeril(w);
 
+    // ---------- 2.62 饮露诀（第六十三轮：限时捡到真回血红心） ----------
+    // 【为什么紧跟履险诀】同为"目标制、零实体、只发播报"——九件摆在一起，
+    //   一眼能看出这一族的九条轴：杀几只 / 别挨打 / 捡几份 / 打多少伤害 /
+    //   走多远 / 回多少血 / 暴击几次 / 低血撑多久 / 捡几颗真回血红心。
+    // 【计数钩子为什么不在这一段】红心是真回血，钩子必须紧跟 healPlayer 前后取真增量，
+    //   所以挂在 updatePickups 的红心拾取分支（见 it.kind === 'heart'）；
+    //   这里只 tickDew 做开窗/达标/落空的状态迁移，与前八件"钩子在结算处、tick 在这里"同构。
+    tickDew(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -9276,6 +9404,11 @@
     tickPeril: tickPeril,
     onPerilTime: onPerilTime,
     perilNeedFor: perilNeedFor,
+    // 第六十三轮：饮露诀（限时捡真回血红心）—— 三个入口单独导出，测试要能在精确 tick
+    //   上开一轮、精确注入一颗"真回血"的红心，而不必真去跑 414 秒并造一次掉血捡心。
+    tickDew: tickDew,
+    onDewHeart: onDewHeart,
+    dewNeedFor: dewNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
     healPlayer: healPlayer,
