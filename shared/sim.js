@@ -1111,6 +1111,22 @@
       mendRounds: 0,
       mendDone: 0,
       mendFailed: 0,
+      // ---------- 惊雷诀（第六十一轮：限时暴击次数的目标） ----------
+      // ★和前六件一样全是**服务端事实**，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      thunderNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是「这次暴击要不要计数」的唯一判据。
+      thunderActive: 0,
+      // 本轮已暴击次数 / 目标次数 / 到期时刻（w.time 口径，秒）
+      thunderCrits: 0,
+      thunderNeed: 0,
+      thunderDeadline: 0,
+      // 过半播报只发一次的标记（暴击是整数次，一帧可能连爆多次跨半程，用 >= 不用 ===）
+      thunderHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      thunderRounds: 0,
+      thunderDone: 0,
+      thunderFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1505,8 +1521,11 @@
     //   因为下面还要按词缀减伤打折，一条算式顺着「基数 → 倍率 → 减免」读下来最不容易改错。
     // ★读的是 w.player（当前归属人）而不是 w.self：联机时用 self 会把我的血怒算到别人头上。
     if (!isWorld && w.player && w.player.rage > 0) dmg = dmg * C.RAGE.dmgMul;
+    // ★惊雷诀的"这一下是不是真暴击"标记：只有 nextRand 判定成立才算，
+    //   和 onForgeHit 并列在结算段调用（见下方）。钩子本身零随机。
+    let didCrit = false;
     if (A && !isWorld) {
-      if (A.crit > 0 && nextRand(w) < A.crit) dmg = dmg * 2;
+      if (A.crit > 0 && nextRand(w) < A.crit) { dmg = dmg * 2; didCrit = true; }
       if (A.exec > 0 && m.hp > 0 && m.maxHp > 0 && m.hp < m.maxHp * 0.25) {
         dmg = dmg * (1 + A.exec);
       }
@@ -1527,6 +1546,11 @@
     //   让它们替玩家达标等于白送。钩子本身零随机（只加一个数字）。
     // ★过半/达标的播报与发奖全在 tickForge 里做，这里只累计，职责单一。
     if (!isWorld) onForgeHit(w, dmg);
+
+    // 惊雷诀（第六十一轮）：只认"真暴击那一下"，普通命中与世界伤害都不算。
+    // ★钩子放在暴击标记之后、与 onForgeHit 并列；didCrit 只在上面的暴击分支里置位。
+    //   反向验证：把 didCrit 换成 true（每次命中都算）立刻变红。
+    if (didCrit) onThunderCrit(w, m);
 
     // 伤害构成（第三十六轮）：按来源（武器 id / 'thorns' / 'other'）分别累计。
     // ★必须在「暴击、斩杀、词缀减伤」之后记 —— 玩家看到的是实际打出的数字，
@@ -2188,6 +2212,104 @@
       w.events.push({
         type: 'mend_half', got: Math.round(w.mendHealed), need: w.mendNeed,
         left: Math.max(0, Math.ceil(w.mendNeed - w.mendHealed))
+      });
+    }
+  }
+
+  // ============================================================
+  // 惊雷诀（第六十一轮：限时暴击次数的目标）—— 目标制零实体第七件
+  // ============================================================
+  // 前六件数击杀/挨打/掉落/伤害/走位/回血，这一件数**你真的暴击了多少次**。
+  // 第一次让被动「日轮烙印」（暴击率）直接决定能不能拿到奖励：
+  //   完全不堆暴击（crit=0）的 build 一次都拿不到；堆了就做得到。
+  // 与前六件完全同构：纯 tick 状态机 + 计数钩子 + 四条播报，零实体、零随机、
+  //   零快照字段、零新配色（奖励复用宝箱+金币，播报复用暗红+琥珀金那套 UI）。
+  // ★剧情关一律没有：逐关手工配平，凭空多一个"必须暴击够数"的目标会冲掉配平。
+
+  // 某一轮要暴击多少次：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function thunderNeedFor(roundIndex) {
+    const T = C.THUNDER;
+    if (!T) return 0;
+    return Math.min(T.maxCrit, T.needCrit + (roundIndex || 0) * T.critStep);
+  }
+
+  // 每帧调一次（step 第 2.60 段，紧挨 tickMend —— 都是目标制、零实体）。
+  function tickThunder(w) {
+    const T = C.THUNDER;
+    if (!T) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，逼着暴击会冲掉配平。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.thunderActive) {
+      // ★达标优先于到期：最后一帧刚好凑够也算数（与前六件同口径）。
+      if (w.thunderCrits >= w.thunderNeed) {
+        w.thunderActive = 0;
+        w.thunderDone = (w.thunderDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，保持与前六件一致的结算顺序。
+        for (let i = 0; i < (T.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = T.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, T.rewardGold);
+        }
+        w.events.push({
+          type: 'thunder_done', got: w.thunderCrits, need: w.thunderNeed,
+          chest: T.rewardChest || 0, gold: gn * (T.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.thunderDeadline) return;
+      // 到期没凑够：★什么都不给，且**不责备**（与前六件同一口径）。
+      w.thunderActive = 0;
+      w.thunderFailed = (w.thunderFailed || 0) + 1;
+      w.events.push({
+        type: 'thunder_fail', need: w.thunderNeed, got: w.thunderCrits,
+        left: Math.max(0, w.thunderNeed - w.thunderCrits)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：thunderNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(T.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.thunderNextTick` —— 初值就是 0。
+    if (w.tick < w.thunderNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.thunderRounds = (w.thunderRounds || 0) + 1;
+    w.thunderActive = 1;
+    w.thunderCrits = 0;
+    w.thunderHalfNoted = 0;
+    w.thunderNeed = thunderNeedFor(w.thunderRounds - 1);
+    w.thunderDeadline = w.time + T.windowSec;
+    w.thunderNextTick = w.tick + Math.round(T.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'thunder_start', need: w.thunderNeed, sec: T.windowSec, round: w.thunderRounds
+    });
+  }
+
+  // 暴击计数钩子：只在 damageMob 的暴击成功分支调（见 damageMob 的 didCrit）。
+  // 【为什么只加数字、不发奖】达标/落空的结算全在 tickThunder 里做，钩子只累计。
+  // 【过半为什么用 >= + 标记位】暴击是整数次、逐次 +1，=== 与 >= 此处等价
+  //   （不像养元诀的连续回血会一帧跨过阈值）。这里用 >= + 标记位是为了与前几件同构，
+  //   真正不可省的是标记位：没有它，过半之后每次暴击都会重复播报刷屏。
+  function onThunderCrit(w, m) {
+    if (!w.thunderActive || w.storyStage) return;
+    w.thunderCrits += 1;
+    const half = w.thunderNeed / 2;
+    if (!w.thunderHalfNoted && w.thunderCrits >= half) {
+      w.thunderHalfNoted = 1;
+      w.events.push({
+        type: 'thunder_half', got: w.thunderCrits, need: w.thunderNeed,
+        left: Math.max(0, w.thunderNeed - w.thunderCrits)
       });
     }
   }
@@ -8271,6 +8393,14 @@
     //   所以这里的 tick 只管状态迁移。
     tickMend(w);
 
+    // ---------- 2.60 惊雷诀（第六十一轮：限时暴击次数） ----------
+    // 【为什么紧跟养元诀】同为"目标制、零实体、只发播报"——七件摆在一起，
+    //   一眼能看出这一族的七条轴：杀几只 / 别挨打 / 捡几份 / 打多少伤害 /
+    //   走多远 / 回多少血 / 暴击几次。惊雷诀是唯一"必须堆暴击率"的一件。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   暴击计数钩子挂在 damageMob（分散在战斗结算各处），这里只管状态迁移。
+    tickThunder(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -9007,6 +9137,11 @@
     tickMend: tickMend,
     onMendHeal: onMendHeal,
     mendNeedFor: mendNeedFor,
+    // 第六十一轮：惊雷诀（限时暴击次数）—— 三个入口单独导出，测试要能在精确 tick
+    //   上开一轮、精确注入一次暴击，而不必真去跑 378 秒并造一场带暴击的战斗。
+    tickThunder: tickThunder,
+    onThunderCrit: onThunderCrit,
+    thunderNeedFor: thunderNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
     healPlayer: healPlayer,

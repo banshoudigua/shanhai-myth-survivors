@@ -1404,6 +1404,7 @@ testGlean();console.log('');
 testForge();console.log('');
 testStride();console.log('');
 testMend();console.log('');
+testThunder();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2800,6 +2801,7 @@ function testRage() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -2993,6 +2995,7 @@ function testMoon() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5296,6 +5299,7 @@ function testDevourer() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5670,6 +5674,7 @@ function testBoon() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6079,6 +6084,7 @@ function testBell() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6586,6 +6592,7 @@ function testMerge() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7097,6 +7104,7 @@ function testEscort() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7492,6 +7500,7 @@ function testMarket() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7902,6 +7911,7 @@ function testCauldron() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8269,6 +8279,7 @@ function testBounty() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8543,6 +8554,7 @@ function testHealer() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8819,6 +8831,7 @@ function testSerenity() {
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9075,6 +9088,7 @@ function testGlean() {
     w.forgeNextTick = 1e9;    // 破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;   // 逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9381,6 +9395,7 @@ function testForge() {
     w.forgeNextTick = 1e9;    // 默认不排期：要开窗的世界自己设为 0
     w.strideNextTick = 1e9;   // 逐日步 354s 开窗，默认推远（本测试要开窗时自己设 0）
     w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9694,6 +9709,7 @@ function testStride() {
     w.forgeNextTick = 1e9;
     w.strideNextTick = 1e9;   // 默认不排期：要开窗的世界自己设 0
     w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
+    w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10020,6 +10036,7 @@ function testMend() {
     w.forgeNextTick = 1e9;
     w.strideNextTick = 1e9;
     w.mendNextTick = 1e9;     // 默认不排期：要开窗的世界自己设 0
+    w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10192,6 +10209,7 @@ function testMend() {
   wF.time = wF.tick / HZ;
   // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
   wF.mendNextTick = 1e9;
+  wF.thunderNextTick = 1e9;
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10286,4 +10304,319 @@ function testMend() {
     evs(wS2, 'mend_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.mendActive);
+}
+
+function testThunder() {
+  console.log('[第六十一轮] 惊雷诀：第一件「限时暴击次数」目标（只认真暴击，不堆暴击永远拿不到）');
+  const T = C.THUNDER;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(T.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 干净世界：其它机制全推远、关武器、默认不堆暴击，只留惊雷诀这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    // ★本件核心：默认暴击率 0（不堆日轮烙印就一次暴击都不会有）
+    p.attrs.crit = 0;
+    p.attrs.exec = 0;
+    p.rage = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;  // 默认不排期：要开窗的世界自己设 0
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.thunderNextTick = 0;
+    SIM.tickThunder(w);
+  }
+  // 直接调钩子注入 N 次暴击：隔离掉战斗/暴击判定，专门验计数与随机流。
+  function feed(w, n) {
+    for (let i = 0; i < (n || 1); i++) SIM.onThunderCrit(w, null);
+  }
+  function finish(w, n) {
+    feed(w, n);
+    w.time = w.thunderDeadline + 0.01;
+    SIM.tickThunder(w);
+  }
+  // 造一只超高血量怪，用真实 damageMob 路径验"只认真暴击才算"。
+  // crit 参数直接设玩家暴击率（1=必爆、0=永不爆），seed 让生成零随机。
+  function critHit(w, crit, src) {
+    if (!w._mob) {
+      const id = Object.keys(C.MOB_MAP)[0];
+      w._mob = SIM.spawnMob(w, id, w.self.x + 40, w.self.y, 100000, 0, 0.5);
+    }
+    w.player.attrs.crit = crit;
+    SIM.damageMob(w, w._mob, 1, 0, 0, src || 'weapon_test');
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场，没怪可暴击）',
+    T.startSec % 30 !== 0, T.startSec + ' % 30 = ' + (T.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    T.windowSec >= 20 && T.windowSec < T.everySec, T.windowSec + ' / ' + T.everySec);
+  expect('目标暴击次数按轮递增且封顶（第 2 轮 +step，第 99 轮到 max）',
+    SIM.thunderNeedFor(0) === T.needCrit &&
+    SIM.thunderNeedFor(1) === T.needCrit + T.critStep &&
+    SIM.thunderNeedFor(99) === T.maxCrit,
+    '0=' + SIM.thunderNeedFor(0) + ' 1=' + SIM.thunderNeedFor(1) +
+    ' 99=' + SIM.thunderNeedFor(99));
+  expect('目标暴击频率合理（每秒 0.1~1 次；堆了暴击做得到，不堆暴击绝无可能）',
+    T.needCrit > 0 && T.needCrit <= T.maxCrit &&
+    T.needCrit / T.windowSec >= 0.1 && T.needCrit / T.windowSec <= 1,
+    'need=' + T.needCrit + ' / ' + T.windowSec + ' 秒 = ' + (T.needCrit / T.windowSec));
+  expect('奖励仍是"一箱 + 零钱"（与前六件同口径，不是巨款）',
+    T.rewardChest >= 1 && T.rewardChest <= 2 && T.goldDrops >= 1 &&
+    T.rewardGold >= 1 && T.rewardGold <= 5,
+    'chest=' + T.rewardChest + ' gold=' + T.goldDrops + '×' + T.rewardGold);
+  expect('首发时刻错开所有既有事件（避免同一帧挤进两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'CAULDRON', 'BELL',
+      'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER'].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== T.startSec;
+    }), 'thunder=' + T.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉战斗）----------
+  const wR = cleanWorld(9701);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feed(wR, 500);
+  finish(wR, T.needCrit - 500);
+  expect('★开窗/计数/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(9702);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 1);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(9710);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickThunder(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.thunderRounds === 0 && evs(wT, 'thunder_start').length === 0,
+    'rounds=' + wT.thunderRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.thunderActive === 1 && wT.thunderRounds === 1,
+    'rounds=' + wT.thunderRounds + ' active=' + wT.thunderActive);
+  expect('★★开窗零实体：没碑、没怪、没球、没特效（与前六件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'thunder_start')[0];
+  expect('开窗播报一次说清三件事：多久 / 暴击几次 / 给什么，还点明要堆暴击',
+    !!st && st.sec === T.windowSec && st.need === T.needCrit &&
+    st.round === 1 && evs(wT, 'thunder_start').length === 1,
+    JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.thunderDeadline - (startTick / HZ + T.windowSec)) < 1e-9,
+    'deadline=' + wT.thunderDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.thunderNextTick === startTick + Math.round(T.everySec * HZ),
+    'next=' + wT.thunderNextTick);
+  SIM.tickThunder(wT);
+  expect('同帧重复调用不会二次开窗', wT.thunderRounds === 1,
+    'rounds=' + wT.thunderRounds);
+  wT.time = wT.thunderDeadline - 0.001;
+  SIM.tickThunder(wT);
+  expect('到期前一帧不发奖也不结算', wT.thunderActive === 1 &&
+    wT.thunderCrits === 0 && evs(wT, 'thunder_done').length === 0 &&
+    evs(wT, 'thunder_fail').length === 0,
+    'active=' + wT.thunderActive + ' crits=' + wT.thunderCrits);
+
+  // ---------- 4. 过半（>= + 标记位，一帧连爆多次也照报）----------
+  const wH = cleanWorld(9711);
+  openWindow(wH);
+  feed(wH, T.needCrit / 2 - 1);
+  expect('过半前零播报', evs(wH, 'thunder_half').length === 0,
+    'half=' + evs(wH, 'thunder_half').length);
+  feed(wH, 1);
+  expect('正好半程报一次', evs(wH, 'thunder_half').length === 1,
+    'half=' + evs(wH, 'thunder_half').length);
+  feed(wH, 900);
+  expect('多爆不刷屏（过半播报恰好一次）', evs(wH, 'thunder_half').length === 1,
+    'half=' + evs(wH, 'thunder_half').length);
+  const wH2 = cleanWorld(9712);
+  openWindow(wH2);
+  feed(wH2, T.needCrit);   // 一口气喂够整轮（远超半程）
+  // ★暴击是整数次、逐次 +1，=== 与 >= 在此等价（不像养元诀的连续回血会一帧跨半程），
+  //   所以这一族真正要钉的是"标记位防刷屏"：摘掉 thunderHalfNoted 闸，这里会连报几十次。
+  expect('★★喂满整轮也只报一次过半，且数字锁在首次跨半那一刻（标记位防刷屏）',
+    evs(wH2, 'thunder_half').length === 1 &&
+    evs(wH2, 'thunder_half')[0].got === Math.ceil(T.needCrit / 2),
+    'half=' + evs(wH2, 'thunder_half').length +
+    ' got=' + ((evs(wH2, 'thunder_half')[0] || {}).got));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(9720);
+  openWindow(wD);
+  finish(wD, T.needCrit);
+  expect('到期正好凑够 → 达成', wD.thunderActive === 0 && wD.thunderDone === 1 &&
+    evs(wD, 'thunder_done').length === 1, 'done=' + wD.thunderDone);
+  expect('宝箱正好一个（与前六件同口径）', byKind(wD, 'chest').length === T.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === T.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === T.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'thunder_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === T.needCrit && dn.need === T.needCrit &&
+    dn.chest === T.rewardChest && dn.gold === T.goldDrops * T.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feed(wD, 1000);
+  SIM.tickThunder(wD);
+  expect('★达标后再暴击、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.thunderDone === 1 && evs(wD, 'thunder_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.thunderDone);
+  wD.tick = startTick + Math.round(T.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickThunder(wD);
+  expect('下一轮目标递增且暴击计数清零', wD.thunderRounds === 2 &&
+    wD.thunderNeed === T.needCrit + T.critStep && wD.thunderCrits === 0,
+    'need=' + wD.thunderNeed + ' crits=' + wD.thunderCrits);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(9730);
+  openWindow(wF);
+  finish(wF, T.needCrit - 1);
+  expect('差一次也落空', wF.thunderActive === 0 && wF.thunderFailed === 1 &&
+    wF.thunderDone === 0, 'failed=' + wF.thunderFailed + ' done=' + wF.thunderDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现"达成"播报', evs(wF, 'thunder_done').length === 0,
+    'done=' + evs(wF, 'thunder_done').length);
+  const fl = evs(wF, 'thunder_fail')[0];
+  expect('落空只陈述还差几次（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === T.needCrit - 1 && fl.need === T.needCrit,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(T.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
+  wF.thunderNextTick = 1e9;
+  SIM.tickThunder(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
+  const critsAfterFail = wF.thunderCrits;
+  feed(wF, 100000);
+  expect('落空后再喂也不计数（钩子只认 active）',
+    wF.thunderCrits === critsAfterFail && wF.thunderActive === 0,
+    'crits=' + wF.thunderCrits + '（落空时 ' + critsAfterFail + '）');
+
+  // ---------- 7. ★★真暴击钩子（本件核心新轴：只认真暴击，不是每次命中）----------
+  const wC = cleanWorld(9740);
+  openWindow(wC);
+  critHit(wC, 0, 'weapon_test');   // 暴击率 0：命中了但没暴击
+  expect('★★★不堆暴击（crit=0）：打中了也不算，一次都拿不到（核心"不该发生的事"）',
+    wC.thunderCrits === 0, 'crits=' + wC.thunderCrits);
+  critHit(wC, 0, 'weapon_test');
+  critHit(wC, 0, 'weapon_test');
+  expect('★★不堆暴击连打多次依然 0（普通命中绝不白送）',
+    wC.thunderCrits === 0, 'crits=' + wC.thunderCrits);
+  critHit(wC, 1, 'weapon_test');   // 暴击率 100%：这一下真暴击
+  expect('★★★堆满暴击（crit=1）真暴击一次 → 计数 +1（正向对照，证明非空跑）',
+    wC.thunderCrits === 1, 'crits=' + wC.thunderCrits);
+  critHit(wC, 1, 'weapon_test');
+  expect('连续真暴击逐次累计', wC.thunderCrits === 2, 'crits=' + wC.thunderCrits);
+  // 世界伤害即使叠 100% 暴击也不算（isWorld 走暴击判定之外的分支）
+  critHit(wC, 1, 'meteor');
+  expect('★★★天火伤害不算暴击（世界伤害不替玩家达标）',
+    wC.thunderCrits === 2, 'crits=' + wC.thunderCrits);
+  critHit(wC, 1, 'ley');
+  expect('★★地脉灵泉伤害不算暴击', wC.thunderCrits === 2, 'crits=' + wC.thunderCrits);
+  critHit(wC, 1, 'lantern');
+  expect('★★引魂灯收尾伤害不算暴击', wC.thunderCrits === 2, 'crits=' + wC.thunderCrits);
+  critHit(wC, 1, 'weapon_test');
+  expect('世界伤害之后玩家真暴击继续正常计入（没被误关闸）',
+    wC.thunderCrits === 3, 'crits=' + wC.thunderCrits);
+  // 窗口外 / 剧情关的真实 damageMob 都不算（钩子 active + story 闸）
+  const wOut = cleanWorld(9741);
+  critHit(wOut, 1, 'weapon_test');   // 不开窗，直接打
+  expect('窗口外真暴击也不计数', wOut.thunderCrits === 0, 'crits=' + wOut.thunderCrits);
+  const wCS = cleanWorld(9742);
+  wCS.modId = 'myth';
+  wCS.storyStage = { id: 'ch5' };
+  openWindow(wCS);
+  critHit(wCS, 1, 'weapon_test');
+  expect('★★剧情关里真暴击也不计数（钩子有 story 闸）',
+    wCS.thunderCrits === 0, 'crits=' + wCS.thunderCrits);
+  // 直接喂钩子的 active/story 闸（补一道，与养元诀同口径）
+  const wGate = cleanWorld(9743);
+  feed(wGate, 5);
+  expect('窗口外直接喂钩子也不计数', wGate.thunderCrits === 0, 'crits=' + wGate.thunderCrits);
+  openWindow(wGate);
+  wGate.storyStage = { id: 'ch5' };
+  feed(wGate, 5);
+  expect('窗口内但剧情关下直接喂钩子也不计数',
+    wGate.thunderCrits === 0, 'crits=' + wGate.thunderCrits);
+
+  // ---------- 8. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(9750);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.thunderNextTick = 0;
+  SIM.tickThunder(wS);
+  feed(wS, 500);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.thunderActive === 0 && wS.thunderRounds === 0 && wS.thunderCrits === 0 &&
+    evs(wS, 'thunder_start').length === 0,
+    'active=' + wS.thunderActive + ' crits=' + wS.thunderCrits);
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9751, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((T.startSec + k * 20) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有惊雷诀，且那一刻世界确实还在跑',
+    storyAlive && wS2.thunderActive === 0 &&
+    evs(wS2, 'thunder_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.thunderActive);
 }
