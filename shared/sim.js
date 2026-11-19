@@ -1127,6 +1127,22 @@
       thunderRounds: 0,
       thunderDone: 0,
       thunderFailed: 0,
+      // ---------- 履险诀（第六十二轮：限时低血存活的目标） ----------
+      // ★和前七件一样全是**服务端事实**，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      perilNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是「这段低血时间要不要计数」的唯一判据。
+      perilActive: 0,
+      // 本轮在低血线上累计的秒数 / 目标秒数 / 到期时刻（w.time 口径，秒）
+      perilLow: 0,
+      perilNeed: 0,
+      perilDeadline: 0,
+      // 过半播报只发一次的标记（时间是连续量，一帧可能跨过半程，用 >= 不用 ===）
+      perilHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      perilRounds: 0,
+      perilDone: 0,
+      perilFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -2310,6 +2326,109 @@
       w.events.push({
         type: 'thunder_half', got: w.thunderCrits, need: w.thunderNeed,
         left: Math.max(0, w.thunderNeed - w.thunderCrits)
+      });
+    }
+  }
+
+  // ============================================================
+  // 履险诀（第六十二轮：限时低血存活的目标）—— 目标制零实体第八件
+  // ============================================================
+  // 前七件数击杀/挨打/掉落/伤害/走位/回血/暴击，这一件数**你在三成血线下撑了多久**。
+  // 与守心劫（别挨打）正好相反：守心求无伤，履险求险中求生。纯 tick 状态机 +
+  // 低血时间钩子 + 四条播报，零实体、零随机、零快照字段、零新配色。
+  // ★剧情关一律没有：逐关手工配平，逼着卖血会冲掉配平。
+
+  // 某一轮要在低血线上撑多少秒：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function perilNeedFor(roundIndex) {
+    const P = C.PERIL;
+    if (!P) return 0;
+    return Math.min(P.maxSec, P.needSec + (roundIndex || 0) * P.secStep);
+  }
+
+  // 每帧调一次（step 第 2.61 段，紧挨 tickThunder —— 都是目标制、零实体）。
+  function tickPeril(w) {
+    const P = C.PERIL;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，逼着卖血会冲掉配平。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.perilActive) {
+      // ★达标优先于到期：最后一帧刚好撑够也算数（与前七件同口径）。
+      if (w.perilLow >= w.perilNeed) {
+        w.perilActive = 0;
+        w.perilDone = (w.perilDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，保持与前七件一致的结算顺序。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'peril_done', got: Math.round(w.perilLow), need: w.perilNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.perilDeadline) return;
+      // 到期没撑够：★什么都不给，且**不责备**（与前七件同一口径）。
+      w.perilActive = 0;
+      w.perilFailed = (w.perilFailed || 0) + 1;
+      w.events.push({
+        type: 'peril_fail', need: w.perilNeed, got: Math.round(w.perilLow),
+        left: Math.max(0, Math.ceil(w.perilNeed - w.perilLow))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：perilNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.perilNextTick` —— 初值就是 0。
+    if (w.tick < w.perilNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.perilRounds = (w.perilRounds || 0) + 1;
+    w.perilActive = 1;
+    w.perilLow = 0;
+    w.perilHalfNoted = 0;
+    w.perilNeed = perilNeedFor(w.perilRounds - 1);
+    w.perilDeadline = w.time + P.windowSec;
+    w.perilNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'peril_start', need: w.perilNeed, sec: P.windowSec,
+      ratio: P.lowRatio, round: w.perilRounds
+    });
+  }
+
+  // 低血时间钩子：每帧在 step 的状态段调一次，只有"真低血"才累计。
+  // ★这是本件唯一计数入口：读玩家实时 hp/maxHp（严格小于阈值），
+  //   满血、刚好在阈值上、阵亡（hp<=0）、窗口外、剧情关、落空后一律一分不算。
+  // 【为什么只加数字、不发奖】达标/落空的结算全在 tickPeril 里做，钩子只累计。
+  // 【过半为什么用 >= + 标记位】低血时间是连续量，一帧跨过半程是常事；=== 会漏报。
+  function onPerilTime(w, dt) {
+    const P = C.PERIL;
+    if (!P || !w.perilActive || w.storyStage) return;
+    if (!(dt > 0)) return;
+    const p = w.self || w.player;
+    // ★阵亡的那一瞬间不算活着撑住（死亡不由本玩法奖励）。
+    if (!p || !(p.hp > 0)) return;
+    if (!(p.hp < p.maxHp * P.lowRatio)) return;
+    w.perilLow += dt;
+    const half = w.perilNeed / 2;
+    if (!w.perilHalfNoted && w.perilLow >= half) {
+      w.perilHalfNoted = 1;
+      w.events.push({
+        type: 'peril_half', got: Math.round(w.perilLow), need: w.perilNeed,
+        left: Math.max(0, Math.ceil(w.perilNeed - w.perilLow))
       });
     }
   }
@@ -8401,6 +8520,16 @@
     //   暴击计数钩子挂在 damageMob（分散在战斗结算各处），这里只管状态迁移。
     tickThunder(w);
 
+    // ---------- 2.61 履险诀（第六十二轮：限时低血存活） ----------
+    // 【为什么紧跟惊雷诀】同为"目标制、零实体、只发播报"——八件摆在一起，
+    //   一眼能看出这一族的八条轴：杀几只 / 别挨打 / 捡几份 / 打多少伤害 /
+    //   走多远 / 回多少血 / 暴击几次 / 低血撑多久。履险诀是唯一"越危险越有奖"的一件。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   低血累计钩子放在 tick 之前（本帧伤害已结算完），达标当帧即可结算，
+    //   与前七件"先累计、后结算"的顺序一致。
+    onPerilTime(w, dt);
+    tickPeril(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -9142,6 +9271,11 @@
     tickThunder: tickThunder,
     onThunderCrit: onThunderCrit,
     thunderNeedFor: thunderNeedFor,
+    // 第六十二轮：履险诀（限时低血存活）—— 三个入口单独导出，测试要能在精确 tick
+    //   上开一轮、精确注入一段低血时间，而不必真去跑 402 秒并卖血挨打。
+    tickPeril: tickPeril,
+    onPerilTime: onPerilTime,
+    perilNeedFor: perilNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
     healPlayer: healPlayer,

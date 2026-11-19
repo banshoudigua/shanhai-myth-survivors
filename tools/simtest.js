@@ -1405,6 +1405,7 @@ testForge();console.log('');
 testStride();console.log('');
 testMend();console.log('');
 testThunder();console.log('');
+testPeril();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2802,6 +2803,7 @@ function testRage() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -2996,6 +2998,7 @@ function testMoon() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5300,6 +5303,7 @@ function testDevourer() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5675,6 +5679,7 @@ function testBoon() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6085,6 +6090,7 @@ function testBell() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6593,6 +6599,7 @@ function testMerge() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7105,6 +7112,7 @@ function testEscort() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7501,6 +7509,7 @@ function testMarket() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7912,6 +7921,7 @@ function testCauldron() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8280,6 +8290,7 @@ function testBounty() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8555,6 +8566,7 @@ function testHealer() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8832,6 +8844,7 @@ function testSerenity() {
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9089,6 +9102,7 @@ function testGlean() {
     w.strideNextTick = 1e9;   // 逐日步 354s 开窗，默认推远
     w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9396,6 +9410,7 @@ function testForge() {
     w.strideNextTick = 1e9;   // 逐日步 354s 开窗，默认推远（本测试要开窗时自己设 0）
     w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9710,6 +9725,7 @@ function testStride() {
     w.strideNextTick = 1e9;   // 默认不排期：要开窗的世界自己设 0
     w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10037,6 +10053,7 @@ function testMend() {
     w.strideNextTick = 1e9;
     w.mendNextTick = 1e9;     // 默认不排期：要开窗的世界自己设 0
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
+    w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10210,6 +10227,7 @@ function testMend() {
   // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
   wF.mendNextTick = 1e9;
   wF.thunderNextTick = 1e9;
+  wF.perilNextTick = 1e9;
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10352,6 +10370,7 @@ function testThunder() {
     w.strideNextTick = 1e9;
     w.mendNextTick = 1e9;
     w.thunderNextTick = 1e9;  // 默认不排期：要开窗的世界自己设 0
+    w.perilNextTick = 1e9;    // 履险诀同理：要开窗的世界自己设 0
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10538,6 +10557,7 @@ function testThunder() {
   wF.time = wF.tick / HZ;
   // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
   wF.thunderNextTick = 1e9;
+  wF.perilNextTick = 1e9;
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10619,4 +10639,318 @@ function testThunder() {
     evs(wS2, 'thunder_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.thunderActive);
+}
+
+function testPeril() {
+  console.log('[第六十二轮] 履险诀：第一件「限时低血存活」目标（越接近鬼门关越有奖励）');
+  const P = C.PERIL;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 干净世界：其它机制全推远、关武器、默认满血，只留履险诀这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    p.rage = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;    // 默认不排期：要开窗的世界自己设 0
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.perilNextTick = 0;
+    SIM.tickPeril(w);
+  }
+  // 喂 sec 秒时间，并把血量当下设成 maxHp 的 ratio（默认 20%，严格低于 30% 阈值）。
+  // ★这里只调钩子本身，血量闸就在钩子里 —— 不会绕过本件最核心的边界。
+  function feed(w, sec, ratio) {
+    const p = w.self || w.player;
+    const r = (ratio === undefined) ? 0.2 : ratio;
+    p.hp = Math.max(0, Math.min(p.maxHp, p.maxHp * r));
+    SIM.onPerilTime(w, sec);
+  }
+  function finish(w, sec) {
+    feed(w, sec);
+    w.time = w.perilDeadline + 0.01;
+    SIM.tickPeril(w);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场，没有搏命的理由）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标低血秒数按轮递增且封顶（第 2 轮 +step，第 99 轮到 max）',
+    SIM.perilNeedFor(0) === P.needSec &&
+    SIM.perilNeedFor(1) === P.needSec + P.secStep &&
+    SIM.perilNeedFor(99) === P.maxSec,
+    '0=' + SIM.perilNeedFor(0) + ' 1=' + SIM.perilNeedFor(1) +
+    ' 99=' + SIM.perilNeedFor(99));
+  expect('目标占比合理（20%~80% 窗口；留出脱离低血线保命的余量）',
+    P.needSec > 0 && P.needSec <= P.maxSec && P.maxSec < P.windowSec &&
+    P.needSec / P.windowSec >= 0.2 && P.maxSec / P.windowSec <= 0.8,
+    'need=' + P.needSec + ' max=' + P.maxSec + ' / ' + P.windowSec);
+  expect('血线阈值是严格小于的百分比（0<ratio<1，满血与阵亡都进不来）',
+    P.lowRatio > 0 && P.lowRatio < 1, 'ratio=' + P.lowRatio);
+  expect('奖励仍是"一箱 + 零钱"（与前七件同口径，不是巨款）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发时刻错开所有既有事件（避免同一帧挤进两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'CAULDRON',
+      'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER'].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'peril=' + P.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉战斗）----------
+  const wR = cleanWorld(9781);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feed(wR, 1000);
+  finish(wR, P.needSec);
+  expect('★开窗/累计/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(9782);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 0.5);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(9790);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickPeril(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.perilRounds === 0 && evs(wT, 'peril_start').length === 0,
+    'rounds=' + wT.perilRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.perilActive === 1 && wT.perilRounds === 1,
+    'rounds=' + wT.perilRounds + ' active=' + wT.perilActive);
+  expect('★★开窗零实体：没碑、没怪、没球、没特效（与前七件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'peril_start')[0];
+  expect('开窗播报一次说清四件事：多久 / 血线 / 撑几秒 / 给什么',
+    !!st && st.sec === P.windowSec && st.need === P.needSec &&
+    st.ratio === P.lowRatio && st.round === 1 &&
+    evs(wT, 'peril_start').length === 1, JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.perilDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.perilDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.perilNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.perilNextTick);
+  SIM.tickPeril(wT);
+  expect('同帧重复调用不会二次开窗', wT.perilRounds === 1,
+    'rounds=' + wT.perilRounds);
+  wT.time = wT.perilDeadline - 0.001;
+  SIM.tickPeril(wT);
+  expect('到期前一帧不发奖也不结算', wT.perilActive === 1 &&
+    wT.perilLow === 0 && evs(wT, 'peril_done').length === 0 &&
+    evs(wT, 'peril_fail').length === 0,
+    'active=' + wT.perilActive + ' low=' + wT.perilLow);
+
+  // ---------- 4. 过半（时间是连续量：>= + 标记位，一帧跨半也照报）----------
+  const wH = cleanWorld(9791);
+  openWindow(wH);
+  feed(wH, P.needSec / 2 - 0.1);
+  expect('过半前零播报', evs(wH, 'peril_half').length === 0,
+    'half=' + evs(wH, 'peril_half').length);
+  feed(wH, 0.1);
+  expect('正好半程报一次', evs(wH, 'peril_half').length === 1,
+    'half=' + evs(wH, 'peril_half').length);
+  feed(wH, 1000);
+  expect('多撑不刷屏（过半播报恰好一次）', evs(wH, 'peril_half').length === 1,
+    'half=' + evs(wH, 'peril_half').length);
+  const wH2 = cleanWorld(9792);
+  openWindow(wH2);
+  feed(wH2, P.needSec);   // 一口气喂够整轮（远超半程）
+  // ★低血时间是连续量：一帧跨过半程是常事，=== 会漏报；
+  //   同时标记位不能省——否则过半之后每次调用都会重复播报刷屏。
+  expect('★★一帧跨过半程也照报，且整轮只报一次（>= + 标记位）',
+    evs(wH2, 'peril_half').length === 1 &&
+    evs(wH2, 'peril_half')[0].got === Math.round(P.needSec),
+    'half=' + evs(wH2, 'peril_half').length +
+    ' got=' + ((evs(wH2, 'peril_half')[0] || {}).got));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(9800);
+  openWindow(wD);
+  finish(wD, P.needSec);
+  expect('到期正好撑够 → 达成', wD.perilActive === 0 && wD.perilDone === 1 &&
+    evs(wD, 'peril_done').length === 1, 'done=' + wD.perilDone);
+  expect('宝箱正好一个（与前七件同口径）', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'peril_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === P.needSec && dn.need === P.needSec &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feed(wD, 1000);
+  SIM.tickPeril(wD);
+  expect('★达标后再撑、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.perilDone === 1 && evs(wD, 'peril_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.perilDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickPeril(wD);
+  expect('下一轮目标递增且低血计数清零', wD.perilRounds === 2 &&
+    wD.perilNeed === P.needSec + P.secStep && wD.perilLow === 0,
+    'need=' + wD.perilNeed + ' low=' + wD.perilLow);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(9810);
+  openWindow(wF);
+  finish(wF, P.needSec - 1);
+  expect('差一点也落空', wF.perilActive === 0 && wF.perilFailed === 1 &&
+    wF.perilDone === 0, 'failed=' + wF.perilFailed + ' done=' + wF.perilDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现"达成"播报', evs(wF, 'peril_done').length === 0,
+    'done=' + evs(wF, 'peril_done').length);
+  const fl = evs(wF, 'peril_fail')[0];
+  expect('落空只陈述还差几秒（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === P.needSec - 1 && fl.need === P.needSec,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
+  wF.perilNextTick = 1e9;
+  SIM.tickPeril(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.perilDone === 0, 'pickups=' + wF.pickups.length);
+  const lowAfterFail = wF.perilLow;
+  feed(wF, 100000);
+  expect('落空后再喂也不计数（钩子只认 active）',
+    wF.perilLow === lowAfterFail && wF.perilActive === 0,
+    'low=' + wF.perilLow + '（落空时 ' + lowAfterFail + '）');
+
+  // ---------- 7. ★★真低血闸（本件核心新轴：满血/阈值上/阵亡/窗口外都不算）----------
+  const wL = cleanWorld(9820);
+  openWindow(wL);
+  feed(wL, 100, 1);
+  expect('★★★满血站着不动喂 100 秒也一秒不算（核心"不该发生的事"）',
+    wL.perilLow === 0, 'low=' + wL.perilLow);
+  feed(wL, 100, P.lowRatio);
+  expect('★★血量正好在阈值上也不算（严格小于，不是小于等于）',
+    wL.perilLow === 0, 'low=' + wL.perilLow);
+  feed(wL, 1, 0.29);
+  expect('★★★低于阈值 1% 就真算 1 秒（正向对照，证明钩子不是恒 0）',
+    wL.perilLow === 1, 'low=' + wL.perilLow);
+  const lowBeforeDeath = wL.perilLow;
+  feed(wL, 100, 0);
+  expect('★★阵亡（hp=0）的那一刻不算活着撑住',
+    wL.perilLow === lowBeforeDeath, 'low=' + wL.perilLow);
+  feed(wL, 100, P.lowRatio + 0.01);
+  expect('★★从低血线回到阈值以上后不再累计（每帧实时读血条）',
+    wL.perilLow === lowBeforeDeath, 'low=' + wL.perilLow);
+  feed(wL, 1, 0.01);
+  expect('贴着鬼门关（血只剩 1%）照算', wL.perilLow === lowBeforeDeath + 1,
+    'low=' + wL.perilLow);
+  // ★按"当前"上限判定：血祭坛压过上限之后，比例要跟着上限变
+  const wCap = cleanWorld(9821);
+  openWindow(wCap);
+  wCap.self.maxHp = 74;
+  wCap.self.hp = 22;               // 22 < 74×0.3 = 22.2 → 算
+  SIM.onPerilTime(wCap, 1);
+  expect('★★按当前生命上限判定（压上限后 22/74 算低血）',
+    wCap.perilLow === 1, 'low=' + wCap.perilLow);
+  wCap.self.hp = 23;               // 23 > 22.2 → 不算
+  SIM.onPerilTime(wCap, 100);
+  expect('★★同一上限下 23/74 就不算（不是写死血量常数）',
+    wCap.perilLow === 1, 'low=' + wCap.perilLow);
+  // 窗口外 / 剧情关 / 落空后：钩子自身三道闸
+  const wOut = cleanWorld(9822);
+  feed(wOut, 100, 0.1);
+  expect('窗口外 low hp 也不计数', wOut.perilLow === 0, 'low=' + wOut.perilLow);
+  const wGate = cleanWorld(9823);
+  openWindow(wGate);
+  wGate.storyStage = { id: 'ch5' };
+  feed(wGate, 100, 0.1);
+  expect('窗口内但剧情关下也不计数（钩子有 story 闸）',
+    wGate.perilLow === 0, 'low=' + wGate.perilLow);
+  expect('窗口外喂 0 / 负时间都不计数',
+    (function () {
+      const w0 = cleanWorld(9824);
+      openWindow(w0);
+      SIM.onPerilTime(w0, 0);
+      SIM.onPerilTime(w0, -1);
+      return w0.perilLow === 0;
+    })(), 'dt<=0 不计数');
+
+  // ---------- 8. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(9830);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.perilNextTick = 0;
+  SIM.tickPeril(wS);
+  feed(wS, 100, 0.1);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.perilActive === 0 && wS.perilRounds === 0 && wS.perilLow === 0 &&
+    evs(wS, 'peril_start').length === 0,
+    'active=' + wS.perilActive + ' low=' + wS.perilLow);
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9831, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((P.startSec + k * 20) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有履险诀，且那一刻世界确实还在跑',
+    storyAlive && wS2.perilActive === 0 && evs(wS2, 'peril_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.perilActive);
 }
