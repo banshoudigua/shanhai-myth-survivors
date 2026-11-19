@@ -1403,6 +1403,7 @@ testSerenity();console.log('');
 testGlean();console.log('');
 testForge();console.log('');
 testStride();console.log('');
+testMend();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2798,6 +2799,7 @@ function testRage() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -2990,6 +2992,7 @@ function testMoon() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5292,6 +5295,7 @@ function testDevourer() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5665,6 +5669,7 @@ function testBoon() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6073,6 +6078,7 @@ function testBell() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6579,6 +6585,7 @@ function testMerge() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7089,6 +7096,7 @@ function testEscort() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7483,6 +7491,7 @@ function testMarket() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7892,6 +7901,7 @@ function testCauldron() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8258,6 +8268,7 @@ function testBounty() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8531,6 +8542,7 @@ function testHealer() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8806,6 +8818,7 @@ function testSerenity() {
     w.gleanNextTick = 1e9;   // 第五十七轮：拾荒令 204s 开窗，默认推远
     w.forgeNextTick = 1e9;   // 第五十八轮：破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;  // 第五十九轮：逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;    // 第六十轮：养元诀 366s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9061,6 +9074,7 @@ function testGlean() {
     w.gleanNextTick = 1e9;    // 默认不排期：要开窗的世界自己设为 0
     w.forgeNextTick = 1e9;    // 破军令 342s 开窗，默认推远
     w.strideNextTick = 1e9;   // 逐日步 354s 开窗，默认推远
+    w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9366,6 +9380,7 @@ function testForge() {
     w.gleanNextTick = 1e9;
     w.forgeNextTick = 1e9;    // 默认不排期：要开窗的世界自己设为 0
     w.strideNextTick = 1e9;   // 逐日步 354s 开窗，默认推远（本测试要开窗时自己设 0）
+    w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9678,6 +9693,7 @@ function testStride() {
     w.gleanNextTick = 1e9;
     w.forgeNextTick = 1e9;
     w.strideNextTick = 1e9;   // 默认不排期：要开窗的世界自己设 0
+    w.mendNextTick = 1e9;     // 养元诀 366s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9957,4 +9973,317 @@ function testStride() {
     evs(wS2, 'stride_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.strideActive);
+}
+
+// ============================================================
+// 第六十轮：养元诀（限时治愈量）—— 目标制零实体第六件
+// ============================================================
+function testMend() {
+  console.log('[第六十轮] 养元诀：第一件「限时治愈量」目标（只认真回进血条的量，满血空吃不算）');
+  const M = C.MEND;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(M.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 干净世界：其它机制全推远，只留养元诀这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    p.attrs.regen = 0;        // 关掉苔藓护符，避免它每帧偷回血污染计数
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;     // 默认不排期：要开窗的世界自己设 0
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.mendNextTick = 0;
+    SIM.tickMend(w);
+  }
+  // 直接调 onMendHeal 注入一段"真回血"：隔离掉掉血/红心，专门验计数与随机流。
+  function feed(w, amt) {
+    SIM.onMendHeal(w, amt);
+  }
+  function finish(w, amt) {
+    feed(w, amt);
+    w.time = w.mendDeadline + 0.01;
+    SIM.tickMend(w);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场，没得回血）',
+    M.startSec % 30 !== 0, M.startSec + ' % 30 = ' + (M.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    M.windowSec >= 20 && M.windowSec < M.everySec, M.windowSec + ' / ' + M.everySec);
+  expect('目标回血量按轮递增且封顶（第 2 轮 +step，第 99 轮到 max）',
+    SIM.mendNeedFor(0) === M.needHeal &&
+    SIM.mendNeedFor(1) === M.needHeal + M.healStep &&
+    SIM.mendNeedFor(99) === M.maxHeal,
+    '0=' + SIM.mendNeedFor(0) + ' 1=' + SIM.mendNeedFor(1) +
+    ' 99=' + SIM.mendNeedFor(99));
+  expect('目标回血量与窗口长度合理（每秒 1~10 点；掉血后认真回能做，满血站桩绝无可能）',
+    M.needHeal > 0 && M.needHeal <= M.maxHeal &&
+    M.needHeal / M.windowSec >= 1 && M.needHeal / M.windowSec <= 10,
+    'need=' + M.needHeal + ' / ' + M.windowSec + ' 秒 = ' + (M.needHeal / M.windowSec));
+  expect('奖励仍是"一箱 + 零钱"（与前五件同口径，不是巨款）',
+    M.rewardChest >= 1 && M.rewardChest <= 2 && M.goldDrops >= 1 &&
+    M.rewardGold >= 1 && M.rewardGold <= 5,
+    'chest=' + M.rewardChest + ' gold=' + M.goldDrops + '×' + M.rewardGold);
+  expect('首发时刻错开所有既有事件（避免同一帧挤进两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'CAULDRON', 'BELL',
+      'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER'].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== M.startSec;
+    }), 'mend=' + M.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉掉落）----------
+  const wR = cleanWorld(9601);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feed(wR, 500);
+  finish(wR, M.needHeal - 500);
+  expect('★开窗/计数/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(9602);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 5);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(9610);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickMend(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.mendRounds === 0 && evs(wT, 'mend_start').length === 0,
+    'rounds=' + wT.mendRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.mendRounds === 1 && wT.mendActive === 1,
+    'rounds=' + wT.mendRounds + ' active=' + wT.mendActive);
+  expect('★★开窗零实体：没碑、没怪、没球、没特效（与前五件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'mend_start')[0];
+  expect('开窗播报一次说清三件事：多久 / 回多少 / 给什么',
+    !!st && st.sec === M.windowSec && st.need === M.needHeal &&
+    st.round === 1 && evs(wT, 'mend_start').length === 1,
+    JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.mendDeadline - (startTick / HZ + M.windowSec)) < 1e-9,
+    'deadline=' + wT.mendDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.mendNextTick === startTick + Math.round(M.everySec * HZ),
+    'next=' + wT.mendNextTick);
+  SIM.tickMend(wT);
+  expect('同帧重复调用不会二次开窗', wT.mendRounds === 1,
+    'rounds=' + wT.mendRounds);
+  wT.time = wT.mendDeadline - 0.001;
+  SIM.tickMend(wT);
+  expect('到期前一帧不发奖也不结算', wT.mendActive === 1 &&
+    wT.mendHealed === 0 && evs(wT, 'mend_done').length === 0 &&
+    evs(wT, 'mend_fail').length === 0,
+    'active=' + wT.mendActive + ' healed=' + wT.mendHealed);
+
+  // ---------- 4. 过半（连续量，>= + 标记位）----------
+  const wH = cleanWorld(9611);
+  openWindow(wH);
+  feed(wH, M.needHeal / 2 - 10);
+  expect('过半前零播报', evs(wH, 'mend_half').length === 0,
+    'half=' + evs(wH, 'mend_half').length);
+  feed(wH, 10);
+  expect('正好半程报一次', evs(wH, 'mend_half').length === 1,
+    'half=' + evs(wH, 'mend_half').length);
+  feed(wH, 900);
+  expect('多回不刷屏（过半播报恰好一次）', evs(wH, 'mend_half').length === 1,
+    'half=' + evs(wH, 'mend_half').length);
+  const wH2 = cleanWorld(9612);
+  openWindow(wH2);
+  feed(wH2, M.needHeal);   // 一帧跨过半程
+  expect('★★一帧跨过半程也照报（=== 在这里会漏，>= + 标记位才对）',
+    evs(wH2, 'mend_half').length === 1,
+    'half=' + evs(wH2, 'mend_half').length);
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(9620);
+  openWindow(wD);
+  finish(wD, M.needHeal);
+  expect('到期正好回够 → 达成', wD.mendActive === 0 && wD.mendDone === 1 &&
+    evs(wD, 'mend_done').length === 1, 'done=' + wD.mendDone);
+  expect('宝箱正好一个（与前五件同口径）', byKind(wD, 'chest').length === M.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === M.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === M.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'mend_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === M.needHeal && dn.need === M.needHeal &&
+    dn.chest === M.rewardChest && dn.gold === M.goldDrops * M.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feed(wD, 1000);
+  SIM.tickMend(wD);
+  expect('★达标后再回血、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.mendDone === 1 && evs(wD, 'mend_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.mendDone);
+  wD.tick = startTick + Math.round(M.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickMend(wD);
+  expect('下一轮目标递增且回血计数清零', wD.mendRounds === 2 &&
+    wD.mendNeed === M.needHeal + M.healStep && wD.mendHealed === 0,
+    'need=' + wD.mendNeed + ' healed=' + wD.mendHealed);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(9630);
+  openWindow(wF);
+  finish(wF, M.needHeal - 1);
+  expect('差一点也落空', wF.mendActive === 0 && wF.mendFailed === 1 &&
+    wF.mendDone === 0, 'failed=' + wF.mendFailed + ' done=' + wF.mendDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现"达成"播报', evs(wF, 'mend_done').length === 0,
+    'done=' + evs(wF, 'mend_done').length);
+  const fl = evs(wF, 'mend_fail')[0];
+  expect('落空只陈述还差几点（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === M.needHeal - 1 && fl.need === M.needHeal,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(M.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
+  wF.mendNextTick = 1e9;
+  SIM.tickMend(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.mendDone === 0, 'pickups=' + wF.pickups.length);
+  const healedAfterFail = wF.mendHealed;
+  feed(wF, 100000);
+  expect('落空后再喂也不计数（钩子只认 active，回血不再涨）',
+    wF.mendHealed === healedAfterFail && wF.mendActive === 0,
+    'healed=' + wF.mendHealed + '（落空时 ' + healedAfterFail + '）');
+
+  // ---------- 7. 回血钩子：只认真回进血条的量（本件最关键的"不该发生的事"）----------
+  const wM = cleanWorld(9640);
+  feed(wM, 100);
+  expect('窗口外喂回血不计数', wM.mendHealed === 0, 'healed=' + wM.mendHealed);
+  openWindow(wM);
+  feed(wM, 30);
+  expect('窗口内真实回血按点累计', wM.mendHealed === 30, 'healed=' + wM.mendHealed);
+  feed(wM, 0);
+  feed(wM, -50);
+  expect('零回血与负回血都不计数（不会白送）', wM.mendHealed === 30,
+    'healed=' + wM.mendHealed);
+
+  // ★★走真实 healPlayer 漏斗：满血时空吃红心 (gained=0) 一分都不算 ——
+  //   这是"只认真增量、不认请求量"的核心锚点，反向验证把钩子改成 amount 立刻红。
+  const wFull = cleanWorld(9641);
+  openWindow(wFull);
+  const pf = wFull.player;
+  pf.hp = pf.maxHp;                        // 满血
+  SIM.healPlayer(wFull, 20);               // 请求回 20，真回 0
+  expect('★★★满血空吃红心一分都不算（钩子认 p.hp-before，不认请求量）',
+    wFull.mendHealed === 0 && pf.hp === pf.maxHp,
+    'healed=' + wFull.mendHealed + ' hp=' + pf.hp);
+
+  const wOver = cleanWorld(9642);
+  openWindow(wOver);
+  const po = wOver.player;
+  po.hp = po.maxHp - 8;                    // 只缺 8 点
+  SIM.healPlayer(wOver, 100);              // 请求回 100，真回 8
+  expect('★★回血溢出只认真回的 8 点（不是请求的 100 点）',
+    wOver.mendHealed === 8 && po.hp === po.maxHp,
+    'healed=' + wOver.mendHealed + ' hp=' + po.hp + '/' + po.maxHp);
+
+  const wExact = cleanWorld(9643);
+  openWindow(wExact);
+  const pe = wExact.player;
+  pe.hp = pe.maxHp - 50;
+  SIM.healPlayer(wExact, 50);              // 正好回满，真回 50
+  expect('真实掉血后吃红心按真增量计入（正向对照，证明非空跑）',
+    wExact.mendHealed === 50 && pe.hp === pe.maxHp,
+    'healed=' + wExact.mendHealed + ' hp=' + pe.hp);
+
+  // 苔藓护符每秒 regen 是第二条回血通路，也要按真增量计入。
+  const wRegen = cleanWorld(9644);
+  openWindow(wRegen);
+  const pr = wRegen.player;
+  pr.hp = pr.maxHp - 100;
+  pr.attrs.regen = 10;                     // 每秒 10 点
+  SIM.step(wRegen, { mx: 0, my: 0 });      // 一帧 = 0.05 秒 → 真回约 0.5 点
+  expect('★苔藓护符的每秒回血也按真增量计入（第二条回血通路不漏）',
+    wRegen.mendHealed > 0 && wRegen.mendHealed < 2,
+    'healed=' + wRegen.mendHealed.toFixed(2));
+
+  const wMS = cleanWorld(9645);
+  wMS.modId = 'myth';
+  wMS.storyStage = { id: 'ch5' };
+  openWindow(wMS);
+  feed(wMS, 500);
+  expect('★★剧情关里强行激活也不计数（钩子有 story 闸）',
+    wMS.mendHealed === 0, 'healed=' + wMS.mendHealed);
+
+  // ---------- 8. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(9650);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.mendNextTick = 0;
+  SIM.tickMend(wS);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.mendActive === 0 && wS.mendRounds === 0 && wS.mendHealed === 0 &&
+    evs(wS, 'mend_start').length === 0,
+    'active=' + wS.mendActive + ' healed=' + wS.mendHealed);
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9651, modId: 'myth', stageId: 'ch5' });
+  wS2.mendNextTick = 0;
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((M.startSec + k * 20) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有养元诀，且那一刻世界确实还在跑',
+    storyAlive && wS2.mendActive === 0 &&
+    evs(wS2, 'mend_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.mendActive);
 }

@@ -1095,6 +1095,22 @@
       strideRounds: 0,
       strideDone: 0,
       strideFailed: 0,
+      // ---------- 养元诀（第六十轮：限时治愈量的目标） ----------
+      // ★和悬赏/守心/拾荒/破军/逐日步一样全是**服务端事实**，一个都不进快照——
+      //   客户端只要四条播报。下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      mendNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是「这次回血要不要计数」的唯一判据。
+      mendActive: 0,
+      // 本轮真回进血条的量 / 目标量 / 到期时刻（w.time 口径，秒）
+      mendHealed: 0,
+      mendNeed: 0,
+      mendDeadline: 0,
+      // 过半播报只发一次的标记（回血是连续量，不能像拾荒那样用 === 判定）
+      mendHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      mendRounds: 0,
+      mendDone: 0,
+      mendFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -2079,6 +2095,103 @@
     }
   }
 
+  // 养元诀（第六十轮：限时真回血量）—— 目标制零实体第六件。
+  // 【为什么又是零实体】前五件数击杀/挨打/拾取/伤害/走位，这一件数"回血"：
+  //   不放碑、不放怪、不画进度条，只发四条播报。场上不多一个物件。
+  // 【为什么数"真回进血条的量"】计数钩子挂在 healPlayer 的 `p.hp - before`
+  //   （见下方 healPlayer）——满血吃红心、回血溢出部分天然算 0，白嫖不到奖励。
+  //   ★这是本件最重要的一条边界，simtest 单独钉死，反向验证改"请求量"立刻红。
+  // 【为什么多人合计】与悬赏击杀/拾荒份数/逐日步距离同口径：联机一屋里谁回的都算，
+  //   这是"一局共同目标"，不是个人成就（个人成就要每人一套字段，属另造体系）。
+
+  // 某一轮要真回多少血：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function mendNeedFor(roundIndex) {
+    const M = C.MEND;
+    if (!M) return 0;
+    return Math.min(M.maxHeal, M.needHeal + (roundIndex || 0) * M.healStep);
+  }
+
+  // 每帧调一次（step 第 2.59 段，紧挨 tickStride —— 都是目标制、零实体）。
+  function tickMend(w) {
+    const M = C.MEND;
+    if (!M) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，逼着回够血会冲掉配平。
+    if (w.storyStage) return;
+
+    // ② 正在进行中：只有"到期"这一件事要做。
+    if (w.mendActive) {
+      // ★达标优先于到期：最后一帧刚好回够也算数（与前五件同口径）。
+      if (w.mendHealed >= w.mendNeed) {
+        w.mendActive = 0;
+        w.mendDone = (w.mendDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，保持与前五件一致的结算顺序。
+        for (let i = 0; i < (M.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = M.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, M.rewardGold);
+        }
+        w.events.push({
+          type: 'mend_done', got: Math.round(w.mendHealed), need: w.mendNeed,
+          chest: M.rewardChest || 0, gold: gn * (M.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.mendDeadline) return;
+      // 到期没回够：★什么都不给，且**不责备**（与前五件同一口径）。
+      w.mendActive = 0;
+      w.mendFailed = (w.mendFailed || 0) + 1;
+      w.events.push({
+        type: 'mend_fail', need: w.mendNeed, got: Math.round(w.mendHealed),
+        left: Math.max(0, Math.ceil(w.mendNeed - w.mendHealed))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★这道不能省：mendNextTick 初值 0，
+    //   没有它的话开局第一帧就开窗（悬赏首发闸踩过这个坑）。
+    if (w.tick < Math.round(M.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★千万别写成 `!w.mendNextTick` —— 初值就是 0。
+    if (w.tick < w.mendNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.mendRounds = (w.mendRounds || 0) + 1;
+    w.mendActive = 1;
+    w.mendHealed = 0;
+    w.mendHalfNoted = 0;
+    w.mendNeed = mendNeedFor(w.mendRounds - 1);
+    w.mendDeadline = w.time + M.windowSec;
+    w.mendNextTick = w.tick + Math.round(M.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'mend_start', need: w.mendNeed, sec: M.windowSec, round: w.mendRounds
+    });
+  }
+
+  // 回血计数钩子：挂在 healPlayer 的 `p.hp - before` 真增量上（见 healPlayer）。
+  // 【为什么只加数字、不发奖】达标/落空的结算全在 tickMend 里做，钩子只累计。
+  // 【过半为什么用 >= + 标记位】回血是连续量，一帧跨过半程是常事；=== 会漏报。
+  function onMendHeal(w, gained) {
+    if (!w.mendActive || w.storyStage) return;
+    // ★只认真回进血条的量：满血吃红心 / 溢出部分 gained=0，一分都不算。
+    if (!(gained > 0)) return;
+    w.mendHealed += gained;
+    const half = w.mendNeed / 2;
+    if (!w.mendHalfNoted && w.mendHealed >= half) {
+      w.mendHalfNoted = 1;
+      w.events.push({
+        type: 'mend_half', got: Math.round(w.mendHealed), need: w.mendNeed,
+        left: Math.max(0, Math.ceil(w.mendNeed - w.mendHealed))
+      });
+    }
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -2396,6 +2509,10 @@
     const before = p.hp;
     p.hp = Math.min(p.maxHp, p.hp + amount);
     w.stats.healed += p.hp - before;
+    // 养元诀（第六十轮）：只把"真回进血条的那一段"计入限时治愈量。
+    // ★传 p.hp - before（真增量）而不是 amount（请求量）：满血吃红心、回血溢出
+    //   时真增量为 0，玩家白嫖不到奖励。simtest 反向验证把这里改回 amount 会红。
+    onMendHeal(w, p.hp - before);
   }
 
   // ============================================================
@@ -7963,8 +8080,12 @@
       // 回血上限是当前最大血量 —— 满级每秒 2.5 点看着不多，但它是**唯一**
       // 不依赖击杀的回血手段：被围住打不出击杀时，它才是那根救命绳。
       if (p.attrs.regen > 0 && p.hp < p.maxHp) {
+        const hpBefore = p.hp;
         p.hp += p.attrs.regen * dt;
         if (p.hp > p.maxHp) p.hp = p.maxHp;
+        // 养元诀：苔藓护符的每秒回血也走同一条"真增量"计数（它与 healPlayer 是
+        //   两条独立回血通路，漏掉这条玩家会奇怪"我明明在回血为什么不算"）。
+        onMendHeal(w, p.hp - hpBefore);
       }
     }
 
@@ -8140,6 +8261,15 @@
     //   位移计数钩子挂在 movePlayer（本帧第 1 段，且在传送门之前），
     //   所以这里的 tick 只管状态迁移，天然晚于本帧所有玩家走的步数。
     tickStride(w);
+
+    // ---------- 2.59 养元诀（第六十轮：限时治愈量） ----------
+    // 【为什么紧跟逐日步】同为"目标制、零实体、只发播报"——六件摆在一起，
+    //   一眼能看出这一族的六条轴：杀几只 / 别挨打 / 捡几份 / 打多少伤害 /
+    //   走多远 / 回多少血。前五件都是"往外打"，养元诀是唯一"往回收"的一件。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   回血计数钩子挂在 healPlayer / 苔藓 regen（分散在血液结算各处），
+    //   所以这里的 tick 只管状态迁移。
+    tickMend(w);
 
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
@@ -8872,6 +9002,14 @@
     tickStride: tickStride,
     onStrideMove: onStrideMove,
     strideNeedFor: strideNeedFor,
+    // 第六十轮：养元诀（限时治愈量）—— 三个入口单独导出，测试要能在精确 tick
+    //   上开一轮、精确注入一次回血，而不必真去跑 366 秒并造一场掉血+回血。
+    tickMend: tickMend,
+    onMendHeal: onMendHeal,
+    mendNeedFor: mendNeedFor,
+    // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
+    //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
+    healPlayer: healPlayer,
     // ★导出造掉落物：赤月的「经验 ×1.3」只能在「吃进去的那一刻」验，
     //   而靠打死怪掉球要连带跑武器/暴击/词缀，变量太多。直接造一颗指定价值的球最干净。
     spawnPickup: spawnPickup,
