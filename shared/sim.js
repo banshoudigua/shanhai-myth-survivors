@@ -1160,6 +1160,32 @@
       dewRounds: 0,
       dewDone: 0,
       dewFailed: 0,
+
+      // ---------- 连斩令（第六十四轮：限时连续击杀不中断的目标） ----------
+      // ★和前九件一样全是**服务端事实**，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      streakNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。它同时是"这一下击杀要不要计数"的判据之一。
+      streakActive: 0,
+      // 本轮当前连斩数 / 目标连斩数。停手超过 gapSec 会被 tickStreak 清零。
+      streakCur: 0,
+      streakNeed: 0,
+      // 本轮最长连斩（只增不减）：断链会清 streakCur，但落空播报要说"最长连到几只"，
+      //   报断链后的瞬时 0 会让玩家困惑。★服务端事实，不进快照。
+      streakBest: 0,
+      // 本轮最近一次击杀的时刻（w.time 口径，秒）。断链判据：time - 它 > gapSec。
+      streakLastKill: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      streakDeadline: 0,
+      // 过半播报只发一次的标记（连斩是整数次累加，标记位防的是刷屏）
+      streakHalfNoted: 0,
+      // ★一旦连斩数达到目标就锁 1：达标后即使停手断链，也不该把已拿到手的奖清掉。
+      //   （tick 里的断链只清 streakCur，不清本标记 —— 达成即锁定。）
+      streakReached: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      streakRounds: 0,
+      streakDone: 0,
+      streakFailed: 0,
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -2546,6 +2572,118 @@
     }
   }
 
+  // ============================================================
+  // 连斩令（第六十四轮：限时连续击杀不中断）
+  // ============================================================
+  // 某一轮要连斩几只：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function streakNeedFor(roundIndex) {
+    const P = C.STREAK;
+    if (!P) return 0;
+    return Math.min(P.maxStreak, P.needStreak + (roundIndex || 0) * P.streakStep);
+  }
+
+  // 断链检查：停手太久（距上次击杀超过 gapSec）就把连斩数清零。
+  // ★只清 streakCur，绝不清 streakReached —— 达标是"拿在手里"的，断链不能追回。
+  // ★抽成独立函数：击杀前要调（判旧链接不上），tick 每帧也要调（停手自己会断），
+  //   两处共用同一判据，避免"下一击才断"的滞后。
+  function streakMaybeBreak(w) {
+    const P = C.STREAK;
+    if (!P || !w.streakActive || w.streakCur <= 0) return;
+    if (w.time - w.streakLastKill > P.gapSec) w.streakCur = 0;
+  }
+
+  // 每帧调一次（step 第 2.63 段，紧挨 tickDew —— 同为"目标制、零实体"一族）。
+  function tickStreak(w) {
+    const P = C.STREAK;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂。
+    if (w.storyStage) return;
+
+    if (w.streakActive) {
+      // ② 达标优先于断链、也优先于到期：★达成即锁定——
+      //   最后一击连够的那一刻就算拿到，之后停手断链或到点都不该把奖追回。
+      if (w.streakReached) {
+        w.streakActive = 0;
+        w.streakDone = (w.streakDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，与前九件一致的结算顺序。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'streak_done', got: w.streakCur, need: w.streakNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      // ③ 每帧断链检查：★玩家停手不杀，链子也会自己断，不必等下一击。
+      streakMaybeBreak(w);
+      if (w.time < w.streakDeadline) return;
+      // ④ 到期没连够：★什么都不给，且不责备（与前九件同一口径）。
+      w.streakActive = 0;
+      w.streakFailed = (w.streakFailed || 0) + 1;
+      w.events.push({
+        type: 'streak_fail', need: w.streakNeed, got: w.streakBest,
+        left: Math.max(0, w.streakNeed - w.streakBest)
+      });
+      return;
+    }
+
+    // ⑤ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ⑥ 还没到下一轮。★不能写 `!w.streakNextTick`。
+    if (w.tick < w.streakNextTick) return;
+
+    // ⑦ 开一轮。锚点设在开窗时刻，第一击不会拿"上一轮的时间"误判断链。
+    w.streakRounds = (w.streakRounds || 0) + 1;
+    w.streakActive = 1;
+    w.streakCur = 0;
+    w.streakBest = 0;
+    w.streakReached = 0;
+    w.streakHalfNoted = 0;
+    w.streakNeed = streakNeedFor(w.streakRounds - 1);
+    w.streakLastKill = w.time;
+    w.streakDeadline = w.time + P.windowSec;
+    w.streakNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'streak_start', need: w.streakNeed, sec: P.windowSec,
+      gap: P.gapSec, round: w.streakRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 里，与 bumpRage / onBountyKill 并列。
+  // ★"打死一只"是唯一事实，掉落分支会随 tier 走不同路径，挂这里才不漏。
+  function onStreakKill(w) {
+    const P = C.STREAK;
+    if (!P || !w.streakActive || w.storyStage) return;
+    // ★★★天火砸死的那一坨不算连斩（与血怒同一条 rageMute 隔离线）——
+    //   否则等天火白送 6 连，本件"要一直输出"的节奏就失去意义。
+    if (w.rageMute > 0) return;
+    // 先判旧链是否早已断掉：隔太久的这一击只能从 1 重新起链，接不上旧账。
+    streakMaybeBreak(w);
+    w.streakCur += 1;
+    w.streakLastKill = w.time;
+    if (w.streakCur > w.streakBest) w.streakBest = w.streakCur;
+    const half = w.streakNeed / 2;
+    if (!w.streakHalfNoted && w.streakCur >= half) {
+      w.streakHalfNoted = 1;
+      w.events.push({
+        type: 'streak_half', got: w.streakCur, need: w.streakNeed,
+        left: Math.max(0, Math.ceil(w.streakNeed - w.streakCur))
+      });
+    }
+    if (w.streakCur >= w.streakNeed) w.streakReached = 1;
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -2556,6 +2694,9 @@
     // 猎妖悬赏的击杀计数（第五十四轮）。与血怒并列在同一处：
     // ★两者互不干扰——血怒是连杀窗口，悬赏是限时总量，各记各的字段。
     onBountyKill(w, m);
+    // 连斩令的击杀计数（第六十四轮）。同处并列，但判据不同：
+    // ★血怒是"2.2 秒内的连杀爆发"，连斩令是"1.2 秒不断手"的更严节奏，各自记字段。
+    onStreakKill(w);
 
     // 掉落经验球
     const def = m.def;
@@ -8658,6 +8799,14 @@
     //   这里只 tickDew 做开窗/达标/落空的状态迁移，与前八件"钩子在结算处、tick 在这里"同构。
     tickDew(w);
 
+    // ---------- 2.63 连斩令（第六十四轮：限时连续击杀不中断） ----------
+    // 【为什么紧跟饮露诀】同为"目标制、零实体、只发播报"——十件摆在一起，
+    //   一眼能看出这一族的十条轴。前九件都是"累计够 N 就行"，本件第一次要
+    //   **节奏**：间隔超过 gapSec 就断链清零，逼玩家全程保持输出压力。
+    // 【断链谁来做】streakMaybeBreak 在两处调：每帧这里（停手自己会断）、
+    //   击杀钩子 onStreakKill 里（判旧链接不上）。达标锁定后 tick 优先结算发奖。
+    tickStreak(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -9409,6 +9558,12 @@
     tickDew: tickDew,
     onDewHeart: onDewHeart,
     dewNeedFor: dewNeedFor,
+    // 第六十四轮：连斩令（限时连续击杀不中断）—— 四个入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入击杀、精确推时间验证断链，而不必真跑 426 秒。
+    tickStreak: tickStreak,
+    onStreakKill: onStreakKill,
+    streakNeedFor: streakNeedFor,
+    streakMaybeBreak: streakMaybeBreak,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
     healPlayer: healPlayer,

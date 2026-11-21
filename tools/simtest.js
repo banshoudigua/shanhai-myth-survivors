@@ -1407,6 +1407,7 @@ testMend();console.log('');
 testThunder();console.log('');
 testPeril();console.log('');
 testDew();console.log('');
+testStreak();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2806,6 +2807,7 @@ function testRage() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3002,6 +3004,7 @@ function testMoon() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5308,6 +5311,7 @@ function testDevourer() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5685,6 +5689,7 @@ function testBoon() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6097,6 +6102,7 @@ function testBell() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6607,6 +6613,7 @@ function testMerge() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7121,6 +7128,7 @@ function testEscort() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7519,6 +7527,7 @@ function testMarket() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7932,6 +7941,7 @@ function testCauldron() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8302,6 +8312,7 @@ function testBounty() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8579,6 +8590,7 @@ function testHealer() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8858,6 +8870,7 @@ function testSerenity() {
     w.thunderNextTick = 1e9; // 第六十一轮：惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9117,6 +9130,7 @@ function testGlean() {
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9426,6 +9440,7 @@ function testForge() {
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9742,6 +9757,7 @@ function testStride() {
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10071,6 +10087,7 @@ function testMend() {
     w.thunderNextTick = 1e9;  // 惊雷诀 378s 开窗，默认推远
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10246,6 +10263,7 @@ function testMend() {
   wF.thunderNextTick = 1e9;
   wF.perilNextTick = 1e9;
   wF.dewNextTick = 1e9;
+  wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10390,6 +10408,7 @@ function testThunder() {
     w.thunderNextTick = 1e9;  // 默认不排期：要开窗的世界自己设 0
     w.perilNextTick = 1e9;    // 履险诀同理：要开窗的世界自己设 0
     w.dewNextTick = 1e9;      // 饮露诀同理：要开窗的世界自己设 0
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10578,6 +10597,7 @@ function testThunder() {
   wF.thunderNextTick = 1e9;
   wF.perilNextTick = 1e9;
   wF.dewNextTick = 1e9;
+  wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10706,6 +10726,7 @@ function testPeril() {
     w.thunderNextTick = 1e9;
     w.perilNextTick = 1e9;    // 默认不排期：要开窗的世界自己设 0
     w.dewNextTick = 1e9;      // 默认不排期：要开窗的世界自己设 0
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10889,6 +10910,7 @@ function testPeril() {
   // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
   wF.perilNextTick = 1e9;
   wF.dewNextTick = 1e9;
+  wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   SIM.tickPeril(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.perilDone === 0, 'pickups=' + wF.pickups.length);
@@ -11022,6 +11044,7 @@ function testDew() {
     w.thunderNextTick = 1e9;
     w.perilNextTick = 1e9;
     w.dewNextTick = 1e9;      // 默认不排期：要开窗的世界自己设 0
+    w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11195,6 +11218,7 @@ function testDew() {
   wF.time = wF.tick / HZ;
   // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
   wF.dewNextTick = 1e9;
+  wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   SIM.tickDew(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.dewDone === 0, 'pickups=' + wF.pickups.length);
@@ -11285,4 +11309,359 @@ function testDew() {
     storyAlive && wS2.dewActive === 0 && evs(wS2, 'dew_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.dewActive);
+}
+
+// ============================================================
+// 第六十四轮：连斩令（目标制零实体第十件，"节奏/连贯性"新轴）
+// ============================================================
+function testStreak() {
+  console.log('[第六十四轮] 连斩令：第一件「限时连续击杀不中断」目标（断链清零）');
+  const P = C.STREAK;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 干净世界：其它机制全推远、关武器、默认满血，只留连斩令这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    p.rage = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;   // 默认不排期：要开窗的世界自己设 0
+    w.rageMute = 0;
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.streakNextTick = 0;
+    SIM.tickStreak(w);
+  }
+  // 喂 count 次击杀，间隔 gap 秒（默认半个 gapSec —— 保证连得上）。
+  function feed(w, count, gap) {
+    const g = gap === undefined ? P.gapSec * 0.5 : gap;
+    for (let i = 0; i < count; i++) {
+      if (i > 0) w.time += g;
+      SIM.onStreakKill(w);
+    }
+  }
+  function finish(w, count) {
+    feed(w, count);
+    w.time = w.streakDeadline + 0.01;
+    SIM.tickStreak(w);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场，没怪可杀）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标连斩数按轮递增且封顶（第 2 轮 +1，第 99 轮到 max）',
+    SIM.streakNeedFor(0) === P.needStreak &&
+    SIM.streakNeedFor(1) === P.needStreak + P.streakStep &&
+    SIM.streakNeedFor(99) === P.maxStreak,
+    '0=' + SIM.streakNeedFor(0) + ' 1=' + SIM.streakNeedFor(1) + ' 99=' + SIM.streakNeedFor(99));
+  expect('★★断链间隔合理（0.5~2 秒：太短连 boss 都接不上，太长退化成累计杀怪）',
+    P.gapSec >= 0.5 && P.gapSec <= 2 && P.gapSec < P.windowSec,
+    'gapSec=' + P.gapSec);
+  expect('目标密度合理（每秒至少能连 0.15 只；1.2 秒/只封顶 10 只需 11 秒不断手）',
+    P.needStreak > 0 && P.needStreak <= P.maxStreak && P.maxStreak * P.gapSec < P.windowSec &&
+    P.needStreak / P.windowSec >= 0.15,
+    'need=' + P.needStreak + ' max=' + P.maxStreak + ' gap=' + P.gapSec + ' / ' + P.windowSec);
+  expect('奖励仍是"一箱 + 零钱"（与前九件同口径，不是巨款）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发时刻错开所有既有事件（含饮露诀 414，避免同一帧挤两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'PERIL',
+      'CAULDRON', 'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER',
+      'DEW'].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'streak=' + P.startSec + ' dew=' + C.DEW.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉战斗）----------
+  const wR = cleanWorld(9781);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feed(wR, 1000);
+  finish(wR, P.needStreak);
+  expect('★开窗/累计/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(9782);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 0);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(9790);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickStreak(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.streakRounds === 0 && evs(wT, 'streak_start').length === 0,
+    'rounds=' + wT.streakRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.streakActive === 1 && wT.streakRounds === 1,
+    'rounds=' + wT.streakRounds + ' active=' + wT.streakActive);
+  expect('★★开窗零实体：没怪、没球、没特效、没 zone（与前九件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'streak_start')[0];
+  expect('开窗播报一次说清四件事：多久 / 连几只 / 断链规则 / 给什么',
+    !!st && st.sec === P.windowSec && st.need === P.needStreak &&
+    st.gap === P.gapSec && st.round === 1 && evs(wT, 'streak_start').length === 1,
+    JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.streakDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.streakDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.streakNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.streakNextTick);
+  SIM.tickStreak(wT);
+  expect('同帧重复调用不会二次开窗', wT.streakRounds === 1,
+    'rounds=' + wT.streakRounds);
+  wT.time = wT.streakDeadline - 0.001;
+  SIM.tickStreak(wT);
+  expect('到期前一帧不发奖也不结算', wT.streakActive === 1 &&
+    wT.streakCur === 0 && evs(wT, 'streak_done').length === 0 &&
+    evs(wT, 'streak_fail').length === 0,
+    'active=' + wT.streakActive + ' cur=' + wT.streakCur);
+
+  // ---------- 4. 过半（整数次累加：标记位防刷屏）----------
+  const wH = cleanWorld(9791);
+  openWindow(wH);
+  // ★喂数必须严格小于 half 阈值（need/2=3）：喂 3 只就已经过半了。
+  feed(wH, Math.floor((P.needStreak - 1) / 2));
+  expect('过半前零播报', evs(wH, 'streak_half').length === 0,
+    'half=' + evs(wH, 'streak_half').length + ' cur=' + wH.streakCur);
+  feed(wH, 1);
+  expect('过半报一次', evs(wH, 'streak_half').length === 1,
+    'half=' + evs(wH, 'streak_half').length);
+  feed(wH, 1000);
+  expect('多连不刷屏（过半播报恰好一次）', evs(wH, 'streak_half').length === 1,
+    'half=' + evs(wH, 'streak_half').length);
+  const wH2 = cleanWorld(9792);
+  openWindow(wH2);
+  feed(wH2, P.needStreak);
+  expect('★★整轮只报一次过半（标记位防刷屏，数字锁在首次跨半那一刻）',
+    evs(wH2, 'streak_half').length === 1 &&
+    evs(wH2, 'streak_half')[0].got === Math.ceil(P.needStreak / 2),
+    'half=' + evs(wH2, 'streak_half').length +
+    ' got=' + ((evs(wH2, 'streak_half')[0] || {}).got));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(9800);
+  openWindow(wD);
+  finish(wD, P.needStreak);
+  expect('连够且没断链 → 达成', wD.streakActive === 0 && wD.streakDone === 1 &&
+    evs(wD, 'streak_done').length === 1, 'done=' + wD.streakDone);
+  expect('宝箱正好一个（与前九件同口径）', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'streak_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === P.needStreak && dn.need === P.needStreak &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feed(wD, 1000);
+  SIM.tickStreak(wD);
+  expect('★达标后再连、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.streakDone === 1 && evs(wD, 'streak_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.streakDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickStreak(wD);
+  expect('下一轮目标递增且连斩计数清零', wD.streakRounds === 2 &&
+    wD.streakNeed === P.needStreak + P.streakStep && wD.streakCur === 0 &&
+    wD.streakReached === 0,
+    'need=' + wD.streakNeed + ' cur=' + wD.streakCur);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(9810);
+  openWindow(wF);
+  finish(wF, P.needStreak - 1);
+  expect('差一只也落空', wF.streakActive === 0 && wF.streakFailed === 1 &&
+    wF.streakDone === 0, 'failed=' + wF.streakFailed + ' done=' + wF.streakDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现"达成"播报', evs(wF, 'streak_done').length === 0,
+    'done=' + evs(wF, 'streak_done').length);
+  const fl = evs(wF, 'streak_fail')[0];
+  expect('落空只陈述还差几只（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === P.needStreak - 1 && fl.need === P.needStreak,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  wF.streakNextTick = 1e9;   // 关掉后续排期，推这么远不该再开一轮
+  SIM.tickStreak(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.streakDone === 0, 'pickups=' + wF.pickups.length);
+  const curAfterFail = wF.streakCur;
+  feed(wF, 1000);
+  expect('落空后再连也不计数（钩子只认 active）',
+    wF.streakCur === curAfterFail && wF.streakActive === 0,
+    'cur=' + wF.streakCur + '（落空时 ' + curAfterFail + '）');
+
+  // ---------- 7. ★★★断链闸（本件核心新轴）----------
+  const wB = cleanWorld(9820);
+  openWindow(wB);
+  SIM.onStreakKill(wB);       // 第 1 只
+  wB.time += P.gapSec + 0.01; // 停手超过 gapSec
+  SIM.onStreakKill(wB);       // 迟到的第 2 只：旧链应断，只能从 1 重算
+  expect('★★★间隔超过 gapSec 的击杀接不上旧链（只剩它自己的 1 连）',
+    wB.streakCur === 1, 'cur=' + wB.streakCur + '（正确应重算为 1）');
+  const wB2 = cleanWorld(9821);
+  openWindow(wB2);
+  SIM.onStreakKill(wB2);
+  wB2.time += P.gapSec;       // 恰好等于 gapSec —— 判据是 > 不是 >=
+  SIM.onStreakKill(wB2);
+  expect('间隔恰好等于 gapSec 不算断（正向对照，证明闸不是恒断）',
+    wB2.streakCur === 2, 'cur=' + wB2.streakCur);
+  const wB3 = cleanWorld(9822);
+  openWindow(wB3);
+  SIM.onStreakKill(wB3);
+  SIM.onStreakKill(wB3);
+  wB3.time += P.gapSec + 0.01;
+  // ★★必须走真实 tickStreak，不能直接调 streakMaybeBreak —— 后者只验函数本身，
+  //   钉不住"tick 每帧调用它"这个调用点（摘掉调用点的回归会假绿，反向②踩过）。
+  SIM.tickStreak(wB3);
+  expect('★★★停手不杀，tick 每帧自己就会断链（不必等下一次击杀）',
+    wB3.streakCur === 0, 'cur=' + wB3.streakCur);
+  expect('断链后过半标记位保留（同一轮不重复播报过半）',
+    (function () {
+      const w0 = cleanWorld(9823);
+      openWindow(w0);
+      feed(w0, Math.ceil(P.needStreak / 2) + 1);
+      const n = evs(w0, 'streak_half').length;
+      w0.time += P.gapSec + 0.01;
+      SIM.streakMaybeBreak(w0);
+      SIM.onStreakKill(w0);
+      return n === 1 && evs(w0, 'streak_half').length === 1;
+    })(), 'half 应始终 1 次');
+
+  // ★★★达标锁定：连够之后即便停手断链，奖励也不该被追回。
+  const wLock = cleanWorld(9824);
+  openWindow(wLock);
+  feed(wLock, P.needStreak);
+  expect('连够当刻 streakReached 锁定为 1',
+    wLock.streakReached === 1 && wLock.streakCur === P.needStreak,
+    'reached=' + wLock.streakReached + ' cur=' + wLock.streakCur);
+  wLock.time += P.gapSec * 20;
+  SIM.streakMaybeBreak(wLock);
+  expect('★★★达标后断链只清 streakCur，不清 reached（达成即锁定）',
+    wLock.streakCur === 0 && wLock.streakReached === 1,
+    'cur=' + wLock.streakCur + ' reached=' + wLock.streakReached);
+  SIM.tickStreak(wLock);
+  expect('★★★达标后即便断链依旧发奖（不追回已到手的赏金）',
+    wLock.streakDone === 1 && evs(wLock, 'streak_done').length === 1 &&
+    byKind(wLock, 'chest').length === P.rewardChest,
+    'done=' + wLock.streakDone + ' chest=' + byKind(wLock, 'chest').length);
+
+  // ★★★天火/世界伤害砸死的不算连斩（rageMute 隔离线）。
+  const wMute = cleanWorld(9825);
+  openWindow(wMute);
+  wMute.rageMute = 1;
+  SIM.onStreakKill(wMute);
+  SIM.onStreakKill(wMute);
+  expect('★★★rageMute>0 时击杀一律不算连斩（天火白送堵死）',
+    wMute.streakCur === 0 && wMute.streakReached === 0,
+    'cur=' + wMute.streakCur);
+  wMute.rageMute = 0;
+  SIM.onStreakKill(wMute);
+  expect('rageMute 解除后击杀恢复计数（正向对照，证明闸不是恒关）',
+    wMute.streakCur === 1, 'cur=' + wMute.streakCur);
+
+  // ★★钩子只挂 killMob：真实打死一只怪 → 连斩 +1（证明挂对漏斗）。
+  const wK = cleanWorld(9826);
+  openWindow(wK);
+  const mob = SIM.spawnMob(wK, 'corpse', wK.player.x + 260, wK.player.y, 1, 0);
+  SIM.damageMob(wK, mob, 999999);
+  expect('★★真实 killMob 打死一只怪 → 连斩 +1（钩子挂在唯一击杀漏斗）',
+    wK.streakCur === 1, 'cur=' + wK.streakCur);
+
+  // 窗口外 / 剧情关 / 落空后：钩子自身三道闸
+  const wOut = cleanWorld(9827);
+  SIM.onStreakKill(wOut);
+  expect('窗口外击杀也不计数', wOut.streakCur === 0, 'cur=' + wOut.streakCur);
+  const wGate = cleanWorld(9828);
+  openWindow(wGate);
+  wGate.storyStage = { id: 'ch5' };
+  SIM.onStreakKill(wGate);
+  expect('窗口内但剧情关下击杀也不计数（钩子有 story 闸）',
+    wGate.streakCur === 0, 'cur=' + wGate.streakCur);
+
+  // ---------- 8. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(9830);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.streakNextTick = 0;
+  SIM.tickStreak(wS);
+  SIM.onStreakKill(wS);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.streakActive === 0 && wS.streakRounds === 0 && wS.streakCur === 0 &&
+    evs(wS, 'streak_start').length === 0,
+    'active=' + wS.streakActive + ' cur=' + wS.streakCur);
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9831, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((P.startSec + k * 20) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有连斩令，且那一刻世界确实还在跑',
+    storyAlive && wS2.streakActive === 0 && evs(wS2, 'streak_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.streakActive);
 }
