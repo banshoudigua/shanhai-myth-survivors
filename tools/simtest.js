@@ -1409,6 +1409,8 @@ testPeril();console.log('');
 testDew();console.log('');
 testStreak();console.log('');
 testBestiary();console.log('');
+testSkillDiff();console.log('');
+testShoot();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2810,6 +2812,7 @@ function testRage() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3008,6 +3011,7 @@ function testMoon() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5316,6 +5320,7 @@ function testDevourer() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5695,6 +5700,7 @@ function testBoon() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6109,6 +6115,7 @@ function testBell() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6621,6 +6628,7 @@ function testMerge() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7137,6 +7145,7 @@ function testEscort() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7537,6 +7546,7 @@ function testMarket() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7952,6 +7962,7 @@ function testCauldron() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8324,6 +8335,7 @@ function testBounty() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8603,6 +8615,7 @@ function testHealer() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8884,6 +8897,7 @@ function testSerenity() {
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9145,6 +9159,7 @@ function testGlean() {
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9456,6 +9471,7 @@ function testForge() {
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9774,6 +9790,7 @@ function testStride() {
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10105,6 +10122,7 @@ function testMend() {
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10282,6 +10300,7 @@ function testMend() {
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+  wF.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10428,6 +10447,7 @@ function testThunder() {
     w.dewNextTick = 1e9;      // 饮露诀同理：要开窗的世界自己设 0
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10618,6 +10638,7 @@ function testThunder() {
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+  wF.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10748,6 +10769,7 @@ function testPeril() {
     w.dewNextTick = 1e9;      // 默认不排期：要开窗的世界自己设 0
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10933,6 +10955,7 @@ function testPeril() {
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+  wF.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
   SIM.tickPeril(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.perilDone === 0, 'pickups=' + wF.pickups.length);
@@ -11068,6 +11091,7 @@ function testDew() {
     w.dewNextTick = 1e9;      // 默认不排期：要开窗的世界自己设 0
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11243,6 +11267,7 @@ function testDew() {
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
   wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+  wF.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
   SIM.tickDew(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.dewDone === 0, 'pickups=' + wF.pickups.length);
@@ -11385,6 +11410,7 @@ function testStreak() {
     w.dewNextTick = 1e9;
     w.streakNextTick = 1e9;   // 默认不排期：要开窗的世界自己设 0
     w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+    w.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -11569,6 +11595,7 @@ function testStreak() {
   wF.time = wF.tick / HZ;
   wF.streakNextTick = 1e9;   // 关掉后续排期，推这么远不该再开一轮
   wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
+  wF.shootNextTick = 1e9;     // 第六十七轮：射日诀 462s 开窗，默认推远
   SIM.tickStreak(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.streakDone === 0, 'pickups=' + wF.pickups.length);
@@ -11749,6 +11776,7 @@ function testBestiary() {
     w.dewNextTick = 1e9;
     w.streakNextTick = 1e9;
     w.bestiaryNextTick = 1e9; // 第六十五轮：默认不排期，要开窗的世界自己设 0
+    w.shootNextTick = 1e9;    // 第六十七轮：射日诀同样默认不排期
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -11928,6 +11956,7 @@ function testBestiary() {
   wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
   wF.time = wF.tick / HZ;
   wF.bestiaryNextTick = 1e9;   // 关掉后续排期，推这么远不该再开一轮
+  wF.shootNextTick = 1e9;
   SIM.tickBestiary(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.bestiaryDone === 0, 'pickups=' + wF.pickups.length);
@@ -12040,4 +12069,726 @@ function testBestiary() {
     storyAlive && wS2.bestiaryActive === 0 && evs(wS2, 'bestiary_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.bestiaryActive);
+}
+
+// ============================================================
+// 第六十六轮：同族武器差异化
+// （引魂灯=魂灯烙印 / 幽冥火轮=冥火灼烧 / 疾风回旋=罡风击退 /
+//   太阴玄霜=冰寒减速 / 白骨钉=钉身定身 / 血雨=滋养 / 幽冥锁链=缠缚）
+// 【测试原则】每件新效果都要有「同 kind 老武器」做对照（证明行为由 def 字段
+//   驱动、不是 kind 整体变了）；每段都要证明世界还在跑（非空跑）；
+//   灼烧要单独验「零随机」（主随机流逐位一致）。
+// ============================================================
+
+function testSkillDiff() {
+  console.log('[第六十六轮] 同族武器差异化：烙印 / 灼烧 / 罡风 / 冰寒 / 钉身 / 滋养 / 缠缚');
+
+  const F = 1 / C.TICK_HZ;   // 一帧的秒数
+
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9;
+    w.shootNextTick = 1e9;  // 第六十七轮：射日诀 462s 开窗，默认推远
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function give(w, id) {
+    w.player.weapons = [{ id: id, level: 1, timer: 0, rt: {} }];
+    SIM.recalcAttrs(w);
+  }
+  // 造一只远处的靶子怪（带 seed：不抽主随机流；hpMul 放大免得一下被打死）
+  function farMob(w, dist, hpMul) {
+    return SIM.spawnMob(w, 'corpse', w.player.x + dist, w.player.y, hpMul || 30, 0, 0.5);
+  }
+  function run(w, frames) {
+    for (let i = 0; i < frames; i++) SIM.step(w, { mx: 0, my: 0 });
+  }
+  // 火轮命中有点火前置：开火 → 等环绕物摸到怪
+  function ignite(w, m) {
+    for (let i = 0; i < 120; i++) {
+      SIM.step(w, { mx: 0, my: 0 });
+      if (m.alive && m.burnT > 0) return true;
+    }
+    return false;
+  }
+
+  // ---------- 1. 太阴玄霜：冰寒减速 ----------
+  {
+    const w1 = cleanWorld(6601);
+    give(w1, 'frost_nova');
+    const m1 = farMob(w1, 60, 10);
+    run(w1, 2);
+    expect('玄霜命中后怪被冰寒（chillT 上身）', m1.chillT > 0, 'chillT=' + m1.chillT);
+    expect('玄霜的冰寒乘区是 0.65', m1.chillMul === 0.65, 'mul=' + m1.chillMul);
+
+    const w2 = cleanWorld(6602);
+    give(w2, 'garlic');
+    const m2 = farMob(w2, 60, 10);
+    run(w2, 2);
+    expect('★对照：蒜雾命中不冰寒（减速由 def 字段驱动，不是 aura kind 整体变了）',
+      !(m2.chillT > 0), 'chillT=' + m2.chillT);
+    expect('★对照：蒜雾确实命中过（非空跑）', w2.stats.dmgDealt > 0 &&
+      w1.state === 'playing' && w2.state === 'playing');
+  }
+  // 减速真的生效：同 seed 双世界，冻的一只位移 ≈ 0.65 倍
+  {
+    const wA = cleanWorld(6603);
+    const wB = cleanWorld(6603);
+    const mA = SIM.spawnMob(wA, 'corpse', wA.player.x + 400, wA.player.y, 30, 0, 0.5);
+    const mB = SIM.spawnMob(wB, 'corpse', wB.player.x + 400, wB.player.y, 30, 0, 0.5);
+    mA.chillT = 1.2; mA.chillMul = 0.65;
+    run(wA, 30); run(wB, 30);
+    const dA = Math.abs(mA.x - (wA.player.x + 400));
+    const dB = Math.abs(mB.x - (wB.player.x + 400));
+    expect('被冻的怪确实走得更慢（位移 ≈ 0.65 倍）',
+      dB > 0 && dA / dB > 0.5 && dA / dB < 0.8, 'ratio=' + fmt(dA / dB, 2));
+    // 到期自动解除，速度恢复
+    run(wA, 30); run(wB, 30);   // 又 0.5s，chillT 0.3+ 已过期
+    expect('冰寒到期自动解除（chillT 归零）', !(mA.chillT > 0), 'chillT=' + mA.chillT);
+    const dA2 = Math.abs(mA.x - mA.px);   // 这一帧的位移
+    const dB2 = Math.abs(mB.x - mB.px);
+    expect('解冻后速度恢复（与未冻怪同帧位移一致）',
+      Math.abs(dA2 - dB2) < 0.5, 'A=' + fmt(dA2, 2) + ' B=' + fmt(dB2, 2));
+  }
+
+  // ---------- 2. 幽冥锁链：缠缚减速 ----------
+  {
+    const w1 = cleanWorld(6605);
+    give(w1, 'spirit_chain');
+    const m1 = farMob(w1, 200, 30);
+    run(w1, 40);
+    expect('锁链命中后怪被缠缚（chillMul 0.7）',
+      m1.chillT > 0 && m1.chillMul === 0.7, 'chillT=' + m1.chillT + ' mul=' + m1.chillMul);
+
+    const w2 = cleanWorld(6606);
+    give(w2, 'nail');
+    const m2 = farMob(w2, 200, 30);
+    run(w2, 40);
+    expect('★对照：神钉命中不缠缚（直线穿透族没整体变控场）', !(m2.chillT > 0),
+      'chillT=' + m2.chillT);
+    expect('★对照：神钉确实打到了怪（非空跑）', w2.stats.dmgDealt > 0);
+  }
+
+  // ---------- 3. 引魂灯：魂灯烙印 ----------
+  {
+    const w1 = cleanWorld(6607);
+    give(w1, 'soul_lantern');
+    const m1 = farMob(w1, 150, 30);
+    let marked = false;
+    for (let i = 0; i < 240 && !marked; i++) {
+      SIM.step(w1, { mx: 0, my: 0 });
+      if (m1.alive && m1.markT > 0) marked = true;
+    }
+    expect('引魂灯命中后猎物被烙印', marked, 'markT=' + m1.markT);
+    expect('烙印增伤幅度 0.25', m1.markMul === 0.25, 'mul=' + m1.markMul);
+    expect('烙印时长 6 秒', Math.abs(m1.markT - 6) < 0.1, 'markT=' + m1.markT);
+
+    const w2 = cleanWorld(6608);
+    give(w2, 'homing_orb');
+    const m2 = farMob(w2, 150, 30);
+    let hit = false;
+    for (let i = 0; i < 240 && !hit; i++) {
+      SIM.step(w2, { mx: 0, my: 0 });
+      if (w2.stats.dmgDealt > 0) hit = true;
+    }
+    expect('★对照：引魂珠命中不烙印（追踪族没整体变辅助）', !(m2.markT > 0) && hit,
+      'markT=' + m2.markT + ' hit=' + hit);
+  }
+  // 烙印的结算口径：增伤 / 世界伤害隔离 / 到期失效
+  {
+    const w = cleanWorld(6609);
+    const m = farMob(w, 500, 30);
+    const hpFull = m.hp;
+    SIM.damageMob(w, m, 100);
+    expect('无烙印时伤害原样结算', Math.abs(hpFull - m.hp - 100) < 1e-6, hpFull - m.hp);
+
+    m.markT = 6; m.markMul = 0.25;
+    const hp2 = m.hp;
+    SIM.damageMob(w, m, 100);
+    expect('烙印期间受到的伤害 +25%（100 → 125）', Math.abs(hp2 - m.hp - 125) < 1e-6, hp2 - m.hp);
+
+    m.hp = m.maxHp;   // 补满，避免下一发把怪打死搅进斩杀判定
+    SIM.damageMob(w, m, 100, 0, 0, 'meteor');
+    expect('★★世界伤害（天火）不吃烙印：数值对所有人恒定',
+      Math.abs(m.maxHp - m.hp - 100) < 1e-6, m.maxHp - m.hp);
+
+    m.hp = m.maxHp;
+    m.markT = 0.2;
+    run(w, 20);       // 0.33s > 0.2s
+    expect('烙印到期自动失效', !(m.markT > 0), 'markT=' + m.markT);
+    const hp4 = m.hp;
+    SIM.damageMob(w, m, 100);
+    expect('失效后增伤不再生效', Math.abs(hp4 - m.hp - 100) < 1e-6, hp4 - m.hp);
+  }
+
+  // ---------- 4. 白骨钉：钉身定身 ----------
+  {
+    const w1 = cleanWorld(6610);
+    give(w1, 'bone_spike');
+    farMob(w1, 250, 30);
+    run(w1, 1);
+    expect('白骨钉的落点带上钉身字段（stunSec 0.6）',
+      w1.strikes.length === 1 && w1.strikes[0].stunSec === 0.6,
+      'strikes=' + w1.strikes.length + ' stun=' + (w1.strikes[0] ? w1.strikes[0].stunSec : '-'));
+
+    const w2 = cleanWorld(6611);
+    give(w2, 'thunder');
+    farMob(w2, 250, 30);
+    run(w2, 1);
+    expect('★对照：五雷正法的落点不带定身（保持落点不可控的纯爆发）',
+      w2.strikes.length === 1 && !(w2.strikes[0].stunSec > 0));
+
+    // 落地结算把 stunSec 真正应用到怪身上（复用既有定身管线）。
+    // ★★本机 TICK_HZ=20（dt=0.05）：delay 0.1 → 第 2 帧落地；stun 0.6 → 约 12 帧后过期。
+    //   落点结算自带 40 击退冲量（怪会被"砸退"一小段再被钉住）——
+    //   所以「钉住」验的是追逐速度 vx/vy 为 0（moveMobToward 对定身怪早退），
+    //   不验 x/y（击退漂移是冲击本身，不是 AI 在走）。
+    const w3 = cleanWorld(6612);
+    const m3 = farMob(w3, 500, 30);
+    w3.strikes.push({ kind: 'strike', src: 'bone_spike', owner: w3.player,
+      x: m3.x, y: m3.y, r: 34, dmg: 0, delay: 0.1, life: 0.1, stunSec: 0.6, color: '#fff3b0' });
+    run(w3, 4);       // 0.2s > delay 0.1 → 已落地
+    expect('落地后怪被钉身（复用既有定身状态）', m3.stun > 0, 'stun=' + m3.stun);
+    expect('被钉的怪追逐速度清零（AI 停走）', m3.vx === 0 && m3.vy === 0,
+      'vx=' + m3.vx + ' vy=' + m3.vy);
+    // 定身时长 ≈ 0.6s：数到过期为止用了几帧
+    let stunFrames = 0;
+    while (m3.stun > 0 && stunFrames < 30) { run(w3, 1); stunFrames++; }
+    expect('钉身 0.6 秒后过期（时长按 def 字段）',
+      stunFrames >= 9 && stunFrames <= 15 && !(m3.stun > 0),
+      'frames=' + stunFrames + '（20Hz 下 0.6s ≈ 12 帧）');
+  }
+
+  // ---------- 5. 血雨：滋养 ----------
+  {
+    const w1 = cleanWorld(6613);
+    give(w1, 'blood_rain');
+    run(w1, 1);       // 落一摊血雨（场上没怪，按面向扔）
+    const z = w1.zones[0];
+    expect('血雨的地面区域带上滋养字段（每跳 0.5）', !!z && z.healPerTick === 0.5,
+      'healPerTick=' + (z ? z.healPerTick : '-'));
+    w1.player.x = z.x; w1.player.y = z.y;
+    SIM.damagePlayer(w1, w1.player, 30, w1.player.x, w1.player.y);
+    const hpB = w1.player.hp;
+    // ★本机 TICK_HZ=20：血雨 tickSec 0.28 ≈ 5.6 帧。不按帧数硬算，
+    //   改成「推进到 stats.healed 涨了为止」的循环取点，对帧率不敏感。
+    let heal1 = 0;
+    for (let i = 0; i < 30 && heal1 === 0; i++) {
+      SIM.step(w1, { mx: 0, my: 0 });
+      heal1 = w1.player.hp - hpB;
+    }
+    expect('站在血雨里第一跳回 0.5 血', Math.abs(heal1 - 0.5) < 1e-6, '回血=' + heal1);
+    let heal2 = heal1;
+    for (let i = 0; i < 30 && Math.abs(heal2 - heal1) < 1e-6; i++) {
+      SIM.step(w1, { mx: 0, my: 0 });
+      heal2 = w1.player.hp - hpB;
+    }
+    expect('第二跳再回 0.5（共 1.0）', Math.abs(heal2 - 1.0) < 1e-6, '回血=' + heal2);
+
+    // 满血不溢出（真增量 0，与养元诀口径一致）：推进至少一个 tick 周期
+    w1.player.hp = w1.player.maxHp;
+    const healedB = w1.stats.healed;
+    run(w1, 8);       // 0.4s > tickSec 0.28 → 至少跳一跳
+    expect('★满血站雨里不溢出（healed 只记真增量）',
+      w1.player.hp === w1.player.maxHp && w1.stats.healed === healedB,
+      'hp=' + w1.player.hp + ' healed=' + (w1.stats.healed - healedB));
+
+    // 对照：甘露
+    const w2 = cleanWorld(6614);
+    give(w2, 'holy_water');
+    run(w2, 1);
+    const z2 = w2.zones[0];
+    expect('★对照：甘露不带滋养（地面区域族没整体变奶水）', !!z2 && z2.healPerTick === 0,
+      'healPerTick=' + (z2 ? z2.healPerTick : '-'));
+    w2.player.x = z2.x; w2.player.y = z2.y;
+    SIM.damagePlayer(w2, w2.player, 30, w2.player.x, w2.player.y);
+    const hpB2 = w2.player.hp;
+    run(w2, 2);
+    expect('★对照：站甘露里一滴血都不回', w2.player.hp === hpB2,
+      '回血=' + (w2.player.hp - hpB2));
+  }
+
+  // ---------- 6. 幽冥火轮：冥火灼烧 ----------
+  {
+    const w1 = cleanWorld(6615);
+    give(w1, 'wisp_wheel');
+    const m1 = farMob(w1, 104, 30);
+    const ignited = ignite(w1, m1);
+    expect('火轮命中后怪被点燃', ignited, 'burnT=' + m1.burnT);
+    expect('灼烧时长 3 秒', Math.abs(m1.burnT - 3) < 0.1, 'burnT=' + m1.burnT);
+
+    // 摘掉火轮本体，只留灼烧：量出纯灼烧伤害
+    // ★本机 TICK_HZ=20：跑 48 帧 = 2.4s → 灼烧在 0.5 / 1.0 / 1.5 / 2.0 各跳一次，
+    //   恰好 4 跳 × 2 点 = 8（取 48 帧避开 2.5s 整数边界，离两侧都有余量）
+    const dealtB = w1.stats.dmgDealt;
+    const byB = w1.stats.dmgBy.wisp_wheel || 0;
+    const hpB = m1.hp;
+    w1.orbits.length = 0;
+    const rngB = w1.rngState;
+    run(w1, 48);
+    expect('纯灼烧 2.4 秒掉 8 血（0.5s 一跳 × 2 点 × 4 跳）', Math.abs(hpB - m1.hp - 8) < 1e-6,
+      '掉血=' + (hpB - m1.hp));
+    expect('灼烧计入伤害构成（wisp_wheel 名下）',
+      Math.abs((w1.stats.dmgBy.wisp_wheel || 0) - byB - 8) < 1e-6,
+      'dmgBy=' + (w1.stats.dmgBy.wisp_wheel || 0));
+    expect('灼烧计入总输出', Math.abs(w1.stats.dmgDealt - dealtB - 8) < 1e-6);
+    expect('★★灼烧结算零随机（主随机流逐位一致，波次落点不被挪走）',
+      w1.rngState === rngB);
+    expect('灼烧期间世界还在跑', w1.state === 'playing' && m1.alive);
+
+    const w2 = cleanWorld(6616);
+    give(w2, 'scripture');
+    const m2 = farMob(w2, 104, 30);
+    let hit2 = false;
+    for (let i = 0; i < 120 && !hit2; i++) {
+      SIM.step(w2, { mx: 0, my: 0 });
+      if (w2.stats.dmgDealt > 0) hit2 = true;
+    }
+    expect('★对照：道德真经命中不点燃（环绕族没整体变火）', !(m2.burnT > 0) && hit2,
+      'burnT=' + m2.burnT + ' hit=' + hit2);
+  }
+  // 灼烧致死走 killMob（算玩家击杀，掉落照常）
+  {
+    const w = cleanWorld(6617);
+    give(w, 'wisp_wheel');
+    const m = farMob(w, 104, 30);
+    const ignited = ignite(w, m);
+    expect('灼烧致死场景：怪被点燃（前置）', ignited);
+    w.orbits.length = 0;
+    m.hp = 2;
+    m.burnTick = 0.5;   // 下一跳正好烧死
+    // ★掉落球会被玩家磁吸（200px / 340px·s）很快吃掉 ——
+    //   必须在「怪死的那个 step 出来」的第一时间取 pickups 数，别等它跑完。
+    let dropCount = -1;
+    for (let i = 0; i < 40 && dropCount < 0; i++) {
+      SIM.step(w, { mx: 0, my: 0 });
+      if (!m.alive) dropCount = w.pickups.length;
+    }
+    expect('★★灼烧致死走 killMob（怪死了、掉落照常）',
+      !m.alive && dropCount >= 1, 'alive=' + m.alive + ' 死时掉落=' + dropCount);
+  }
+
+  // ---------- 7. 疾风回旋：罡风击退 ----------
+  {
+    const w1 = cleanWorld(6618);
+    give(w1, 'gale_boomerang');
+    const m1 = farMob(w1, 60, 30);
+    let maxK = 0;
+    for (let i = 0; i < 120; i++) {
+      SIM.step(w1, { mx: 0, my: 0 });
+      const k = Math.hypot(m1.kx || 0, m1.ky || 0);
+      if (k > maxK) maxK = k;
+      if (m1.kx || m1.ky) { /* 已命中过 */ }
+    }
+    expect('罡风把命中的怪推开（击退冲量 ≈ 60）', maxK > 50, 'maxK=' + fmt(maxK, 1));
+
+    const w2 = cleanWorld(6619);
+    give(w2, 'boomerang');
+    const m2 = farMob(w2, 60, 30);
+    let maxK2 = 0;
+    for (let i = 0; i < 120; i++) {
+      SIM.step(w2, { mx: 0, my: 0 });
+      const k = Math.hypot(m2.kx || 0, m2.ky || 0);
+      if (k > maxK2) maxK2 = k;
+    }
+    expect('★对照：基础回风刃击退仍是默认 14（往返族没整体变风）',
+      maxK2 > 0 && maxK2 < 20 && w2.stats.dmgDealt > 0, 'maxK=' + fmt(maxK2, 1));
+  }
+
+  // ---------- 8. 表自洽：字段只挂在七件基础武器上，不外溢 ----------
+  {
+    const defs = {};
+    C.WEAPONS.forEach(function (d) { defs[d.id] = d; });
+    expect('★同族老武器一律不带新字段（行为分家只走 def 字段）',
+      !defs.garlic.chillSec && !defs.garlic.markSec && !defs.garlic.burnSec &&
+      !defs.homing_orb.markSec && !defs.scripture.burnSec && !defs.scripture.chillSec &&
+      !defs.boomerang.knock && !defs.nail.chillSec && !defs.nail.stunSec &&
+      !defs.holy_water.healPerTick && !defs.thunder.stunSec &&
+      !defs.homing_orb.chillSec);
+    expect('七件差异化武器各带各的字段',
+      defs.frost_nova.chillSec === 1.2 && defs.frost_nova.chillMul === 0.65 &&
+      defs.spirit_chain.chillSec === 0.8 && defs.spirit_chain.chillMul === 0.7 &&
+      defs.soul_lantern.markSec === 6 && defs.soul_lantern.markMul === 0.25 &&
+      defs.wisp_wheel.burnSec === 3 && defs.wisp_wheel.burnDmg === 2 &&
+      defs.bone_spike.stunSec === 0.6 && defs.blood_rain.healPerTick === 0.5 &&
+      defs.gale_boomerang.knock === 60);
+    // 进化 / 组合技不继承新字段（分家不外溢）。
+    // ★knock 是 whip/garlic 一族的**老字段**（干戚 60 / 蒜雾 26 / 血鞭 90…），
+    //   只有 boomerang kind 的 knock 是本轮新加的（疾风回旋 60）——
+    //   所以 knock 只查 boomerang 类的进化/组合不许带，其余 kind 的 knock 不归本轮管。
+    // ★stunSec 例外说明：雷霆惩戒（parabola 进化）本来就有 stunSec: 1，是老字段；
+    //   所以只查 strike 类的进化/组合不许带（parabola 的不动）。
+    const leaked = [];
+    C.EVOLUTIONS.concat(C.COMBOS).forEach(function (d) {
+      if (d.chillSec || d.markSec || d.burnSec || d.healPerTick) leaked.push(d.id);
+      if (d.knock && d.kind === 'boomerang') leaked.push(d.id + '(knock)');
+      if (d.stunSec && d.kind === 'strike') leaked.push(d.id + '(stun)');
+    });
+    expect('进化 / 组合技不继承新字段（分家不外溢）', leaked.length === 0, leaked.join(','));
+
+    // 死字段扫描：每个新字段名都必须在 sim.js 里有真实引用（防「写了没人读」）
+    const src = FS.readFileSync(PATH.join(__dirname, '../shared/sim.js'), 'utf8');
+    const needFields = ['chillSec', 'chillMul', 'markSec', 'markMul',
+      'burnSec', 'burnTickSec', 'burnDmg', 'healPerTick'];
+    const dead = needFields.filter(function (f) { return src.indexOf(f) < 0; });
+    expect('新字段全部被 sim.js 真实消费（无死字段）', dead.length === 0, dead.join(','));
+  }
+}
+
+// ============================================================
+// 第六十七轮：射日诀（限时「远距离击杀数」目标，目标制零实体第十二件）
+// 【测试原则】每件目标制都钉「不该发生的事」：贴脸补刀不算、天火白送不算、
+//   近战猛刷不达过半/不达标、落空零掉落、剧情关没有（且证明世界还在跑）。
+//   距离边界两头都测（刚好门槛算 / 差 0.01 不算），防「恒真/恒假」假绿。
+// ============================================================
+
+function testShoot() {
+  console.log('[第六十七轮] 射日诀：第一件「限时远距离击杀」目标（贴脸不算）');
+  const P = C.SHOOT;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 隔离世界：其它机制全推远、关武器、默认满血，只留射日诀这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    p.rage = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9;
+    w.shootNextTick = 0;      // 本件默认开窗，干净世界里显式打开
+    w.rageMute = 0;
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.shootNextTick = 0;
+    SIM.tickShoot(w);
+  }
+  // 直接喂击杀钩子：不真 spawn，隔离掉落与随机流
+  function feedKills(w, count, dist) {
+    const p = w.self || w.player;
+    for (let i = 0; i < count; i++) {
+      SIM.onShootKill(w, { x: p.x + (dist || (P.minDist + 60)), y: p.y });
+    }
+  }
+  function finish(w, count, dist) {
+    feedKills(w, count, dist);
+    w.time = w.shootDeadline + 0.01;
+    SIM.tickShoot(w);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场，没怪可杀）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标数按轮递增且封顶（第 2 轮 +1，第 99 轮到 max）',
+    SIM.shootNeedFor(0) === P.needFar &&
+    SIM.shootNeedFor(1) === P.needFar + P.farStep &&
+    SIM.shootNeedFor(99) === P.maxFar,
+    '0=' + SIM.shootNeedFor(0) + ' 1=' + SIM.shootNeedFor(1) + ' 99=' + SIM.shootNeedFor(99));
+  expect('目标密度合理（封顶 9 只在 30 秒内可达，平均每 3.3 秒一只）',
+    P.needFar >= 3 && P.needFar <= P.maxFar && P.maxFar / P.windowSec <= 0.4,
+    'need=' + P.needFar + ' max=' + P.maxFar + ' / ' + P.windowSec);
+  expect('距离门槛夹在近战之外、画面之内（贴脸不算，但玩家看得见目标）',
+    P.minDist >= 280 && P.minDist <= 420,
+    'minDist=' + P.minDist);
+  expect('奖励仍是「一箱 + 零钱」（与前十一件同口径，不是巨款）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发时刻错开所有既有事件（含降妖录 438，避免同一帧挤两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'PERIL',
+      'CAULDRON', 'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER',
+      'DEW', 'STREAK', 'BESTIARY'].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'shoot=' + P.startSec + ' bestiary=' + C.BESTIARY.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉战斗掉落）----------
+  const wR = cleanWorld(10061);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feedKills(wR, 1000);
+  finish(wR, P.needFar);
+  expect('★开窗/距离累计/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(10062);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 0);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(10070);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickShoot(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.shootRounds === 0 && evs(wT, 'shoot_start').length === 0,
+    'rounds=' + wT.shootRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.shootActive === 1 && wT.shootRounds === 1,
+    'rounds=' + wT.shootRounds + ' active=' + wT.shootActive);
+  expect('★★开窗零实体：没怪、没球、没特效、没 zone、没 strike（与前十一件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'shoot_start')[0];
+  expect('开窗播报一次说清四件事：多久 / 几只 / 距离门槛 / 给什么',
+    !!st && st.sec === P.windowSec && st.need === P.needFar &&
+    st.minDist === P.minDist && st.round === 1 && evs(wT, 'shoot_start').length === 1,
+    JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.shootDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.shootDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.shootNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.shootNextTick);
+  SIM.tickShoot(wT);
+  expect('同帧重复调用不会二次开窗', wT.shootRounds === 1,
+    'rounds=' + wT.shootRounds);
+  wT.time = wT.shootDeadline - 0.001;
+  SIM.tickShoot(wT);
+  expect('到期前一帧不发奖也不结算', wT.shootActive === 1 &&
+    wT.shootFar === 0 && evs(wT, 'shoot_done').length === 0 &&
+    evs(wT, 'shoot_fail').length === 0,
+    'active=' + wT.shootActive + ' far=' + wT.shootFar);
+
+  // ---------- 4. 过半（整数次累加：标记位防刷屏）----------
+  const wH = cleanWorld(10071);
+  openWindow(wH);
+  feedKills(wH, Math.floor((P.needFar - 1) / 2));
+  expect('过半前零播报', evs(wH, 'shoot_half').length === 0,
+    'half=' + evs(wH, 'shoot_half').length + ' far=' + wH.shootFar);
+  feedKills(wH, 1);
+  expect('过半报一次', evs(wH, 'shoot_half').length === 1,
+    'half=' + evs(wH, 'shoot_half').length);
+  feedKills(wH, 1000);
+  expect('多杀不刷屏（过半播报恰好一次）', evs(wH, 'shoot_half').length === 1,
+    'half=' + evs(wH, 'shoot_half').length);
+  const wH2 = cleanWorld(10072);
+  openWindow(wH2);
+  feedKills(wH2, P.needFar);
+  expect('★★整轮只报一次过半（标记位防刷屏，数字锁在首次跨半那一刻）',
+    evs(wH2, 'shoot_half').length === 1 &&
+    evs(wH2, 'shoot_half')[0].got === Math.ceil(P.needFar / 2),
+    'half=' + evs(wH2, 'shoot_half').length +
+    ' got=' + ((evs(wH2, 'shoot_half')[0] || {}).got));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(10080);
+  openWindow(wD);
+  finish(wD, P.needFar);
+  expect('远距杀够 → 达成', wD.shootActive === 0 && wD.shootDone === 1 &&
+    evs(wD, 'shoot_done').length === 1, 'done=' + wD.shootDone);
+  expect('宝箱正好一个（与前十一件同口径）', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'shoot_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === P.needFar && dn.need === P.needFar &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feedKills(wD, 1000);
+  SIM.tickShoot(wD);
+  expect('★达标后再杀、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.shootDone === 1 && evs(wD, 'shoot_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.shootDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickShoot(wD);
+  expect('下一轮目标递增、远距计数清零', wD.shootRounds === 2 &&
+    wD.shootNeed === P.needFar + P.farStep && wD.shootFar === 0,
+    'need=' + wD.shootNeed + ' far=' + wD.shootFar);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(10090);
+  openWindow(wF);
+  finish(wF, P.needFar - 1);
+  expect('差一只也落空', wF.shootActive === 0 && wF.shootFailed === 1 &&
+    wF.shootDone === 0, 'failed=' + wF.shootFailed + ' done=' + wF.shootDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现「达成」播报', evs(wF, 'shoot_done').length === 0,
+    'done=' + evs(wF, 'shoot_done').length);
+  const fl = evs(wF, 'shoot_fail')[0];
+  expect('落空只陈述还差几只（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === P.needFar - 1 && fl.need === P.needFar,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  wF.shootNextTick = 1e9;   // 关掉后续排期，推这么远不该再开一轮
+  SIM.tickShoot(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.shootDone === 0, 'pickups=' + wF.pickups.length);
+  const farAfterFail = wF.shootFar;
+  feedKills(wF, 1000);
+  expect('落空后再杀也不计数（钩子只认 active）',
+    wF.shootFar === farAfterFail && wF.shootActive === 0,
+    'far=' + wF.shootFar + '（落空时 ' + farAfterFail + '）');
+
+  // ---------- 7. ★★★距离闸（本件核心新轴：贴脸不算）----------
+  const wB = cleanWorld(10100);
+  openWindow(wB);
+  feedKills(wB, 3, 40);
+  expect('★★★贴脸杀 3 只一只都不算（距离闸是灵魂）',
+    wB.shootFar === 0, 'far=' + wB.shootFar);
+  feedKills(wB, 1, P.minDist + 60);
+  expect('远处击杀才 +1（正向对照，证明闸不是恒关）',
+    wB.shootFar === 1, 'far=' + wB.shootFar);
+  feedKills(wB, 1, P.minDist);
+  expect('★★正好等于门槛算达标（边界含等号）',
+    wB.shootFar === 2, 'far=' + wB.shootFar);
+  feedKills(wB, 1, P.minDist - 0.01);
+  expect('★★差 0.01 到门槛就不算（边界两头都钉）',
+    wB.shootFar === 2, 'far=' + wB.shootFar);
+  const wB2 = cleanWorld(10101);
+  openWindow(wB2);
+  for (let i = 0; i < 500; i++) SIM.onShootKill(wB2, {
+    x: wB2.player.x + 40, y: wB2.player.y
+  });
+  expect('★★★贴脸猛刷 500 只：不达过半、不达标、零掉落',
+    wB2.shootFar === 0 && evs(wB2, 'shoot_half').length === 0 &&
+    evs(wB2, 'shoot_done').length === 0 && wB2.pickups.length === 0,
+    'far=' + wB2.shootFar + ' half=' + evs(wB2, 'shoot_half').length +
+    ' done=' + evs(wB2, 'shoot_done').length + ' pick=' + wB2.pickups.length);
+  // 后台天火白送的远处击杀不算
+  const wMute = cleanWorld(10102);
+  openWindow(wMute);
+  wMute.rageMute = 1;
+  feedKills(wMute, 3);
+  expect('★★★rageMute>0 时远距击杀也不算（天火白送堵死）',
+    wMute.shootFar === 0, 'far=' + wMute.shootFar);
+  wMute.rageMute = 0;
+  feedKills(wMute, 1);
+  expect('rageMute 解除后远距击杀恢复计数（正向对照）',
+    wMute.shootFar === 1, 'far=' + wMute.shootFar);
+  // ★钩子挂 killMob 唯一漏斗：真实打死远处怪 +1、近处怪 +0
+  const wK = cleanWorld(10103);
+  openWindow(wK);
+  const mFar = SIM.spawnMob(wK, 'corpse', wK.player.x + 400, wK.player.y, 1, 0);
+  const mNear = SIM.spawnMob(wK, 'bat', wK.player.x + 60, wK.player.y, 1, 0);
+  SIM.damageMob(wK, mNear, 999999);
+  expect('★★真实 killMob 打死近处怪不算（钩子挂在唯一击杀漏斗）',
+    wK.shootFar === 0, 'far=' + wK.shootFar);
+  SIM.damageMob(wK, mFar, 999999);
+  expect('★★真实 killMob 打死远处怪 → +1（钩子挂对漏斗）',
+    wK.shootFar === 1, 'far=' + wK.shootFar);
+  // 窗口外 / 剧情关：钩子自身两道闸
+  const wOut = cleanWorld(10104);
+  feedKills(wOut, 3);
+  expect('窗口外远距击杀也不计数', wOut.shootFar === 0, 'far=' + wOut.shootFar);
+  const wGate = cleanWorld(10105);
+  openWindow(wGate);
+  wGate.storyStage = { id: 'ch5' };
+  feedKills(wGate, 3);
+  expect('窗口内但剧情关下远距击杀也不计数（钩子有 story 闸）',
+    wGate.shootFar === 0, 'far=' + wGate.shootFar);
+
+  // ---------- 8. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(10110);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  SIM.tickShoot(wS);
+  feedKills(wS, 3);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.shootActive === 0 && wS.shootRounds === 0 && wS.shootFar === 0 &&
+    evs(wS, 'shoot_start').length === 0,
+    'active=' + wS.shootActive + ' far=' + wS.shootFar);
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 10111, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((P.startSec + k * 2) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有射日诀，且那一刻世界确实还在跑',
+    storyAlive && wS2.shootActive === 0 && evs(wS2, 'shoot_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.shootActive);
 }

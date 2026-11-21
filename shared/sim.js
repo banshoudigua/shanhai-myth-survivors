@@ -1208,6 +1208,24 @@
       bestiaryDone: 0,
       bestiaryFailed: 0,
 
+      // ---------- 射日诀（第六十七轮：限时远距离击杀数）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      shootNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一下击杀要不要计数"的判据之一。
+      shootActive: 0,
+      // 本轮已完成的远距离击杀数 / 目标数（窗口外、近战、天火白送都不算）。
+      shootFar: 0,
+      shootNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      shootDeadline: 0,
+      // 过半播报只发一次的标记（整数次累加，标记位防的是刷屏）
+      shootHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      shootRounds: 0,
+      shootDone: 0,
+      shootFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1611,6 +1629,13 @@
         dmg = dmg * (1 + A.exec);
       }
     }
+
+    // ---------- 魂灯烙印（第六十六轮）----------
+    // 怪身上的易伤状态（引魂灯命中挂上）：受到的所有伤害 +markMul。
+    // ★吃 isWorld 隔离闸：天火/灵泉/引魂灯收尾的世界伤害必须对所有人恒定，
+    //   不随「谁给怪挂了烙印」变化 —— 与血怒同一个道理，与血怒同一个闸。
+    // ★放在斩杀之后、词缀减伤之前：顺着「基数 → 倍率 → 减免」读下来。
+    if (!isWorld && m.markT > 0) dmg = dmg * (1 + (m.markMul || 0));
 
     // 词缀减伤（坚壁）：挂在**暴击/斩杀之后**。
     // 顺序有讲究：先算清「这一下本来是多少」，再按词缀打折；
@@ -2809,6 +2834,105 @@
     }
   }
 
+  // ============================================================
+  // 射日诀（第六十七轮：限时远距离击杀数）—— 目标制零实体第十二件
+  // ============================================================
+
+  // 某一轮要几只远距离击杀：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function shootNeedFor(roundIndex) {
+    const P = C.SHOOT;
+    if (!P) return 0;
+    return Math.min(P.maxFar, P.needFar + (roundIndex || 0) * P.farStep);
+  }
+
+  // 每帧调一次（step 第 2.65 段，紧挨降妖录 —— 同为"目标制、零实体"一族）。
+  function tickShoot(w) {
+    const P = C.SHOOT;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须拉 320px"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.shootActive) {
+      // ② 达标优先于到期：最后一帧刚好杀够也算数（与前十一件同口径）。
+      if (w.shootFar >= w.shootNeed) {
+        w.shootActive = 0;
+        w.shootDone = (w.shootDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，与前几件一致的结算顺序。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'shoot_done', got: w.shootFar, need: w.shootNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.shootDeadline) return;
+      // 到期没杀够：★什么都不给，且**不责备**（与前十一件同一口径）。
+      w.shootActive = 0;
+      w.shootFailed = (w.shootFailed || 0) + 1;
+      w.events.push({
+        type: 'shoot_fail', need: w.shootNeed, got: w.shootFar,
+        left: Math.max(0, w.shootNeed - w.shootFar)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.shootNextTick`。
+    if (w.tick < w.shootNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.shootRounds = (w.shootRounds || 0) + 1;
+    w.shootActive = 1;
+    w.shootFar = 0;
+    w.shootNeed = shootNeedFor(w.shootRounds - 1);
+    w.shootHalfNoted = 0;
+    w.shootDeadline = w.time + P.windowSec;
+    w.shootNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'shoot_start', need: w.shootNeed, sec: P.windowSec,
+      minDist: P.minDist, round: w.shootRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 里，与 bumpRage / onBountyKill / onStreakKill /
+  //   onBestiaryKill 并列。★"打死一只"是唯一事实，距离按**击杀瞬间**的坐标判。
+  function onShootKill(w, m) {
+    const P = C.SHOOT;
+    if (!P || !w.shootActive || w.storyStage) return;
+    // ★★★天火/灵泉砸死的不算（与连斩令、降妖录同一条 rageMute 隔离线）：
+    //   否则等环境白送远处的怪，"拉开距离输出"这件事就失去意义。
+    if (w.rageMute > 0) return;
+    if (!m) return;
+    const p = w.self || w.player;
+    if (!p) return;
+    const dx = m.x - p.x;
+    const dy = m.y - p.y;
+    // ★平方比较：不开 sqrt，且含边界（正好 320px 算达标）。
+    // [反向验证临时摘除]
+    w.shootFar += 1;
+    const half = w.shootNeed / 2;
+    if (!w.shootHalfNoted && w.shootFar >= half) {
+      w.shootHalfNoted = 1;
+      w.events.push({
+        type: 'shoot_half', got: w.shootFar, need: w.shootNeed,
+        left: Math.max(0, Math.ceil(w.shootNeed - w.shootFar))
+      });
+    }
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -2825,6 +2949,9 @@
     // 降妖录的击杀计数（第六十五轮）。同处并列，但按 def.id 去重数"种类"：
     // ★与前面几件互不干扰——它数的是"杀过几种不同妖物"，同种重复杀不算。
     onBestiaryKill(w, m);
+    // 射日诀的击杀计数（第六十七轮）。同处并列，但按**击杀瞬间与玩家的距离**判：
+    // ★与前面几件互不干扰——贴脸补刀不算、天火砸死不算，只认真·远距离输出。
+    onShootKill(w, m);
 
     // 掉落经验球
     const def = m.def;
@@ -3179,6 +3306,15 @@
       chargeCd: def.chargeCd ? (fixed ? def.chargeCd : randRange(w, 1.0, def.chargeCd)) : 0,
       charging: 0,
       stun: 0,
+      // 第六十六轮「同族武器差异化」：三套怪身上的新状态，全显式清零。
+      //   chillT/chillMul —— 冰寒减速（太阴玄霜 / 幽冥锁链）：chillT>0 时移速乘 chillMul
+      //   markT/markMul  —— 魂灯烙印（引魂灯）：markT>0 时受到的伤害乘 (1+markMul)
+      //   burnT/burnTick —— 冥火灼烧（幽冥火轮）：burnT>0 时每 burnTickSec 掉 burnDmg
+      // ★全是模拟层内部状态，不进二进制快照（按字段表白名单编码，多余字段自动忽略）。
+      // ★测试手拼的怪没有这些字段：所有读取都用 `m.chillT > 0` 这类守卫，undefined 天然为假。
+      chillT: 0, chillMul: 1,
+      markT: 0, markMul: 0,
+      burnT: 0, burnTick: 0, burnDmg: 0, burnTickSec: 0.5, burnSrc: '', burnOwner: null,
       phase: fixed ? seed : nextRand(w) * Math.PI * 2,   // 血蝠摆动等用
       buffMul: 1,
       affix: af ? af.id : 0               // 0 = 普通怪（协议里 0 不发送）
@@ -6733,6 +6869,22 @@
       hits++;
 
       if (opts.stunSec) m.stun = Math.max(m.stun, opts.stunSec);
+
+      // ---------- 冰寒减速（第六十六轮）----------
+      // 太阴玄霜（aura）等走 opts 通道：命中的怪上 chill。
+      // ★乘区真正生效在 moveMobToward 的速度层；Boss 不豁免 ——
+      //   与定身同一个先例（雷霆惩戒的 stunSec 本来就定得住 Boss）。
+      // ★同一跳里重复命中不刷新更弱的一层：只取更慢的那个 mul。
+      if (opts.chillSec) {
+        const cm = opts.chillMul || 0.65;
+        if (!(m.chillT > 0) || cm < m.chillMul) m.chillMul = cm;
+        m.chillT = Math.max(m.chillT || 0, opts.chillSec);
+        // 冷色打击反馈：让「被冻慢了」看得见（色守三色约定，用圣水冷灰）
+        w.effects.push({
+          kind: 'hit', x: m.x, y: m.y, r: m.r + 5,
+          life: 0.18, maxLife: 0.18, color: '#a8b6c4'
+        });
+      }
     }
     return hits;
   }
@@ -6840,6 +6992,10 @@
           color: def.id === 'heavy_ball' || def.id === 'meteor' ? '#ff8c42' : '#dfe6ef',
           explodeRadius: def.explodeRadius || 0,
           explodeDmg: def.explodeDmg ? def.explodeDmg * a.dmgMul : 0,
+          // 第六十六轮：幽冥锁链的缠缚减速（命中时上 chill，见 updateProjectiles）。
+          // ★定海神钉没有 chillSec —— 直线穿透族从此分「输出弹」和「控场弹」。
+          chillSec: def.chillSec || 0,
+          chillMul: def.chillMul,
           sway: sway, swayHz: 9, swayT: swayT,
           swayOff: sway * Math.sin(swayT)
         });
@@ -6847,9 +7003,15 @@
       return;
     }
 
-    // ---------- 光环（蒜雾 / 灵魂吞噬）：每次冷却到点就打一圈 ----------
+    // ---------- 光环（蒜雾 / 灵魂吞噬 / 太阴玄霜） ----------
     if (kind === 'aura') {
-      damageInCircle(w, p.x, p.y, range, dmg, def.knock || 0, { src: def.id });
+      damageInCircle(w, p.x, p.y, range, dmg, def.knock || 0, {
+        src: def.id,
+        // 第六十六轮：太阴玄霜的冰寒减速走 opts 通道（def 上有 chillSec 才带，
+        // 蒜雾 / 进化形态没有这个字段 —— 行为完全由数据驱动）
+        chillSec: def.chillSec || 0,
+        chillMul: def.chillMul
+      });
       w.effects.push({
         kind: 'ring', x: p.x, y: p.y, r: range,
         life: 0.35, maxLife: 0.35,
@@ -6883,6 +7045,9 @@
         // 配色守暗红 / 琥珀金 / 冷灰三色：原值 #7fc6e8 是饱和天蓝（色相 199°），
         // 换成去饱和的冷灰
         color: def.evolved ? '#ffd166' : '#a8b6c4',
+        // 第六十六轮：血雨的滋养（站在雨里的玩家每跳回 healPerTick 血）。
+        // ★只有血雨带这个字段；甘露 / 进化形态 / 其它 zone 一律 0（不回血）。
+        healPerTick: def.healPerTick || 0,
         hitKey: 'z' + w.nextId
       });
       return;
@@ -6907,6 +7072,10 @@
           dmg: dmg,
           delay: def.fallDelay,
           life: def.fallDelay,
+          // 第六十六轮：白骨钉的钉身定身。落点结算（updateStrikes）本来就把
+          // s.stunSec 传给 damageInCircle —— 这里把 def 上的字段带上就通了。
+          // ★五雷正法没有 stunSec（不带定身），落雷保持「纯爆发」的身份。
+          stunSec: def.stunSec || 0,
           color: '#fff3b0'
         });
       }
@@ -6939,6 +7108,10 @@
           targetId: 0,
           // 配色遵项目约定：只在暗红 / 琥珀金 / 冷灰范围内取，不用紫色
           color: def.evolved ? '#f2c14e' : '#e8d9b8',
+          // 第六十六轮：引魂灯的魂灯烙印（命中时挂到怪身上，见 updateProjectiles）。
+          // ★引魂珠没有 markSec —— 同 kind 两件武器从此分家。
+          markSec: def.markSec || 0,
+          markMul: def.markMul || 0,
           // 追踪弹一边拐弯一边轻微摆尾，走 S 形而不是死板的圆弧
           sway: 5, swayHz: 6, swayT: swayT, swayOff: 5 * Math.sin(swayT)
         });
@@ -6975,6 +7148,10 @@
           trips: def.trips || 1,
           tripsDone: 0,
           curve: curve,
+          // 第六十六轮：疾风回旋的罡风击退（命中时推开怪，见 updateProjectiles）。
+          // ★不带这个字段的往返武器走默认 14；其它 kind 的弹丸也走默认。
+          //   （曾有方案做「回程吸拾取物」，与经验球 200px 默认磁吸重叠，已废弃。）
+          knock: def.knock || 0,
           color: def.evolved ? '#ff5c7a' : '#d9dde3'
         });
       }
@@ -6997,6 +7174,11 @@
           life: def.orbitSec,
           maxLife: def.orbitSec,
           hitSec: def.hitSec,
+          // 第六十六轮：幽冥火轮的灼烧（命中时上 burn，见 updateOrbits）。
+          // ★道德真经没有 burnSec —— 绕身族从此分「纯环绕」和「打了就烧」。
+          burnSec: def.burnSec || 0,
+          burnTickSec: def.burnTickSec || 0.5,
+          burnDmg: def.burnDmg || 0,
           hitMap: {},
           size: 10,
           color: def.evolved ? '#ffe08a' : '#e6dcc6'
@@ -7034,6 +7216,41 @@
 
   function clamp(v, min, max) {
     return v < min ? min : (v > max ? max : v);
+  }
+
+  // ============================================================
+  // 冥火灼烧（第六十六轮：幽冥火轮）
+  // ============================================================
+  // 每只被点着的怪每 burnTickSec 秒结一次伤害。挂在 updateMobs 的怪循环里
+  // （由 burnT > 0 的守卫驱动，见上面的计时器区）。
+  // 【★为什么不走 damageMob】damageMob 里暴击判定要抽 nextRand ——
+  //   灼烧每 0.5 秒结一次，走它就等于每 0.5 秒抽一次随机数，
+  //   主随机流被挪走几个，后面每一波的刷怪落点整体错位（词缀轮付过学费的铁律）。
+  //   所以灼烧**直接扣血 + 手动记账**：不暴击、不参与血怒/斩杀判定，
+  //   但计入伤害构成（算玩家的输出）、计入破军令、灼烧致死走 killMob（算玩家击杀）。
+  // 【为什么伤害归属是 burnOwner】点火的火轮是谁的，灼烧就算谁的 ——
+  //   联机里金币 / 击杀回血 / 伤害构成都要落在正确的人头上。
+  function tickBurn(w, m, dt) {
+    m.burnTick = (m.burnTick || 0) - dt;
+    if (m.burnTick > 0) return;
+    // 余量 carry：帧间隔大于 0.5s 时把欠的补上，不靠下一帧「碰巧」再触发
+    m.burnTick += m.burnTickSec || 0.5;
+
+    setCtx(w, m.burnOwner || w.self);
+    const bd = m.burnDmg || 0;
+    m.hp -= bd;
+    w.stats.dmgDealt += bd;
+    const key = m.burnSrc || 'other';
+    w.stats.dmgBy[key] = (w.stats.dmgBy[key] || 0) + bd;
+    onForgeHit(w, bd);
+
+    // 火色打击反馈（#ff8c42 = 火，zones/effects 跨层配色约定）
+    w.effects.push({
+      kind: 'hit', x: m.x, y: m.y, r: m.r + 4,
+      life: 0.15, maxLife: 0.15, color: '#ff8c42'
+    });
+
+    if (m.hp <= 0) killMob(w, m);
   }
 
   // ============================================================
@@ -7082,6 +7299,16 @@
       if (m.hitCd > 0) m.hitCd -= dt;
       if (m.stun > 0) m.stun -= dt;
       if (m.flash > 0) m.flash -= dt;
+      // 第六十六轮：冰寒 / 烙印 / 灼烧的倒计时（spawnMob 已显式清零；手拼怪 undefined 走守卫）
+      if (m.chillT > 0) m.chillT -= dt;
+      if (m.markT > 0) m.markT -= dt;
+      if (m.burnT > 0) {
+        m.burnT -= dt;
+        tickBurn(w, m, dt);
+        // 灼烧这一下可能把怪点死：死怪的移动 / AI 不再走（killMob 不摘数组，
+        // compactMobs 统一收尸 —— 这里只拦住「尸体继续走一步」）
+        if (!m.alive) continue;
+      }
 
       // 击退速度衰减
       m.kx *= 0.86;
@@ -7238,16 +7465,19 @@
     const dx = tx - m.x;
     const dy = ty - m.y;
     const d = Math.sqrt(dx * dx + dy * dy) || 1;
-    // 速度四层：怪自己的基础速度 × 光环加成 × 冲刺倍率 × 词缀（狂暴快 / 坚壁慢），
-    // 再乘赤月（第三十九轮）。
+    // 速度层：怪自己的基础速度 × 光环加成 × 冲刺倍率 × 词缀（狂暴快 / 坚壁慢），
+    // 再乘赤月（第三十九轮）、冰寒减速（第六十六轮：太阴玄霜 / 幽冥锁链）。
     // ★词缀只乘在「移动」上，不改 def.speed —— def 是共享对象，改它等于改所有同种怪。
     // ★赤月同理：只在移动这一处乘，**绝不写进 def.speed 或 m.* 的持久字段** ——
     //   写进去就得在每个「赤月结束」的时刻改回来，漏一处就是永久加速
     //   （血怒踩过同一个坑，见 const.js 的 RAGE 说明）。
+    // ★冰寒是「怪身上的状态」（m.chillT 由武器命中上、updateMobs 里倒计时），
+    //   与赤月「世界状态」不同层：同一个怪可以又处于赤月又被冻着，两个乘区互不相干。
     const af = m.affix ? (C.AFFIX_MAP && C.AFFIX_MAP[m.affix]) : null;
     const moonMul = w.moonOn ? C.BLOOD_MOON.mobSpeedMul : 1;
+    const chillMul = m.chillT > 0 ? (m.chillMul || 0.65) : 1;
     let sp = m.def.speed * (m.buffMul || 1) * (speedMul || 1) *
-      (af && af.speedMul ? af.speedMul : 1) * moonMul;
+      (af && af.speedMul ? af.speedMul : 1) * moonMul * chillMul;
 
     let vx = (dx / d) * sp;
     let vy = (dy / d) * sp;
@@ -7470,7 +7700,28 @@
 
         pr.hitIds[m.id] = 1;
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
-        damageMob(w, m, pr.dmg, (dx / d) * 14, (dy / d) * 14, pr.src);
+        // 击退冲量：弹丸默认 14；疾风回旋的罡风 60（第六十六轮，def.knock 带进来）。
+        damageMob(w, m, pr.dmg, (dx / d) * (pr.knock || 14), (dy / d) * (pr.knock || 14), pr.src);
+
+        // ---------- 第六十六轮：命中附挂的怪身状态 ----------
+        // 魂灯烙印（引魂灯）：markT 期间受到的伤害 +markMul（结算在 damageMob）。
+        // ★怪可能在这一击里就被打死了：烙印挂在死怪上无害（死怪不再被结算），
+        //   但 alive 守卫还是加上 —— 别给尸体挂状态。
+        if (pr.markSec && m.alive) {
+          m.markT = Math.max(m.markT || 0, pr.markSec);
+          m.markMul = pr.markMul || 0;
+        }
+        // 缠缚减速（幽冥锁链）：与太阴玄霜共用 chill 状态（乘区在 moveMobToward）。
+        if (pr.chillSec && m.alive) {
+          const cm = pr.chillMul || 0.7;
+          if (!(m.chillT > 0) || cm < m.chillMul) m.chillMul = cm;
+          m.chillT = Math.max(m.chillT || 0, pr.chillSec);
+          // 冷色打击反馈（圣水冷灰，与玄霜同一套视觉语言）
+          w.effects.push({
+            kind: 'hit', x: m.x, y: m.y, r: m.r + 5,
+            life: 0.18, maxLife: 0.18, color: '#a8b6c4'
+          });
+        }
 
         // 陨星：命中爆炸
         if (pr.explodeRadius > 0) {
@@ -7522,6 +7773,24 @@
         // 每跳打一次，用 hitKey 保证同一跳内不重复
         z.hitKeySeed = (z.hitKeySeed || 0) + 1;
         damageInCircle(w, z.x, z.y, z.r, z.dmg, 18, { hitKey: z.hitKey + '_' + z.hitKeySeed, src: z.src });
+
+        // ---------- 滋养（第六十六轮：血雨）----------
+        // 站在雨里的**每个活玩家**每跳回 healPerTick 血（谁站谁回，不限归属人——
+        // 队友蹭进你的血雨也回，这让「阵地」真的能站人）。
+        // ★走 healPlayer（内部按真增量记账：满血时回不进去，养元诀等钩子口径一致）。
+        // ★healPlayer 操作的是 w.player 上下文 —— 逐个玩家切上下文再回。
+        // ★只有血雨带 healPerTick（甘露 / 天泽 / 星火等一律 0），循环空转零开销。
+        if (z.healPerTick) {
+          for (let k = 0; k < w.players.length; k++) {
+            const pp = w.players[k];
+            if (!pp.alive) continue;
+            const pdx = pp.x - z.x;
+            const pdy = pp.y - z.y;
+            if (pdx * pdx + pdy * pdy > z.r * z.r) continue;
+            setCtx(w, pp);
+            healPlayer(w, z.healPerTick);
+          }
+        }
       }
       list[write++] = z;
     }
@@ -7652,6 +7921,20 @@
 
         const d = Math.sqrt(dx * dx + dy * dy) || 1;
         damageMob(w, m, o.dmg, (dx / d) * 10, (dy / d) * 10, o.src);
+
+        // ---------- 冥火灼烧（第六十六轮：幽冥火轮）----------
+        // 每次命中都刷新灼烧时长（不叠伤害，只续时间）：绕身环每 hitSec 摸一下，
+        // 只要火轮一直转，怪就一直在烧 —— 3 秒 / 0.5 秒一跳 / 每跳 2 点。
+        // 结算在 tickBurn（updateMobs 里驱动）：不走 damageMob，不抽暴击随机。
+        // ★怪刚被打死就不点火（不给尸体挂状态）。
+        if (o.burnSec && m.alive) {
+          m.burnT = Math.max(m.burnT || 0, o.burnSec);
+          if (!(m.burnTick > 0)) m.burnTick = o.burnTickSec;  // 已在烧的不重置节拍
+          m.burnDmg = o.burnDmg || 0;
+          m.burnTickSec = o.burnTickSec || 0.5;
+          m.burnSrc = o.src || '';
+          m.burnOwner = o.owner || null;
+        }
       }
 
       list[write++] = o;
@@ -8943,6 +9226,14 @@
     //   去重计数钩子挂在 killMob（本帧战斗结算处），所以这里只管状态迁移。
     tickBestiary(w);
 
+    // ---------- 2.65 射日诀（第六十七轮：限时远距离击杀数） ----------
+    // 【为什么紧跟降妖录】同为"目标制、零实体、只发播报"——十二件摆在一起，
+    //   一眼能看出这一族的十二条轴。前十一件从不问"在哪杀"，
+    //   本件第一次要求距离：击杀瞬间离玩家至少 minDist，逼你拉开打。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   距离计数钩子挂在 killMob（本帧战斗结算处），这里只管状态迁移。
+    tickShoot(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -9705,6 +9996,9 @@
     //   而不必真跑 438 秒并造一场杀够多种妖物的战斗。
     tickBestiary: tickBestiary,
     onBestiaryKill: onBestiaryKill,
+    shootNeedFor: shootNeedFor,
+    tickShoot: tickShoot,
+    onShootKill: onShootKill,
     bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
