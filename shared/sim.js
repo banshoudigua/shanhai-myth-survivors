@@ -1262,6 +1262,24 @@
       evadeDone: 0,
       evadeFailed: 0,
 
+      // ---------- 淬骨诀（第七十轮：限时承受真伤害量）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      temperNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一下受伤要不要计数"的判据之一。
+      temperActive: 0,
+      // 本轮累计真扣进血条的量 / 目标量（无敌帧/升级定格/剧情关/窗口外都不算）。
+      temperHurt: 0,
+      temperNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      temperDeadline: 0,
+      // 过半播报只发一次的标记（连续量，标记位防的是跨阈值刷屏）
+      temperHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      temperRounds: 0,
+      temperDone: 0,
+      temperFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -3164,6 +3182,100 @@
     }
   }
 
+  // ============================================================
+  // 淬骨诀（第七十轮：限时承受真伤害量）—— 目标制零实体第十五件
+  // ============================================================
+
+  // 某一轮要累计承受多少真伤害：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function temperNeedFor(roundIndex) {
+    const P = C.TEMPER;
+    if (!P) return 0;
+    return Math.min(P.maxHurt, P.needHurt + (roundIndex || 0) * P.hurtStep);
+  }
+
+  // 每帧调一次（step 第 2.68 段，紧挨避锋诀 —— 同为"目标制、零实体"一族）。
+  function tickTemper(w) {
+    const P = C.TEMPER;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须挨够 N 点"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.temperActive) {
+      // ② 达标优先于到期：最后一帧刚好挨够也算数（与前十四件同口径）。
+      if (w.temperHurt >= w.temperNeed) {
+        w.temperActive = 0;
+        w.temperDone = (w.temperDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：挨打钩子立刻失效，后续伤害不会再算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'temper_done', got: Math.round(w.temperHurt), need: w.temperNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.temperDeadline) return;
+      // 到期没挨够：★什么都不给，且**不责备**（与前十四件同一口径）。
+      w.temperActive = 0;
+      w.temperFailed = (w.temperFailed || 0) + 1;
+      w.events.push({
+        type: 'temper_fail', need: w.temperNeed, got: Math.round(w.temperHurt),
+        left: Math.max(0, Math.ceil(w.temperNeed - w.temperHurt))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.temperNextTick`。
+    if (w.tick < w.temperNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.temperRounds = (w.temperRounds || 0) + 1;
+    w.temperActive = 1;
+    w.temperHurt = 0;
+    w.temperNeed = temperNeedFor(w.temperRounds - 1);
+    w.temperHalfNoted = 0;
+    w.temperDeadline = w.time + P.windowSec;
+    w.temperNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'temper_start', need: w.temperNeed, sec: P.windowSec,
+      round: w.temperRounds
+    });
+  }
+
+  // 受伤钩子：挂在 damagePlayer 的"真扣血"那一行之后、死亡判定之前。
+  // ★只收 amount = 血条实际减少量（溢出不算），与养元诀的 healPlayer 真增量对称。
+  // 【三重闸】窗口外不算 / 剧情关不算 / amount<=0 不算（无害伤害、溢出兜底）。
+  //   ★无敌帧与升级定格那两条 early return 根本走不到这里，天然不算。
+  function onTemperHurt(w, p, amount) {
+    const P = C.TEMPER;
+    if (!P || !w.temperActive || w.storyStage) return;
+    if (!p || !p.alive) return;
+    if (!(amount > 0)) return;
+    w.temperHurt += amount;
+    // ★连续量用 >= 而不是 ===：一发重击可能一步跨过半程（破军令同款坑）。
+    const half = w.temperNeed / 2;
+    if (!w.temperHalfNoted && w.temperHurt >= half) {
+      w.temperHalfNoted = 1;
+      w.events.push({
+        type: 'temper_half', got: Math.round(w.temperHurt), need: w.temperNeed,
+        left: Math.max(0, Math.ceil(w.temperNeed - w.temperHurt))
+      });
+    }
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -3412,7 +3524,12 @@
     let real = dmg * w.diff.dmgMul - p.attrs.armor;
     if (real < 1) real = 1;
 
+    // 淬骨诀（第七十轮）：只数真扣进血条的那一段，与养元诀的"真回血量"对称。
+    // ★取 min(real, 扣血前血量)：致死一击超出剩余血的部分没有"承受"的意义，不算。
+    //   放在死亡判定之前——那一击仍是真受伤，只是人没撑住拿不到奖励（见 tickTemper）。
+    const temperBefore = p.hp;
     p.hp -= real;
+    onTemperHurt(w, p, Math.min(real, temperBefore));
     p.invuln = C.PLAYER.invulnSec;
 
     // ---------- 守心劫（第五十六轮）：只统计"真掉了血"的那一下 ----------
@@ -9490,6 +9607,14 @@
     //   免伤计数钩子挂在 damagePlayer 的无敌帧早退分支，这里只管状态迁移。
     tickEvade(w);
 
+    // ---------- 2.68 淬骨诀（第七十轮：限时承受真伤害量） ----------
+    // 【为什么紧跟避锋诀】同为"目标制、零实体、只发播报"——十五件摆在一起，
+    //   一眼能看出这一族的十五条轴。前十四件从不奖励"真扣血"这件事，
+    //   本件第一次把挨打本身变成目标：累计承伤够数才发奖，逼你贴着怪群走。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   承伤计数钩子挂在 damagePlayer 的真扣血分支，这里只管状态迁移。
+    tickTemper(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -10269,6 +10394,13 @@
     onEvadeHit: onEvadeHit,
     // ★避锋诀另用上面已导出的 damagePlayer 验证：它数的是"没扣成血"的那一下，
     //   绕过去直接喂钩子会漏掉无敌帧闸与升级定格闸。
+    // 第七十轮：淬骨诀（限时承受真伤害）——三个入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次真扣血，而不必真跑 498 秒。
+    temperNeedFor: temperNeedFor,
+    tickTemper: tickTemper,
+    onTemperHurt: onTemperHurt,
+    // ★淬骨诀另用上面已导出的 damagePlayer 验证：它数的是"真扣进血条"的那一段，
+    //   绕过去直接喂钩子会漏掉无敌帧早退、升级定格与溢出不算这三条关键边界。
     bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
