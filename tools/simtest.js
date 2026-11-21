@@ -1408,6 +1408,7 @@ testThunder();console.log('');
 testPeril();console.log('');
 testDew();console.log('');
 testStreak();console.log('');
+testBestiary();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2808,6 +2809,7 @@ function testRage() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3005,6 +3007,7 @@ function testMoon() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5312,6 +5315,7 @@ function testDevourer() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5690,6 +5694,7 @@ function testBoon() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6103,6 +6108,7 @@ function testBell() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6614,6 +6620,7 @@ function testMerge() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7129,6 +7136,7 @@ function testEscort() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7528,6 +7536,7 @@ function testMarket() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7942,6 +7951,7 @@ function testCauldron() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8313,6 +8323,7 @@ function testBounty() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8591,6 +8602,7 @@ function testHealer() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8871,6 +8883,7 @@ function testSerenity() {
     w.perilNextTick = 1e9;   // 第六十二轮：履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;     // 第六十三轮：饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9131,6 +9144,7 @@ function testGlean() {
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9441,6 +9455,7 @@ function testForge() {
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9758,6 +9773,7 @@ function testStride() {
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10088,6 +10104,7 @@ function testMend() {
     w.perilNextTick = 1e9;    // 履险诀 402s 开窗，默认推远
     w.dewNextTick = 1e9;      // 饮露诀 414s 开窗，默认推远
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10264,6 +10281,7 @@ function testMend() {
   wF.perilNextTick = 1e9;
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+  wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10409,6 +10427,7 @@ function testThunder() {
     w.perilNextTick = 1e9;    // 履险诀同理：要开窗的世界自己设 0
     w.dewNextTick = 1e9;      // 饮露诀同理：要开窗的世界自己设 0
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10598,6 +10617,7 @@ function testThunder() {
   wF.perilNextTick = 1e9;
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+  wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10727,6 +10747,7 @@ function testPeril() {
     w.perilNextTick = 1e9;    // 默认不排期：要开窗的世界自己设 0
     w.dewNextTick = 1e9;      // 默认不排期：要开窗的世界自己设 0
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10911,6 +10932,7 @@ function testPeril() {
   wF.perilNextTick = 1e9;
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+  wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
   SIM.tickPeril(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.perilDone === 0, 'pickups=' + wF.pickups.length);
@@ -11045,6 +11067,7 @@ function testDew() {
     w.perilNextTick = 1e9;
     w.dewNextTick = 1e9;      // 默认不排期：要开窗的世界自己设 0
     w.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11219,6 +11242,7 @@ function testDew() {
   // ★关掉后续排期，否则推这么远会再开一轮，那轮当然可以计数（不是补发）
   wF.dewNextTick = 1e9;
   wF.streakNextTick = 1e9;  // 第六十四轮：连斩令 426s 开窗，默认推远
+  wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
   SIM.tickDew(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.dewDone === 0, 'pickups=' + wF.pickups.length);
@@ -11360,6 +11384,7 @@ function testStreak() {
     w.perilNextTick = 1e9;
     w.dewNextTick = 1e9;
     w.streakNextTick = 1e9;   // 默认不排期：要开窗的世界自己设 0
+    w.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -11543,6 +11568,7 @@ function testStreak() {
   wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
   wF.time = wF.tick / HZ;
   wF.streakNextTick = 1e9;   // 关掉后续排期，推这么远不该再开一轮
+  wF.bestiaryNextTick = 1e9;  // 第六十五轮：降妖录 438s 开窗，默认推远
   SIM.tickStreak(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.streakDone === 0, 'pickups=' + wF.pickups.length);
@@ -11664,4 +11690,354 @@ function testStreak() {
     storyAlive && wS2.streakActive === 0 && evs(wS2, 'streak_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.streakActive);
+}
+
+// ============================================================
+// 第六十五轮：降妖录 BESTIARY —— 第一件「限时击杀不同妖种数（广度/去重）」目标
+// ============================================================
+function testBestiary() {
+  console.log('[第六十五轮] 降妖录：第一件「限时击杀不同妖种数」目标（按 def.id 去重）');
+  const P = C.BESTIARY;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+  // ★去重件的伪怪 id 必须跨调用全局唯一，否则 feedKinds 多次调用会用同一批
+  //   id、第二次起全被去重吞掉 —— 这不是实现 bug，是喂数据的姿势不对。
+  let feedSeq = 0;
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 造一只"带指定 def.id"的伪怪喂击杀钩子（不真 spawn，隔离掉落/随机）
+  function mob(id) {
+    return { def: { id: id, name: id, tier: 'small' }, defId: id };
+  }
+  // 干净世界：其它机制全推远、关武器、默认满血，只留降妖录这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    p.rage = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9; // 第六十五轮：默认不排期，要开窗的世界自己设 0
+    w.rageMute = 0;
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.bestiaryNextTick = 0;
+    SIM.tickBestiary(w);
+  }
+  // 喂 count 种不同妖物（每种只杀一次；id 全局唯一，跨调用也不重复）
+  function feedKinds(w, count) {
+    for (let i = 0; i < count; i++) SIM.onBestiaryKill(w, mob('feed_' + (feedSeq++)));
+  }
+  function finish(w, count) {
+    feedKinds(w, count);
+    w.time = w.bestiaryDeadline + 0.01;
+    SIM.tickBestiary(w);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场，没怪可杀）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标种类数按轮递增且封顶（第 2 轮 +1，第 99 轮到 max）',
+    SIM.bestiaryNeedFor(0) === P.needKinds &&
+    SIM.bestiaryNeedFor(1) === P.needKinds + P.kindStep &&
+    SIM.bestiaryNeedFor(99) === P.maxKinds,
+    '0=' + SIM.bestiaryNeedFor(0) + ' 1=' + SIM.bestiaryNeedFor(1) + ' 99=' + SIM.bestiaryNeedFor(99));
+  expect('目标种类数不超过基础怪种总数（否则永远达不成）',
+    C.MOBS.length >= P.maxKinds && P.needKinds >= 2 && P.needKinds <= P.maxKinds,
+    'MOBS=' + C.MOBS.length + ' need=' + P.needKinds + ' max=' + P.maxKinds);
+  expect('目标密度合理（每秒至少能收录 0.1 种；封顶 7 种需 30 秒内换够目标）',
+    P.needKinds > 0 && P.needKinds <= P.maxKinds &&
+    P.maxKinds / P.windowSec >= 0.1 && P.needKinds / P.windowSec <= 0.6,
+    'need=' + P.needKinds + ' max=' + P.maxKinds + ' / ' + P.windowSec);
+  expect('奖励仍是"一箱 + 零钱"（与前十件同口径，不是巨款）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发时刻错开所有既有事件（含连斩令 426，避免同一帧挤两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'PERIL',
+      'CAULDRON', 'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER',
+      'DEW', 'STREAK'].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'bestiary=' + P.startSec + ' streak=' + C.STREAK.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉战斗）----------
+  const wR = cleanWorld(9861);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feedKinds(wR, 1000);
+  finish(wR, P.needKinds);
+  expect('★开窗/去重累计/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(9862);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 0);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(9870);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickBestiary(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.bestiaryRounds === 0 && evs(wT, 'bestiary_start').length === 0,
+    'rounds=' + wT.bestiaryRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.bestiaryActive === 1 && wT.bestiaryRounds === 1,
+    'rounds=' + wT.bestiaryRounds + ' active=' + wT.bestiaryActive);
+  expect('★★开窗零实体：没怪、没球、没特效、没 zone、没 strike（与前几件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'bestiary_start')[0];
+  expect('开窗播报一次说清四件事：多久 / 几种 / 去重规则 / 给什么',
+    !!st && st.sec === P.windowSec && st.need === P.needKinds &&
+    st.round === 1 && evs(wT, 'bestiary_start').length === 1,
+    JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.bestiaryDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.bestiaryDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.bestiaryNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.bestiaryNextTick);
+  SIM.tickBestiary(wT);
+  expect('同帧重复调用不会二次开窗', wT.bestiaryRounds === 1,
+    'rounds=' + wT.bestiaryRounds);
+  wT.time = wT.bestiaryDeadline - 0.001;
+  SIM.tickBestiary(wT);
+  expect('到期前一帧不发奖也不结算', wT.bestiaryActive === 1 &&
+    wT.bestiaryKinds === 0 && evs(wT, 'bestiary_done').length === 0 &&
+    evs(wT, 'bestiary_fail').length === 0,
+    'active=' + wT.bestiaryActive + ' kinds=' + wT.bestiaryKinds);
+
+  // ---------- 4. 过半（整数次累加：标记位防刷屏）----------
+  const wH = cleanWorld(9871);
+  openWindow(wH);
+  feedKinds(wH, Math.floor((P.needKinds - 1) / 2));
+  expect('过半前零播报', evs(wH, 'bestiary_half').length === 0,
+    'half=' + evs(wH, 'bestiary_half').length + ' kinds=' + wH.bestiaryKinds);
+  feedKinds(wH, 1);
+  expect('过半报一次', evs(wH, 'bestiary_half').length === 1,
+    'half=' + evs(wH, 'bestiary_half').length);
+  feedKinds(wH, 1000);
+  expect('多杀不刷屏（过半播报恰好一次）', evs(wH, 'bestiary_half').length === 1,
+    'half=' + evs(wH, 'bestiary_half').length);
+  const wH2 = cleanWorld(9872);
+  openWindow(wH2);
+  feedKinds(wH2, P.needKinds);
+  expect('★★整轮只报一次过半（标记位防刷屏，数字锁在首次跨半那一刻）',
+    evs(wH2, 'bestiary_half').length === 1 &&
+    evs(wH2, 'bestiary_half')[0].got === Math.ceil(P.needKinds / 2),
+    'half=' + evs(wH2, 'bestiary_half').length +
+    ' got=' + ((evs(wH2, 'bestiary_half')[0] || {}).got));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(9880);
+  openWindow(wD);
+  finish(wD, P.needKinds);
+  expect('杀够不同种 → 达成', wD.bestiaryActive === 0 && wD.bestiaryDone === 1 &&
+    evs(wD, 'bestiary_done').length === 1, 'done=' + wD.bestiaryDone);
+  expect('宝箱正好一个（与前十件同口径）', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'bestiary_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === P.needKinds && dn.need === P.needKinds &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feedKinds(wD, 1000);
+  SIM.tickBestiary(wD);
+  expect('★达标后再杀、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.bestiaryDone === 1 && evs(wD, 'bestiary_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.bestiaryDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickBestiary(wD);
+  expect('下一轮目标递增、去重集合与种类数清零', wD.bestiaryRounds === 2 &&
+    wD.bestiaryNeed === P.needKinds + P.kindStep && wD.bestiaryKinds === 0 &&
+    Object.keys(wD.bestiarySeen).length === 0,
+    'need=' + wD.bestiaryNeed + ' kinds=' + wD.bestiaryKinds +
+    ' seen=' + Object.keys(wD.bestiarySeen).length);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(9890);
+  openWindow(wF);
+  finish(wF, P.needKinds - 1);
+  expect('差一种也落空', wF.bestiaryActive === 0 && wF.bestiaryFailed === 1 &&
+    wF.bestiaryDone === 0, 'failed=' + wF.bestiaryFailed + ' done=' + wF.bestiaryDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现"达成"播报', evs(wF, 'bestiary_done').length === 0,
+    'done=' + evs(wF, 'bestiary_done').length);
+  const fl = evs(wF, 'bestiary_fail')[0];
+  expect('落空只陈述还差几种（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === P.needKinds - 1 && fl.need === P.needKinds,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  wF.bestiaryNextTick = 1e9;   // 关掉后续排期，推这么远不该再开一轮
+  SIM.tickBestiary(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.bestiaryDone === 0, 'pickups=' + wF.pickups.length);
+  const kindsAfterFail = wF.bestiaryKinds;
+  feedKinds(wF, 1000);
+  expect('落空后再杀也不计数（钩子只认 active）',
+    wF.bestiaryKinds === kindsAfterFail && wF.bestiaryActive === 0,
+    'kinds=' + wF.bestiaryKinds + '（落空时 ' + kindsAfterFail + '）');
+
+  // ---------- 7. ★★★去重闸（本件核心新轴：同种重复杀只算 1 种）----------
+  const wB = cleanWorld(9900);
+  openWindow(wB);
+  SIM.onBestiaryKill(wB, mob('corpse'));
+  SIM.onBestiaryKill(wB, mob('corpse'));
+  SIM.onBestiaryKill(wB, mob('corpse'));
+  expect('★★★同一种妖物杀 3 次只算 1 种（去重闸是灵魂）',
+    wB.bestiaryKinds === 1, 'kinds=' + wB.bestiaryKinds + '（正确应=1）');
+  expect('去重登记只留一个 def.id', Object.keys(wB.bestiarySeen).length === 1 &&
+    !!wB.bestiarySeen.corpse, 'seen=' + JSON.stringify(wB.bestiarySeen));
+  SIM.onBestiaryKill(wB, mob('bat'));
+  expect('换第 2 种妖物才 +1（正向对照，证明去重不是恒关）',
+    wB.bestiaryKinds === 2, 'kinds=' + wB.bestiaryKinds);
+  SIM.onBestiaryKill(wB, mob('bat'));
+  expect('第 2 种再杀一次也不涨', wB.bestiaryKinds === 2,
+    'kinds=' + wB.bestiaryKinds);
+  // 同种重复杀绝不该触发过半/达标（否则站桩刷一种就白拿）
+  const wB2 = cleanWorld(9901);
+  openWindow(wB2);
+  for (let i = 0; i < 500; i++) SIM.onBestiaryKill(wB2, mob('skeleton'));
+  expect('★★★站桩刷一种杀 500 次：不达过半、不达标、零掉落',
+    wB2.bestiaryKinds === 1 && evs(wB2, 'bestiary_half').length === 0 &&
+    evs(wB2, 'bestiary_done').length === 0 && wB2.pickups.length === 0,
+    'kinds=' + wB2.bestiaryKinds + ' half=' + evs(wB2, 'bestiary_half').length +
+    ' done=' + evs(wB2, 'bestiary_done').length + ' pick=' + wB2.pickups.length);
+  // 没有 def.id 的不明怪不算一种
+  const wB3 = cleanWorld(9902);
+  openWindow(wB3);
+  SIM.onBestiaryKill(wB3, {});
+  expect('没有 def.id 的不明怪不算一种（不污染去重集合）',
+    wB3.bestiaryKinds === 0 && Object.keys(wB3.bestiarySeen).length === 0,
+    'kinds=' + wB3.bestiaryKinds);
+  // 达标锁定过：结算发奖后（active 已关）重复杀同种不二次发奖
+  const wLock = cleanWorld(9903);
+  openWindow(wLock);
+  finish(wLock, P.needKinds);   // 喂满 + 推到 deadline + tickBestiary 完成结算发奖
+  const pickAtDone = wLock.pickups.length;
+  const halfAtDone = evs(wLock, 'bestiary_half').length;
+  for (let i = 0; i < 100; i++) SIM.onBestiaryKill(wLock, mob('corpse'));
+  expect('★★达标后重复杀同种不刷过半、不二次发奖', wLock.pickups.length === pickAtDone &&
+    evs(wLock, 'bestiary_half').length === halfAtDone && wLock.bestiaryDone === 1,
+    'pick=' + wLock.pickups.length + ' half=' + evs(wLock, 'bestiary_half').length +
+    ' done=' + wLock.bestiaryDone);
+
+  // ★★★天火砸死的不算（rageMute 隔离线）
+  const wMute = cleanWorld(9904);
+  openWindow(wMute);
+  wMute.rageMute = 1;
+  SIM.onBestiaryKill(wMute, mob('corpse'));
+  SIM.onBestiaryKill(wMute, mob('bat'));
+  expect('★★★rageMute>0 时击杀一律不算种类（天火白送堵死）',
+    wMute.bestiaryKinds === 0 && Object.keys(wMute.bestiarySeen).length === 0,
+    'kinds=' + wMute.bestiaryKinds);
+  wMute.rageMute = 0;
+  SIM.onBestiaryKill(wMute, mob('corpse'));
+  expect('rageMute 解除后击杀恢复计数（正向对照，证明闸不是恒关）',
+    wMute.bestiaryKinds === 1, 'kinds=' + wMute.bestiaryKinds);
+
+  // ★★钩子只挂 killMob：真实打死两只不同种的怪 → +2（证明挂对漏斗）
+  const wK = cleanWorld(9905);
+  openWindow(wK);
+  const m1 = SIM.spawnMob(wK, 'corpse', wK.player.x + 260, wK.player.y, 1, 0);
+  const m2 = SIM.spawnMob(wK, 'bat', wK.player.x + 280, wK.player.y, 1, 0);
+  SIM.damageMob(wK, m1, 999999);
+  SIM.damageMob(wK, m2, 999999);
+  expect('★★真实 killMob 打死两种怪 → +2（钩子挂在唯一击杀漏斗）',
+    wK.bestiaryKinds === 2, 'kinds=' + wK.bestiaryKinds);
+
+  // 窗口外 / 剧情关：钩子自身两道闸
+  const wOut = cleanWorld(9906);
+  SIM.onBestiaryKill(wOut, mob('corpse'));
+  expect('窗口外击杀也不计数', wOut.bestiaryKinds === 0, 'kinds=' + wOut.bestiaryKinds);
+  const wGate = cleanWorld(9907);
+  openWindow(wGate);
+  wGate.storyStage = { id: 'ch5' };
+  SIM.onBestiaryKill(wGate, mob('corpse'));
+  expect('窗口内但剧情关下击杀也不计数（钩子有 story 闸）',
+    wGate.bestiaryKinds === 0, 'kinds=' + wGate.bestiaryKinds);
+
+  // ---------- 8. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(9910);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch5' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  wS.bestiaryNextTick = 0;
+  SIM.tickBestiary(wS);
+  SIM.onBestiaryKill(wS, mob('corpse'));
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.bestiaryActive === 0 && wS.bestiaryRounds === 0 && wS.bestiaryKinds === 0 &&
+    evs(wS, 'bestiary_start').length === 0,
+    'active=' + wS.bestiaryActive + ' kinds=' + wS.bestiaryKinds);
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 9911, modId: 'myth', stageId: 'ch5' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((P.startSec + k * 20) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch5）走完整条 step 也没有降妖录，且那一刻世界确实还在跑',
+    storyAlive && wS2.bestiaryActive === 0 && evs(wS2, 'bestiary_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.bestiaryActive);
 }

@@ -1186,6 +1186,28 @@
       streakRounds: 0,
       streakDone: 0,
       streakFailed: 0,
+
+      // ---------- 降妖录（第六十五轮：限时击杀不同妖种数）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      bestiaryNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一下击杀要不要计数"的判据之一。
+      bestiaryActive: 0,
+      // 本轮已击杀的**不同**妖种数（按 def.id 去重，同种重复杀只算一次）。
+      bestiaryKinds: 0,
+      bestiaryNeed: 0,
+      // ★去重核心：本轮已经计过哪些 def.id（对象当集合用）。开窗时清空。
+      //   服务端事实、不进快照——客户端不需要知道玩家杀过哪些种。
+      bestiarySeen: {},
+      // 本轮到期时刻（w.time 口径，秒）
+      bestiaryDeadline: 0,
+      // 过半播报只发一次的标记（种数是整数次累加，标记位防的是刷屏）
+      bestiaryHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      bestiaryRounds: 0,
+      bestiaryDone: 0,
+      bestiaryFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -2684,6 +2706,109 @@
     if (w.streakCur >= w.streakNeed) w.streakReached = 1;
   }
 
+  // ============================================================
+  // 降妖录（第六十五轮：限时击杀不同妖种数）—— 目标制零实体第十一件
+  // ============================================================
+
+  // 某一轮要杀几种不同妖物：按轮号线性增长，封顶。抽出来给表自洽断言单独验。
+  function bestiaryNeedFor(roundIndex) {
+    const P = C.BESTIARY;
+    if (!P) return 0;
+    return Math.min(P.maxKinds, P.needKinds + (roundIndex || 0) * P.kindStep);
+  }
+
+  // 每帧调一次（step 第 2.64 段，紧挨 tickStreak —— 同为"目标制、零实体"一族）。
+  function tickBestiary(w) {
+    const P = C.BESTIARY;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，逼着换着杀 N 种会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.bestiaryActive) {
+      // ② 达标优先于到期：最后一帧刚好杀够也算数（与前九件同口径）。
+      if (w.bestiaryKinds >= w.bestiaryNeed) {
+        w.bestiaryActive = 0;
+        w.bestiaryDone = (w.bestiaryDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，与前几件一致的结算顺序。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'bestiary_done', got: w.bestiaryKinds, need: w.bestiaryNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.bestiaryDeadline) return;
+      // 到期没杀够：★什么都不给，且**不责备**（与前十件同一口径）。
+      w.bestiaryActive = 0;
+      w.bestiaryFailed = (w.bestiaryFailed || 0) + 1;
+      w.events.push({
+        type: 'bestiary_fail', need: w.bestiaryNeed, got: w.bestiaryKinds,
+        left: Math.max(0, w.bestiaryNeed - w.bestiaryKinds)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.bestiaryNextTick`。
+    if (w.tick < w.bestiaryNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.bestiaryRounds = (w.bestiaryRounds || 0) + 1;
+    w.bestiaryActive = 1;
+    w.bestiaryKinds = 0;
+    w.bestiaryNeed = bestiaryNeedFor(w.bestiaryRounds - 1);
+    // ★去重集合每轮清空：上一轮杀过的种，这一轮重新算。
+    w.bestiarySeen = {};
+    w.bestiaryHalfNoted = 0;
+    w.bestiaryDeadline = w.time + P.windowSec;
+    w.bestiaryNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'bestiary_start', need: w.bestiaryNeed, sec: P.windowSec,
+      round: w.bestiaryRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 里，与 bumpRage / onBountyKill / onStreakKill 并列。
+  // ★"打死一只带 def.id 的怪"是唯一事实，按种类去重是本件的灵魂。
+  function onBestiaryKill(w, m) {
+    const P = C.BESTIARY;
+    if (!P || !w.bestiaryActive || w.storyStage) return;
+    // ★★★天火砸死的不算（与连斩令同一条 rageMute 隔离线）：
+    //   本件要的是"主动换目标"，等天火白送一堆不同种会让广度失去意义。
+    if (w.rageMute > 0) return;
+    // ★取稳定的怪种 id（与图鉴 killsBy 同一口径），没有 def.id 的不明怪不算。
+    const def = m && m.def;
+    const id = def && def.id;
+    if (!id) return;
+    // ★★去重核心：这一种本轮已经计过就什么都不做（同种杀 100 次也只算 1 种）。
+    //   必须先判、再登记、再 +1 —— 顺序反了会把第一次也吞掉。
+    if (!w.bestiarySeen) w.bestiarySeen = {};
+    if (w.bestiarySeen[id]) return;
+    w.bestiarySeen[id] = 1;
+    w.bestiaryKinds += 1;
+    const half = w.bestiaryNeed / 2;
+    if (!w.bestiaryHalfNoted && w.bestiaryKinds >= half) {
+      w.bestiaryHalfNoted = 1;
+      w.events.push({
+        type: 'bestiary_half', got: w.bestiaryKinds, need: w.bestiaryNeed,
+        left: Math.max(0, Math.ceil(w.bestiaryNeed - w.bestiaryKinds))
+      });
+    }
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -2697,6 +2822,9 @@
     // 连斩令的击杀计数（第六十四轮）。同处并列，但判据不同：
     // ★血怒是"2.2 秒内的连杀爆发"，连斩令是"1.2 秒不断手"的更严节奏，各自记字段。
     onStreakKill(w);
+    // 降妖录的击杀计数（第六十五轮）。同处并列，但按 def.id 去重数"种类"：
+    // ★与前面几件互不干扰——它数的是"杀过几种不同妖物"，同种重复杀不算。
+    onBestiaryKill(w, m);
 
     // 掉落经验球
     const def = m.def;
@@ -8807,6 +8935,14 @@
     //   击杀钩子 onStreakKill 里（判旧链接不上）。达标锁定后 tick 优先结算发奖。
     tickStreak(w);
 
+    // ---------- 2.64 降妖录（第六十五轮：限时击杀不同妖种数） ----------
+    // 【为什么紧跟连斩令】同为"目标制、零实体、只发播报"——十一件摆在一起，
+    //   一眼能看出这一族的十一条轴。前十件都是"累计数到 N"（同种重复也算），
+    //   本件第一次要**广度**：按 def.id 去重，杀够 N 种不同妖物才算，逼你换目标。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   去重计数钩子挂在 killMob（本帧战斗结算处），所以这里只管状态迁移。
+    tickBestiary(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -9564,6 +9700,12 @@
     onStreakKill: onStreakKill,
     streakNeedFor: streakNeedFor,
     streakMaybeBreak: streakMaybeBreak,
+    // 第六十五轮：降妖录（限时击杀不同妖种）—— 四个入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次"某种击杀"、精确验证去重与排期，
+    //   而不必真跑 438 秒并造一场杀够多种妖物的战斗。
+    tickBestiary: tickBestiary,
+    onBestiaryKill: onBestiaryKill,
+    bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
     healPlayer: healPlayer,
