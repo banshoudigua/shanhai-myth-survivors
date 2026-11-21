@@ -1226,6 +1226,42 @@
       shootDone: 0,
       shootFailed: 0,
 
+      // ---------- 斩将令（第六十八轮：限时击杀精英及以上妖物）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      generalNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一下击杀要不要计数"的判据之一。
+      generalActive: 0,
+      // 本轮已斩的精英数 / 目标数（窗口外、小怪、天火白送都不算）。
+      generalElite: 0,
+      generalNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      generalDeadline: 0,
+      // 过半播报只发一次的标记（整数次累加，标记位防的是刷屏）
+      generalHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      generalRounds: 0,
+      generalDone: 0,
+      generalFailed: 0,
+
+      // ---------- 避锋诀（第六十九轮：限时无敌帧挡下的攻击次数）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      evadeNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一下免伤要不要计数"的判据之一。
+      evadeActive: 0,
+      // 本轮已挡下的攻击数 / 目标数（升级定格/剧情关/窗口外都不算）。
+      evadeCount: 0,
+      evadeNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      evadeDeadline: 0,
+      // 过半播报只发一次的标记（整数次累加，标记位防的是刷屏）
+      evadeHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      evadeRounds: 0,
+      evadeDone: 0,
+      evadeFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -2921,7 +2957,7 @@
     const dx = m.x - p.x;
     const dy = m.y - p.y;
     // ★平方比较：不开 sqrt，且含边界（正好 320px 算达标）。
-    // [反向验证临时摘除]
+    if (dx * dx + dy * dy < P.minDist * P.minDist) return;
     w.shootFar += 1;
     const half = w.shootNeed / 2;
     if (!w.shootHalfNoted && w.shootFar >= half) {
@@ -2929,6 +2965,201 @@
       w.events.push({
         type: 'shoot_half', got: w.shootFar, need: w.shootNeed,
         left: Math.max(0, Math.ceil(w.shootNeed - w.shootFar))
+      });
+    }
+  }
+
+  // ============================================================
+  // 斩将令（第六十八轮：限时击杀精英及以上妖物）—— 目标制零实体第十三件
+  // ============================================================
+
+  // 某一轮要几颗将首：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function generalNeedFor(roundIndex) {
+    const P = C.GENERAL;
+    if (!P) return 0;
+    return Math.min(P.maxElite, P.needElite + (roundIndex || 0) * P.eliteStep);
+  }
+
+  // ★"精英及以上"的唯一判据：tier 命中 elite / commander / boss 三档之一。
+  //   按 tier 而不是名字/kind——剧情改名、事件精英换 kind 都不影响档次。
+  function isEliteTier(m) {
+    if (!m || !m.def) return false;
+    const t = m.def.tier;
+    return t === 'elite' || t === 'commander' || t === 'boss';
+  }
+
+  // 每帧调一次（step 第 2.66 段，紧挨射日诀 —— 同为"目标制、零实体"一族）。
+  function tickGeneral(w) {
+    const P = C.GENERAL;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须杀精英"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.generalActive) {
+      // ② 达标优先于到期：最后一帧刚好杀够也算数（与前十二件同口径）。
+      if (w.generalElite >= w.generalNeed) {
+        w.generalActive = 0;
+        w.generalDone = (w.generalDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖，与前几件一致的结算顺序。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'general_done', got: w.generalElite, need: w.generalNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.generalDeadline) return;
+      // 到期没杀够：★什么都不给，且**不责备**（与前十二件同一口径）。
+      w.generalActive = 0;
+      w.generalFailed = (w.generalFailed || 0) + 1;
+      w.events.push({
+        type: 'general_fail', need: w.generalNeed, got: w.generalElite,
+        left: Math.max(0, w.generalNeed - w.generalElite)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.generalNextTick`。
+    if (w.tick < w.generalNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.generalRounds = (w.generalRounds || 0) + 1;
+    w.generalActive = 1;
+    w.generalElite = 0;
+    w.generalNeed = generalNeedFor(w.generalRounds - 1);
+    w.generalHalfNoted = 0;
+    w.generalDeadline = w.time + P.windowSec;
+    w.generalNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'general_start', need: w.generalNeed, sec: P.windowSec,
+      round: w.generalRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 里，与 onBountyKill / onBestiaryKill / onShootKill 并列。
+  // ★"打死一只精英"是唯一事实，档次按击杀瞬间 m.def.tier 判。
+  function onGeneralKill(w, m) {
+    const P = C.GENERAL;
+    if (!P || !w.generalActive || w.storyStage) return;
+    // ★★★天火/灵泉砸死的不算（与连斩令、降妖录、射日诀同一条 rageMute 隔离线）：
+    //   否则等环境白送精英，"点将"这件事就失去意义。
+    if (w.rageMute > 0) return;
+    // ★质量闸（本件灵魂）：小怪/普通怪一律不算，只认 elite/commander/boss。
+    if (!isEliteTier(m)) return;
+    w.generalElite += 1;
+    const half = w.generalNeed / 2;
+    if (!w.generalHalfNoted && w.generalElite >= half) {
+      w.generalHalfNoted = 1;
+      w.events.push({
+        type: 'general_half', got: w.generalElite, need: w.generalNeed,
+        left: Math.max(0, Math.ceil(w.generalNeed - w.generalElite))
+      });
+    }
+  }
+
+  // ============================================================
+  // 避锋诀（第六十九轮：限时无敌帧挡下的攻击次数）—— 目标制零实体第十四件
+  // ============================================================
+
+  // 某一轮要挡下几次：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function evadeNeedFor(roundIndex) {
+    const P = C.EVADE;
+    if (!P) return 0;
+    return Math.min(P.maxEvade, P.needEvade + (roundIndex || 0) * P.evadeStep);
+  }
+
+  // 每帧调一次（step 第 2.67 段，紧挨斩将令 —— 同为"目标制、零实体"一族）。
+  function tickEvade(w) {
+    const P = C.EVADE;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须靠闪避挡 N 下"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.evadeActive) {
+      // ② 达标优先于到期：最后一帧刚好挡够也算数（与前十三件同口径）。
+      if (w.evadeCount >= w.evadeNeed) {
+        w.evadeActive = 0;
+        w.evadeDone = (w.evadeDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：免伤钩子立刻失效，不会把同一窗口的后续攻击算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'evade_done', got: w.evadeCount, need: w.evadeNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.evadeDeadline) return;
+      // 到期没挡够：★什么都不给，且**不责备**（与前十三件同一口径）。
+      w.evadeActive = 0;
+      w.evadeFailed = (w.evadeFailed || 0) + 1;
+      w.events.push({
+        type: 'evade_fail', need: w.evadeNeed, got: w.evadeCount,
+        left: Math.max(0, w.evadeNeed - w.evadeCount)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.evadeNextTick`。
+    if (w.tick < w.evadeNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.evadeRounds = (w.evadeRounds || 0) + 1;
+    w.evadeActive = 1;
+    w.evadeCount = 0;
+    w.evadeNeed = evadeNeedFor(w.evadeRounds - 1);
+    w.evadeHalfNoted = 0;
+    w.evadeDeadline = w.time + P.windowSec;
+    w.evadeNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'evade_start', need: w.evadeNeed, sec: P.windowSec,
+      round: w.evadeRounds
+    });
+  }
+
+  // 免伤钩子：挂在 damagePlayer 的"无敌帧挡下"那个早退分支里。
+  // ★★不挂在扣血那一行：本件数的正是**没扣成血**的那一下，与守心劫互补。
+  // 【三重闸】窗口外不算 / 剧情关不算 / 升级三选一定格不算（那是被定格免打，
+  //   不是靠走位闪避）。达标后 active 已清，后续攻击也不会再刷播报。
+  function onEvadeHit(w, p) {
+    const P = C.EVADE;
+    if (!P || !w.evadeActive || w.storyStage) return;
+    if (!p || !p.alive) return;
+    if (p.state === 'levelup') return;
+    w.evadeCount += 1;
+    const half = w.evadeNeed / 2;
+    if (!w.evadeHalfNoted && w.evadeCount >= half) {
+      w.evadeHalfNoted = 1;
+      w.events.push({
+        type: 'evade_half', got: w.evadeCount, need: w.evadeNeed,
+        left: Math.max(0, Math.ceil(w.evadeNeed - w.evadeCount))
       });
     }
   }
@@ -2952,6 +3183,9 @@
     // 射日诀的击杀计数（第六十七轮）。同处并列，但按**击杀瞬间与玩家的距离**判：
     // ★与前面几件互不干扰——贴脸补刀不算、天火砸死不算，只认真·远距离输出。
     onShootKill(w, m);
+    // 斩将令的击杀计数（第六十八轮）。同处并列，但按**怪的 tier 档次**判：
+    // ★与前面几件互不干扰——小怪杀再多也不算、天火砸死不算，只认真·精英击杀。
+    onGeneralKill(w, m);
 
     // 掉落经验球
     const def = m.def;
@@ -3160,7 +3394,13 @@
   const THORNS_RANGE = 44;
 
   function damagePlayer(w, p, dmg, srcX, srcY) {
-    if (!p || !p.alive || p.invuln > 0) return;
+    if (!p || !p.alive) return;
+    if (p.invuln > 0) {
+      // 避锋诀：只数"本来会扣血、被无敌帧挡下"的那一下（升级定格由钩子自己排掉）。
+      // ★这是唯一一处能拿到"挡下了"这个事实的地方——扣血分支根本不会走到。
+      onEvadeHit(w, p);
+      return;
+    }
 
     // 正在选升级三选一的人不吃伤害：他这帧被定格了，动不了还能挨打就不公平。
     // 联机时世界照常跑（pauseAllOnLevelUp=false），这条就是唯一的保护。
@@ -9234,6 +9474,22 @@
     //   距离计数钩子挂在 killMob（本帧战斗结算处），这里只管状态迁移。
     tickShoot(w);
 
+    // ---------- 2.66 斩将令（第六十八轮：限时击杀精英及以上妖物） ----------
+    // 【为什么紧跟射日诀】同为"目标制、零实体、只发播报"——十三件摆在一起，
+    //   一眼能看出这一族的十三条轴。前十二件从不问"杀的是谁"，
+    //   本件第一次只认精英及以上（tier 为 elite/commander/boss），逼你点将。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   精英计数钩子挂在 killMob（本帧战斗结算处），这里只管状态迁移。
+    tickGeneral(w);
+
+    // ---------- 2.67 避锋诀（第六十九轮：限时无敌帧挡下的攻击次数） ----------
+    // 【为什么紧跟斩将令】同为"目标制、零实体、只发播报"——十四件摆在一起，
+    //   一眼能看出这一族的十四条轴。前十三件从不数"没扣成的血"，
+    //   本件第一次把无敌帧本身变成目标：挨一下，再让后续攻击全打在空处。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   免伤计数钩子挂在 damagePlayer 的无敌帧早退分支，这里只管状态迁移。
+    tickEvade(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -9999,6 +10255,20 @@
     shootNeedFor: shootNeedFor,
     tickShoot: tickShoot,
     onShootKill: onShootKill,
+    // 第六十八轮：斩将令（限时击杀精英）——四个入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次"某种 tier 的击杀"、精确验证质量闸与排期，
+    //   而不必真跑 474 秒并造一场杀够精英的战斗。
+    generalNeedFor: generalNeedFor,
+    tickGeneral: tickGeneral,
+    onGeneralKill: onGeneralKill,
+    isEliteTier: isEliteTier,
+    // 第六十九轮：避锋诀（限时免伤次数）——三个入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次"被无敌帧挡下的攻击"，而不必真跑 486 秒。
+    evadeNeedFor: evadeNeedFor,
+    tickEvade: tickEvade,
+    onEvadeHit: onEvadeHit,
+    // ★避锋诀另用上面已导出的 damagePlayer 验证：它数的是"没扣成血"的那一下，
+    //   绕过去直接喂钩子会漏掉无敌帧闸与升级定格闸。
     bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
