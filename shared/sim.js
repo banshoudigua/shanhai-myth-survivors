@@ -1316,6 +1316,26 @@
       huntDone: 0,
       huntFailed: 0,
 
+      // ---------- 寻仇诀（第七十三轮：限时被几种不同妖物打中）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      vengeNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一下挨打要不要计数"的判据之一。
+      vengeActive: 0,
+      // 本轮已经记过的妖种 id 集合（按 def.id 去重，同种重复咬不算）。
+      vengeSeen: {},
+      // 本轮累计被几种不同妖物打中 / 目标种数。
+      vengeKinds: 0,
+      vengeNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      vengeDeadline: 0,
+      // 过半播报只发一次的标记（整数种数逐次 +1，标记位防的是达标后刷屏）
+      vengeHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      vengeRounds: 0,
+      vengeDone: 0,
+      vengeFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -3529,6 +3549,104 @@
     }
   }
 
+  // ============================================================
+  // 寻仇诀（第七十三轮：限时被几种不同妖物打中）—— 目标制零实体第十八件
+  // ============================================================
+
+  // 某一轮要被几种不同妖物打中：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function vengeNeedFor(roundIndex) {
+    const P = C.VENGE;
+    if (!P) return 0;
+    return Math.min(P.maxKinds, P.needKinds + (roundIndex || 0) * P.kindsStep);
+  }
+
+  // 每帧调一次（step 第 2.71 段，紧挨猎变诀 —— 同为"目标制、零实体"一族）。
+  function tickVenge(w) {
+    const P = C.VENGE;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须挨不同怪的打"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.vengeActive) {
+      // ② 达标优先于到期：最后一帧刚好凑够也算数（与前十七件同口径）。
+      if (w.vengeKinds >= w.vengeNeed) {
+        w.vengeActive = 0;
+        w.vengeDone = (w.vengeDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：受击钩子立刻失效，不会把同一窗口的后续挨打算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'venge_done', got: w.vengeKinds, need: w.vengeNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.vengeDeadline) return;
+      // 到期没凑够：★什么都不给，且**不责备**（与前十七件同一口径）。
+      w.vengeActive = 0;
+      w.vengeFailed = (w.vengeFailed || 0) + 1;
+      w.events.push({
+        type: 'venge_fail', need: w.vengeNeed, got: w.vengeKinds,
+        left: Math.max(0, w.vengeNeed - w.vengeKinds)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.vengeNextTick`。
+    if (w.tick < w.vengeNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.vengeRounds = (w.vengeRounds || 0) + 1;
+    w.vengeActive = 1;
+    w.vengeSeen = {};
+    w.vengeKinds = 0;
+    w.vengeNeed = vengeNeedFor(w.vengeRounds - 1);
+    w.vengeHalfNoted = 0;
+    w.vengeDeadline = w.time + P.windowSec;
+    w.vengeNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'venge_start', need: w.vengeNeed, sec: P.windowSec,
+      round: w.vengeRounds
+    });
+  }
+
+  // 受击钩子：挂在 damagePlayer 真扣血分支（拿得到"是谁打的"那一瞬间）。
+  // ★只认 w.self（自己）被**具体的怪**打中；队友挨打 / 技能陷阱（没有 srcMob）
+  //   都不算。按 def.id 去重：同一种咬十口也只记一笔。
+  // 【三重闸】窗口外不算 / 剧情关不算 / 无敌帧与升级定格根本走不到这里。
+  // 【过半标记位】整数种数逐次 +1，=== 与 >= 等价；真正要防的是达标后刷屏。
+  function onVengeHit(w, p, srcMob) {
+    const P = C.VENGE;
+    if (!P || !w.vengeActive || w.storyStage) return;
+    if (!srcMob || !srcMob.def || !srcMob.def.id) return;
+    if (p !== (w.self || w.player)) return;
+    const id = srcMob.def.id;
+    if (w.vengeSeen[id]) return;
+    w.vengeSeen[id] = 1;
+    w.vengeKinds += 1;
+    const half = w.vengeNeed / 2;
+    if (!w.vengeHalfNoted && w.vengeKinds >= half) {
+      w.vengeHalfNoted = 1;
+      w.events.push({
+        type: 'venge_half', got: w.vengeKinds, need: w.vengeNeed,
+        left: Math.max(0, w.vengeNeed - w.vengeKinds)
+      });
+    }
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -3761,7 +3879,9 @@
   // 那和「贴身荆棘」的直觉不符。
   const THORNS_RANGE = 44;
 
-  function damagePlayer(w, p, dmg, srcX, srcY) {
+  // ★第六个参数 srcMob 只由「具体的怪打人」那两处传入（接触伤害 / Boss 光环）；
+  //   技能、陷阱、环境伤害不传，寻仇诀就不会把没有来源的伤害算成"被某种妖物打中"。
+  function damagePlayer(w, p, dmg, srcX, srcY, srcMob) {
     if (!p || !p.alive) return;
     if (p.invuln > 0) {
       // 避锋诀：只数"本来会扣血、被无敌帧挡下"的那一下（升级定格由钩子自己排掉）。
@@ -3786,6 +3906,9 @@
     const temperBefore = p.hp;
     p.hp -= real;
     onTemperHurt(w, p, Math.min(real, temperBefore));
+    // 寻仇诀（第七十三轮）：只在真扣血的这一刻记"打我的是哪一种妖"。
+    // ★放在扣血之后、死亡判定之前：致死一击也是真被咬中，只是人没撑住拿不到奖励。
+    onVengeHit(w, p, srcMob);
     p.invuln = C.PLAYER.invulnSec;
 
     // ---------- 守心劫（第五十六轮）：只统计"真掉了血"的那一下 ----------
@@ -7937,7 +8060,8 @@
           m.auraTick = (m.auraTick || 0) - dt;
           if (m.auraTick <= 0) {
             m.auraTick = def.auraTickSec;
-            damagePlayer(w, p, def.auraDot, m.x, m.y);
+            // 寻仇诀：Boss 光环也是"这只怪在打你"，把 m 传下去按 def.id 去重。
+            damagePlayer(w, p, def.auraDot, m.x, m.y, m);
           }
         }
       }
@@ -8063,7 +8187,8 @@
       const contact = distance(m.x, m.y, p.x, p.y);
       if (contact <= m.r + p.r && m.hitCd <= 0 && p.alive && m.alive) {
         m.hitCd = 0.6;
-        damagePlayer(w, p, def.dmg, m.x, m.y);
+        // 寻仇诀：接触伤害是"哪一种妖物咬了你"的主要来源，必须把 m 传下去。
+        damagePlayer(w, p, def.dmg, m.x, m.y, m);
       }
     }
   }
@@ -9891,6 +10016,15 @@
     //   与 tick 段解耦，达标当帧即可发奖。
     tickHunt(w);
 
+    // ---------- 2.71 寻仇诀（第七十三轮：限时被几种不同妖物打中） ----------
+    // 【为什么紧跟猎变诀】同为"目标制、零实体、只发播报"——十八件摆在一起，
+    //   一眼能看出这一族的十八条轴。前十七件从不问"是哪几种怪在打你"，
+    //   本件第一次把受击来源的广度（按 def.id 去重）变成目标。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字、发一箱金币，
+    //   不碰怪的位置；受击钩子挂在 damagePlayer 真扣血分支里（拿得到 srcMob），
+    //   与 tick 段解耦，达标当帧即可发奖。
+    tickVenge(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -10691,6 +10825,13 @@
     onHuntKill: onHuntKill,
     isAffixMob: isAffixMob,
     // ★isAffixMob 单独导出：普通怪 / 分裂子怪不算这条关键边界靠它直接验。
+    // 第七十三轮：寻仇诀（限时被几种不同妖物打中）——入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次"某种妖咬了自己"，而不必真跑 534 秒。
+    vengeNeedFor: vengeNeedFor,
+    tickVenge: tickVenge,
+    onVengeHit: onVengeHit,
+    // ★onVengeHit 只做计数；★关键边界（无敌帧/升级定格/无来源伤害/队友挨打）
+    //   必须走上面已导出的 damagePlayer 才能验到，不能绕过去直接喂钩子。
     bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。

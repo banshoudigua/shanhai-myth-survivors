@@ -1416,6 +1416,7 @@ testEvade();console.log('');
 testTemper();console.log('');
 testSwarm();console.log('');
 testHunt();console.log('');
+testVenge();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2823,6 +2824,7 @@ function testRage() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3027,6 +3029,7 @@ function testMoon() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5353,6 +5356,7 @@ function testDevourer() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5738,6 +5742,7 @@ function testBoon() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6158,6 +6163,7 @@ function testBell() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6676,6 +6682,7 @@ function testMerge() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7198,6 +7205,7 @@ function testEscort() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7604,6 +7612,7 @@ function testMarket() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8025,6 +8034,7 @@ function testCauldron() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8403,6 +8413,7 @@ function testBounty() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8688,6 +8699,7 @@ function testHealer() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8975,6 +8987,7 @@ function testSerenity() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9242,6 +9255,7 @@ function testGlean() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9559,6 +9573,7 @@ function testForge() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9883,6 +9898,7 @@ function testStride() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10220,6 +10236,7 @@ function testMend() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10403,6 +10420,7 @@ function testMend() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10555,6 +10573,7 @@ function testThunder() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10751,6 +10770,7 @@ function testThunder() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10887,6 +10907,7 @@ function testPeril() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11078,6 +11099,7 @@ function testPeril() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickPeril(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.perilDone === 0, 'pickups=' + wF.pickups.length);
@@ -11219,6 +11241,7 @@ function testDew() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11400,6 +11423,7 @@ function testDew() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickDew(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.dewDone === 0, 'pickups=' + wF.pickups.length);
@@ -11548,6 +11572,7 @@ function testStreak() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -11738,6 +11763,7 @@ function testStreak() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickStreak(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.streakDone === 0, 'pickups=' + wF.pickups.length);
@@ -11924,6 +11950,7 @@ function testBestiary() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12109,6 +12136,7 @@ function testBestiary() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickBestiary(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.bestiaryDone === 0, 'pickups=' + wF.pickups.length);
@@ -12679,6 +12707,7 @@ function testShoot() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12863,6 +12892,7 @@ function testShoot() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickShoot(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.shootDone === 0, 'pickups=' + wF.pickups.length);
@@ -13008,6 +13038,7 @@ function testGeneral() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13023,6 +13054,7 @@ function testGeneral() {
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
     w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     SIM.tickGeneral(w);
   }
   // 按 tier 直接喂击杀钩子：不真 spawn，隔离掉落与随机流
@@ -13204,6 +13236,7 @@ function testGeneral() {
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
   wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+  wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   SIM.tickGeneral(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.generalDone === 0, 'pickups=' + wF.pickups.length);
@@ -13709,6 +13742,7 @@ function testTemper() {
     w.temperNextTick = 0;     // 本件默认开窗，干净世界里显式打开
     w.swarmNextTick = 1e9;    // 第七十一轮：妖潮诀 516s 开窗，本件不验，推远
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13727,6 +13761,7 @@ function testTemper() {
     //   必须推远，否则那里顺带开一轮妖潮诀、落空播报混进 events 干扰对照。
     w.swarmNextTick = 1e9;
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
+    w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     SIM.tickTemper(w);
   }
   // ★走调用方入口 damagePlayer（不是直接喂 onTemperHurt）：
@@ -14498,6 +14533,7 @@ function testHunt() {
     w.temperNextTick = 1e9;
     w.swarmNextTick = 1e9;
     w.huntNextTick = 0;       // 本件默认开窗，干净世界里显式打开
+    w.vengeNextTick = 1e9;    // 寻仇诀 534s 推远：否则开窗落箱会污染本件"零实体"断言
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -14690,6 +14726,7 @@ function testHunt() {
   wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
   wF.time = wF.tick / HZ;
   wF.huntNextTick = 1e9;      // 关掉后续排期，推这么远不该再开一轮
+  wF.vengeNextTick = 1e9;     // 寻仇诀 534s：同样关掉，否则落箱污染对照
   SIM.tickHunt(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.huntDone === 0, 'pickups=' + wF.pickups.length);
@@ -14803,4 +14840,360 @@ function testHunt() {
     storyAlive && wS2.huntActive === 0 && evs(wS2, 'hunt_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.huntActive);
+}
+
+// ============================================================
+// 第七十三轮：寻仇诀（第一件「限时被几种不同妖物打中」目标，受击来源去重）
+// ============================================================
+function testVenge() {
+  console.log('[第七十三轮] 寻仇诀：第一件「被几种妖物咬中」目标（按 def.id 去重，受击来源轴）');
+  const P = C.VENGE;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 极简"仇家"：钩子只认 def.id，不碰怪的其它字段，隔离战斗与掉落。
+  function mob(id) {
+    return { def: { id: id } };
+  }
+  function feedHit(w, id, count) {
+    for (let i = 0; i < (count || 1); i++) {
+      SIM.onVengeHit(w, w.player, mob(id));
+    }
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.vengeNextTick = 0;
+    SIM.tickVenge(w);
+  }
+  function finish(w, count) {
+    for (let i = 0; i < count; i++) feedHit(w, 'corn' + i);
+    w.time = w.vengeDeadline + 0.01;
+    SIM.tickVenge(w);
+  }
+  // 隔离世界：其它机制全推远、关武器、默认满血，只留寻仇诀这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    p.invuln = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9;
+    w.shootNextTick = 1e9;
+    w.generalNextTick = 1e9;
+    w.evadeNextTick = 1e9;
+    w.temperNextTick = 1e9;
+    w.swarmNextTick = 1e9;
+    w.huntNextTick = 1e9;
+    w.vengeNextTick = 0;      // 本件默认开窗，干净世界里由 openWindow 精确触发
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场，没几种怪可挨）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('首发已进 altar 收官区（第 15 波起怪种多、怪量上百）',
+    P.startSec / 30 >= 15, 'startSec=' + P.startSec);
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标种数按轮递增且封顶（第 2 轮 +1，第 99 轮到 max）',
+    SIM.vengeNeedFor(0) === P.needKinds &&
+    SIM.vengeNeedFor(1) === P.needKinds + P.kindsStep &&
+    SIM.vengeNeedFor(99) === P.maxKinds,
+    '0=' + SIM.vengeNeedFor(0) + ' 1=' + SIM.vengeNeedFor(1) +
+    ' 99=' + SIM.vengeNeedFor(99));
+  expect('目标数合理：至少 3 种、封顶种数小于窗口秒数（挨打要花时间，不能白送）',
+    P.needKinds >= 2 && P.needKinds <= P.maxKinds && P.maxKinds < P.windowSec,
+    'need=' + P.needKinds + ' max=' + P.maxKinds + ' / ' + P.windowSec);
+  expect('怪池种类足够多（去重目标必须凑得出，不能靠同一种反复咬）',
+    C.MOBS.length >= P.maxKinds + 3,
+    'MOBS=' + C.MOBS.length + ' max=' + P.maxKinds);
+  expect('奖励仍是「一箱 + 零钱」（与前十七件同口径，不是巨款）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发时刻错开全部既有事件（含猎变诀 528，避免同一帧挤两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'PERIL',
+      'CAULDRON', 'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER',
+      'DEW', 'STREAK', 'BESTIARY', 'SHOOT', 'GENERAL', 'EVADE', 'TEMPER', 'SWARM', 'HUNT'
+    ].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'venge=' + P.startSec + ' hunt=' + C.HUNT.startSec);
+  expect('中文表名存在（前端播报用的就是它）',
+    typeof P.name === 'string' && P.name.length > 0, P.name);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉战斗掉落）----------
+  const wR = cleanWorld(10901);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  finish(wR, P.needKinds);
+  expect('★开窗/记仇/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(10902);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 0);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(10910);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickVenge(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.vengeRounds === 0 && evs(wT, 'venge_start').length === 0,
+    'rounds=' + wT.vengeRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.vengeActive === 1 && wT.vengeRounds === 1,
+    'rounds=' + wT.vengeRounds + ' active=' + wT.vengeActive);
+  expect('★★开窗零实体：没怪、没球、没特效、没 zone、没 strike（与前十七件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'venge_start')[0];
+  expect('开窗播报一次说清三件事：多久 / 几种 / 轮次',
+    !!st && st.sec === P.windowSec && st.need === P.needKinds && st.round === 1 &&
+    evs(wT, 'venge_start').length === 1, JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.vengeDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.vengeDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.vengeNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.vengeNextTick);
+  SIM.tickVenge(wT);
+  expect('同帧重复调用不会二次开窗', wT.vengeRounds === 1,
+    'rounds=' + wT.vengeRounds);
+  wT.time = wT.vengeDeadline - 0.001;
+  SIM.tickVenge(wT);
+  expect('到期前一帧不发奖也不结算', wT.vengeActive === 1 &&
+    wT.vengeKinds === 0 && evs(wT, 'venge_done').length === 0 &&
+    evs(wT, 'venge_fail').length === 0,
+    'active=' + wT.vengeActive + ' kinds=' + wT.vengeKinds);
+
+  // ---------- 4. 过半（整数种数逐次 +1：标记位防刷屏）----------
+  const wH = cleanWorld(10921);
+  openWindow(wH);
+  feedHit(wH, 'kind0', Math.floor((P.needKinds - 1) / 2));
+  expect('过半前零播报', evs(wH, 'venge_half').length === 0,
+    'half=' + evs(wH, 'venge_half').length + ' kinds=' + wH.vengeKinds);
+  feedHit(wH, 'kind1');
+  expect('过半报一次', evs(wH, 'venge_half').length === 1,
+    'half=' + evs(wH, 'venge_half').length);
+  for (let i = 0; i < 100; i++) feedHit(wH, 'spam' + i);
+  expect('多记不同仇家不刷屏（过半播报恰好一次）', evs(wH, 'venge_half').length === 1,
+    'half=' + evs(wH, 'venge_half').length);
+  const wH2 = cleanWorld(10922);
+  openWindow(wH2);
+  finish(wH2, P.needKinds);
+  expect('★★整轮只报一次过半（标记位防刷屏，数字锁在首次跨半那一刻）',
+    evs(wH2, 'venge_half').length === 1 &&
+    evs(wH2, 'venge_half')[0].got === Math.ceil(P.needKinds / 2),
+    'half=' + evs(wH2, 'venge_half').length +
+    ' got=' + ((evs(wH2, 'venge_half')[0] || {}).got));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(10930);
+  openWindow(wD);
+  finish(wD, P.needKinds);
+  expect('被够多种妖物咬中 → 达成', wD.vengeActive === 0 && wD.vengeDone === 1 &&
+    evs(wD, 'venge_done').length === 1, 'done=' + wD.vengeDone);
+  expect('宝箱正好一个（与前十七件同口径）', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'venge_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === P.needKinds && dn.need === P.needKinds &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  for (let i = 0; i < 200; i++) feedHit(wD, 'after' + i);
+  SIM.tickVenge(wD);
+  expect('★达标后再被咬、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.vengeDone === 1 && evs(wD, 'venge_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.vengeDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickVenge(wD);
+  expect('下一轮目标递增、仇家集合与计数清零', wD.vengeRounds === 2 &&
+    wD.vengeNeed === P.needKinds + P.kindsStep && wD.vengeKinds === 0 &&
+    Object.keys(wD.vengeSeen).length === 0,
+    'need=' + wD.vengeNeed + ' kinds=' + wD.vengeKinds +
+    ' seen=' + Object.keys(wD.vengeSeen).length);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(10940);
+  openWindow(wF);
+  finish(wF, P.needKinds - 1);
+  expect('差一种也落空', wF.vengeActive === 0 && wF.vengeFailed === 1 &&
+    wF.vengeDone === 0, 'failed=' + wF.vengeFailed + ' done=' + wF.vengeDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现「达成」播报', evs(wF, 'venge_done').length === 0,
+    'done=' + evs(wF, 'venge_done').length);
+  const fl = evs(wF, 'venge_fail')[0];
+  expect('落空只陈述还差几种（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === P.needKinds - 1 && fl.need === P.needKinds,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  wF.vengeNextTick = 1e9;      // 关掉后续排期，推这么远不该再开一轮
+  SIM.tickVenge(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.vengeDone === 0, 'pickups=' + wF.pickups.length);
+  const kindsAfterFail = wF.vengeKinds;
+  feedHit(wF, 'late', 100);
+  expect('落空后再被咬也不计数（钩子只认 active）',
+    wF.vengeKinds === kindsAfterFail && wF.vengeActive === 0,
+    'kinds=' + wF.vengeKinds + '（落空时 ' + kindsAfterFail + '）');
+
+  // ---------- 7. ★★★去重闸（本件核心新轴：同种重复咬只记一次）----------
+  const wB = cleanWorld(10950);
+  openWindow(wB);
+  feedHit(wB, 'corpse', 10);
+  expect('★★★同一种妖咬 10 口只记 1 种（去重闸是灵魂）',
+    wB.vengeKinds === 1, 'kinds=' + wB.vengeKinds);
+  feedHit(wB, 'bat');
+  feedHit(wB, 'gargoyle');
+  expect('两种不同的妖各咬一口 → 各 +1（正向对照，证明闸不是恒关）',
+    wB.vengeKinds === 3, 'kinds=' + wB.vengeKinds);
+  feedHit(wB, 'bat', 500);
+  expect('★★之前记过的妖再猛咬 500 口也不涨（集合去重，不是计数累加）',
+    wB.vengeKinds === 3, 'kinds=' + wB.vengeKinds);
+  SIM.onVengeHit(wB, wB.player, null);
+  SIM.onVengeHit(wB, wB.player, {});
+  SIM.onVengeHit(wB, wB.player, { def: {} });
+  expect('★★无来源 / 缺 def / 缺 id 的"怪"一律不算（防御性边界）',
+    wB.vengeKinds === 3, 'kinds=' + wB.vengeKinds);
+  const mate = Object.assign({}, wB.player);
+  feedHit(wB, 'corpse');
+  SIM.onVengeHit(wB, mate, mob('newkind'));
+  expect('★★队友挨打不算（只数自己被咬，def.id 相同也不借用队友的仇）',
+    wB.vengeKinds === 3, 'kinds=' + wB.vengeKinds);
+
+  // ---------- 8. ★★★真实伤害漏斗（无来源 / 无敌帧 / 定格 / step 接触）----------
+  const wSrc = cleanWorld(10960);
+  openWindow(wSrc);
+  const hp0 = wSrc.player.hp;
+  SIM.damagePlayer(wSrc, wSrc.player, 10, 0, 0);
+  expect('★★★没有具体怪的技能/陷阱伤害：真扣血也不记仇（正向对照证明真扣了）',
+    wSrc.player.hp < hp0 && wSrc.vengeKinds === 0,
+    'hp ' + hp0 + '→' + wSrc.player.hp + ' kinds=' + wSrc.vengeKinds);
+  wSrc.player.invuln = 0;
+  SIM.damagePlayer(wSrc, wSrc.player, 10, 0, 0, mob('corpse'));
+  expect('有具体怪的真扣血 +1（damagePlayer 传了 srcMob）',
+    wSrc.vengeKinds === 1, 'kinds=' + wSrc.vengeKinds);
+
+  const wIv = cleanWorld(10961);
+  openWindow(wIv);
+  const hpIv = wIv.player.hp;
+  wIv.player.invuln = 1;
+  SIM.damagePlayer(wIv, wIv.player, 10, 0, 0, mob('bat'));
+  expect('★★无敌帧挡下的攻击不算（那是避锋诀的轴）',
+    wIv.player.hp === hpIv && wIv.vengeKinds === 0,
+    'hp=' + wIv.player.hp + ' kinds=' + wIv.vengeKinds);
+  wIv.player.invuln = 0;
+  SIM.damagePlayer(wIv, wIv.player, 10, 0, 0, mob('bat'));
+  expect('无敌帧结束后同一只怪真咬中 → +1（正向对照，不是恒关）',
+    wIv.vengeKinds === 1, 'kinds=' + wIv.vengeKinds);
+
+  const wLu = cleanWorld(10962);
+  openWindow(wLu);
+  const hpLu = wLu.player.hp;
+  wLu.player.state = 'levelup';
+  SIM.damagePlayer(wLu, wLu.player, 10, 0, 0, mob('gargoyle'));
+  expect('★★升级三选一定格时挨打不算（那不是被咬，是被定格）',
+    wLu.player.hp === hpLu && wLu.vengeKinds === 0,
+    'hp=' + wLu.player.hp + ' kinds=' + wLu.vengeKinds);
+  wLu.player.state = 'playing';
+  SIM.damagePlayer(wLu, wLu.player, 10, 0, 0, mob('gargoyle'));
+  expect('定格解除后同一只怪真咬中 → +1（正向对照）',
+    wLu.vengeKinds === 1, 'kinds=' + wLu.vengeKinds);
+
+  const wOut = cleanWorld(10963);
+  SIM.damagePlayer(wOut, wOut.player, 10, 0, 0, mob('corpse'));
+  expect('窗口外被咬也不计数', wOut.vengeKinds === 0, 'kinds=' + wOut.vengeKinds);
+
+  // ★★不直接喂钩子：走 step → updateMobs → damagePlayer → onVengeHit 的真实链路，
+  //   才能钉住"接触伤害那一行有把 m 传下去"（反向摘掉第 6 个参数时这条会红）。
+  const wStep = cleanWorld(10964);
+  openWindow(wStep);
+  const mReal = SIM.spawnMob(wStep, 'corpse', wStep.player.x, wStep.player.y, 1, 0, 10965);
+  mReal.hitCd = 0;
+  SIM.step(wStep, { mx: 0, my: 0 });
+  expect('★★★真实 step 里怪贴身咬中 → 记下一种仇家（钉住 srcMob 传参调用点）',
+    wStep.vengeKinds === 1 && evs(wStep, 'venge_half').length === 0,
+    'kinds=' + wStep.vengeKinds + ' half=' + evs(wStep, 'venge_half').length);
+
+  // ---------- 9. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(10970);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch6' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  SIM.tickVenge(wS);
+  SIM.onVengeHit(wS, wS.player, mob('corpse'));
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.vengeActive === 0 && wS.vengeRounds === 0 && wS.vengeKinds === 0 &&
+    evs(wS, 'venge_start').length === 0,
+    'active=' + wS.vengeActive + ' kinds=' + wS.vengeKinds);
+  // ★首发 534 秒 < ch6 上限 540 秒，刚好能在关卡结束前走真实 step 验一次。
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 10971, modId: 'myth', stageId: 'ch6' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((P.startSec + k * 2) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch6）走完整条 step 也没有寻仇诀，且那一刻世界确实还在跑',
+    storyAlive && wS2.vengeActive === 0 && evs(wS2, 'venge_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.vengeActive);
 }
