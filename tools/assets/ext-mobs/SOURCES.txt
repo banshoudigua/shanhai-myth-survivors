@@ -1,0 +1,38 @@
+外部精灵素材来源（妖物图鉴/战场共用）
+==================================================
+上游仓库：https://github.com/mcp-tool-shop-org/sprite-foundry-packs
+许可协议：MIT（上游仓库根目录与各包内均有 LICENSE）
+取用范围：各包 assets/<角色>/albedo/front.png（48×48 八方向精灵的正面帧）
+
+本项目处理：
+1. 最近邻降采样到原矩阵网格（小怪 16×16，Boss 20×20）——只取形状。
+2. 按每只怪自身亮度分位映射到项目 10 色槽位，并提取该怪专属调色板。
+3. 过滤紫色（项目配色红线：暗红 + 琥珀金 + 冷灰）。
+4. 非线性提亮以适配暗色战场底色（#12141a）。
+5. 战场与图鉴立绘共用同一份矩阵与调色板（tools/mobthumbs.js 从事实矩阵出图）。
+
+映射表（本项目怪物 id -> 上游包/角色）
+--------------------------------------------------
+corpse             -> undead-patrol-48 / shambler
+bat                -> monster-pack-48 / wyvern
+skeleton_warrior   -> undead-patrol-48 / skeletal-zombie
+gargoyle           -> monster-pack-48 / grinning_idol
+blood_priest       -> monster-pack-48 / throat_singer
+witch_hunter       -> goblin-warband-48 / archer
+blood_lord         -> monster-pack-48 / bell_warden
+plague_hound       -> goblin-warband-48 / wolf-rider
+blood_spider       -> monster-pack-48 / bone_weaver
+bone_knight        -> monster-pack-48 / hollow_knight
+ghoul_matriarch    -> monster-pack-48 / spore_mother
+bone_tyrant        -> undead-patrol-48 / elite-zombie
+abyss_prelate      -> monster-pack-48 / ink_shade
+moon_queen         -> monster-pack-48 / mirror_stalker
+challenger         -> goblin-warband-48 / warchief
+shanxiao           -> goblin-warband-48 / brute
+twins              -> monster-pack-48 / root_puppet
+taotie             -> undead-patrol-48 / bloater
+shadow_puppet      -> monster-pack-48 / mud_revenant
+wangliang          -> monster-pack-48 / teeth_collector
+huichun            -> goblin-warband-48 / alchemist
+
+重新生成：node tools/extsprites.js --apply && node tools/mobthumbs.js

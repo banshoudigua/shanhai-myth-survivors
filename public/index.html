@@ -24,6 +24,11 @@
   <link rel="stylesheet" href="/css/pixel-ui.css">
   <!-- 剧情模式样式（关卡选择弹层）。放最后一条，靠「后来者居上」压住上面的基础规则。 -->
   <link rel="stylesheet" href="/css/story-campaign.css">
+  <!-- 地图缩略图卡片版式（大厅单人战场 / 候场室对局地图 / 剧情关卡）。
+       ★必须最后加载：它要同时覆盖 theme.css 与 story-campaign.css 里的旧选择器。 -->
+  <link rel="stylesheet" href="/css/map-grid.css">
+  <!-- 妖物图鉴详情浮层。★最后加载：要压过 theme.css 的 .hall-row 基础样式。 -->
+  <link rel="stylesheet" href="/css/mob-codex.css">
 </head>
 
 <body>
@@ -325,14 +330,22 @@
             <span class="sub" v-else>由房主决定</span>
           </h2>
 
-          <div class="diff-list">
-            <button class="diff-btn map-btn" v-for="m in mapList" :key="m.id"
-                    :class="{ active: m.id === room.mapId, locked: !isHost }"
+          <div class="map-grid">
+            <button class="map-card" v-for="m in mapList" :key="m.id"
+                    :class="{ on: m.id === room.mapId, locked: !isHost }"
                     :disabled="!isHost || room.state !== 'waiting'"
+                    :title="m.name + '：' + (m.desc || '')"
                     @click="pickMap(m.id)">
-              <span class="diff-name">{{ m.name }}</span>
-              <span class="diff-len">{{ m.w }}×{{ m.h }}</span>
-              <span class="diff-desc">{{ m.desc }}</span>
+              <span class="mc-thumb">
+                <img :src="mapThumb(m.id)" :alt="m.name" width="240" height="150"
+                     @error="mapThumbFallback">
+                <span class="mc-check" v-if="m.id === room.mapId">已选</span>
+              </span>
+              <span class="mc-body">
+                <span class="mc-name">{{ m.name }}</span>
+                <span class="mc-desc">{{ m.desc }}</span>
+                <span class="mc-size">{{ m.w }}×{{ m.h }}</span>
+              </span>
             </button>
           </div>
         </div>
@@ -378,33 +391,19 @@
       <section v-else>
         <!-- 行动条 -->
         <div class="card">
-          <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-            <div style="flex: 1; min-width: 200px;">
-              <div style="font-size: 16px; font-weight: 600;">
+          <div class="action-row">
+            <div class="action-id">
+              <div class="action-name">
                 {{ self.nickname }}
                 <span class="tag" :class="self.isGuest ? 'guest' : 'user'">
                   {{ self.isGuest ? '游客' : '已注册' }}
                 </span>
               </div>
-              <div style="font-size: 12px; color: var(--text-mute);">
+              <div class="action-sub">
                 当前在线 {{ online.length }} 人 · 服务器时间偏移 {{ timeOffsetText }}
               </div>
             </div>
             <!-- 没连上时禁用：否则玩家点下去只会收到一句「还没连上服务器」，很莫名其妙 -->
-            <!-- 单人地图选择。
-                 ★以前单人只能靠手改 URL 的 ?map= 换图 —— 等于没有入口：
-                   玩家根本不知道有 6 张图，更不知道每张图的怪不一样。
-                   这里与候场室共用同一份地图表（mapList 来自 shared/maps.js）
-                   和同一个偏好键（MAP_KEY），所以两边选过什么都记得住。 -->
-            <div class="solo-map">
-              <span class="sm-lb">单人地图</span>
-              <div class="sm-list">
-                <button class="sm-chip" v-for="m in mapList" :key="m.id"
-                        :class="{ on: soloMapId === m.id }"
-                        :title="m.name + '：' + (m.desc || '')"
-                        @click="pickSoloMap(m.id)">{{ m.name }}</button>
-              </div>
-            </div>
             <button class="btn btn-gold" @click="createRoom" :disabled="wsState !== 'on'">创建房间</button>
             <button class="btn" @click="loadRoomList">刷新房间</button>
             <button class="btn btn-primary" @click="startGame">单人游戏</button>
@@ -418,6 +417,34 @@
             <button class="btn btn-hall" @click="openHall('codex')">
               山海榜<span class="btn-badge" v-if="hallJade > 0">{{ hallJade }}</span>
             </button>
+          </div>
+
+          <!-- 单人战场选择（统一缩略图版式，与候场室 / 剧情共用 .map-grid）。
+               ★以前是一行文字 chip 挤在按钮旁，六张图看不出区别；现在每张图
+                 一张俯视缩略图 + 名字 + 一句话性格，玩家选图才有依据。
+               ★与候场室共用 mapList 与 MAP_KEY，两边选过什么都记得住。 -->
+          <div class="battlefield">
+            <div class="bf-head">
+              <span class="bf-title">单人战场</span>
+              <span class="bf-note">点选地图后开打 · 每张图的走位与怪群都不同</span>
+            </div>
+            <div class="map-grid">
+              <button class="map-card" v-for="m in mapList" :key="m.id"
+                      :class="{ on: soloMapId === m.id }"
+                      :title="m.name + '：' + (m.desc || '')"
+                      @click="pickSoloMap(m.id)">
+                <span class="mc-thumb">
+                  <img :src="mapThumb(m.id)" :alt="m.name" width="240" height="150"
+                       @error="mapThumbFallback">
+                  <span class="mc-check" v-if="soloMapId === m.id">已选</span>
+                </span>
+                <span class="mc-body">
+                  <span class="mc-name">{{ m.name }}</span>
+                  <span class="mc-desc">{{ m.desc }}</span>
+                  <span class="mc-size">{{ m.w }}×{{ m.h }}</span>
+                </span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -473,80 +500,163 @@
           </div>
         </div>
 
-        <div class="grid-3">
+        <!-- 大厅下区（第三十七轮改版）：
+             原来是「档案 / 在线 / 排行」三等分。档案里要放生涯数字 + 局志列表，
+             三等分塞不下，所以改成「档案占主列（跨两行），在线与排行叠在右列」。
+             ★只改容器类名与内部分工，三张卡的业务数据一个都没动。 -->
+        <div class="hall-lower">
 
           <!-- 我的档案 -->
-          <div class="card">
-            <h2 class="card-title">我的档案<span class="sub" v-if="self.userId">ID {{ self.userId }}</span></h2>
-
-            <div class="me-line">
-              <span class="nick">{{ self.nickname }}</span>
-              <span class="tag" :class="self.isGuest ? 'guest' : 'user'">
-                {{ self.isGuest ? '游客' : '账号' }}
-              </span>
+          <div class="card profile-card">
+            <!-- 纹章：生图产出的青铜兽面纹（tools/imgfit.js 抠白底 + 裁切到 160px） -->
+            <div class="pf-head">
+              <div class="pf-crest-wrap">
+                <img class="pf-crest" src="/img/hall/profile-crest.png" alt="" width="64" height="64">
+              </div>
+              <div class="pf-id">
+                <div class="pf-eyebrow">我的档案<span class="pf-src">本机存档</span></div>
+                <div class="pf-name-row">
+                  <span class="pf-name">{{ self.nickname || '无名氏' }}</span>
+                  <span class="tag" :class="self.isGuest ? 'guest' : 'user'">
+                    {{ self.isGuest ? '游客' : '账号' }}
+                  </span>
+                </div>
+                <div class="pf-sub">
+                  <span v-if="self.userId">ID {{ self.userId }}</span>
+                  <span class="pf-dot" v-if="self.userId">·</span>
+                  <span>灵玉 <b>{{ group3(career.jade) }}</b></span>
+                  <span class="pf-dot">·</span>
+                  <span>山海谱 <b>{{ career.talTotal || 0 }}</b> 级</span>
+                </div>
+              </div>
             </div>
 
-            <div v-if="self.isGuest" class="empty">
-              游客模式不记录战绩<br>注册后可查看累计数据与排行榜
-            </div>
+            <div class="pf-body">
+              <!-- 左：生涯数字 -->
+              <div class="pf-stats">
+                <div class="pf-hero">
+                  <div class="pf-hero-cell">
+                    <span class="pf-num">{{ group3(career.runs) }}</span>
+                    <span class="pf-lbl">总对局</span>
+                  </div>
+                  <div class="pf-hero-cell">
+                    <span class="pf-num">{{ group3(career.kills) }}</span>
+                    <span class="pf-lbl">累计击杀</span>
+                  </div>
+                  <div class="pf-hero-cell">
+                    <span class="pf-num">{{ career.winRate || 0 }}<i>%</i></span>
+                    <span class="pf-lbl">通关率</span>
+                  </div>
+                </div>
 
-            <div v-else>
-              <div v-if="loading.me" class="loading">战绩加载中...</div>
-              <div v-else class="stats">
-                <div class="stat">
-                  <span class="num">{{ stats.total_matches }}</span>
-                  <span class="lbl">总对局</span>
+                <div class="pf-metrics">
+                  <div class="pf-metric">
+                    <span class="m-v">{{ career.bestWave || 0 }}</span>
+                    <span class="m-k">最高波次</span>
+                  </div>
+                  <div class="pf-metric">
+                    <span class="m-v">{{ career.bestLevel || 1 }}</span>
+                    <span class="m-k">最高等级</span>
+                  </div>
+                  <div class="pf-metric">
+                    <span class="m-v">{{ group3(career.bestKills) }}</span>
+                    <span class="m-k">单局击杀</span>
+                  </div>
+                  <div class="pf-metric">
+                    <span class="m-v">{{ career.wins || 0 }}</span>
+                    <span class="m-k">通关次数</span>
+                  </div>
+                  <div class="pf-metric">
+                    <span class="m-v">{{ formatLong(career.playSec) }}</span>
+                    <span class="m-k">累计时长</span>
+                  </div>
+                  <div class="pf-metric">
+                    <span class="m-v">{{ career.mobKinds || 0 }}<i>/{{ career.mobTotal || 0 }}</i></span>
+                    <span class="m-k">图鉴收录</span>
+                  </div>
                 </div>
-                <div class="stat">
-                  <span class="num">{{ stats.total_kills }}</span>
-                  <span class="lbl">累计击杀</span>
+
+                <!-- 近十二局击杀：纯 CSS 柱状（没有画库，也不值得为它引一个）
+                     ★最新的排在**最右**，读起来像时间轴从左往右长。 -->
+                <div class="pf-spark" v-if="spark.length">
+                  <div class="sp-head">
+                    <span>近 {{ spark.length }} 局击杀</span>
+                    <span class="sp-note">右起为最新</span>
+                  </div>
+                  <div class="sp-bars">
+                    <i v-for="(b, i) in spark" :key="i"
+                       :style="{ height: b.h + '%' }" :title="b.k + ' 击杀'"></i>
+                  </div>
                 </div>
-                <div class="stat">
-                  <span class="num">{{ stats.best_kills }}</span>
-                  <span class="lbl">单局最高击杀</span>
-                </div>
-                <div class="stat">
-                  <span class="num">{{ formatSec(stats.longest_survive) }}</span>
-                  <span class="lbl">最长存活</span>
-                </div>
-                <div class="stat">
-                  <span class="num">{{ stats.max_level }}</span>
-                  <span class="lbl">最高等级</span>
-                </div>
-                <div class="stat">
-                  <span class="num">{{ formatSec(stats.total_play_sec) }}</span>
-                  <span class="lbl">累计时长</span>
+                <div class="pf-empty" v-else>
+                  还没有对局记录 —— 开一局单人游戏，打完这里就有数字了
                 </div>
               </div>
 
-              <!-- 设置新密码：只要还登录着就能重设，**不需要旧密码**。
-                   【为什么需要它】线上跑在「重新发布就把数据回滚」的沙箱里，账号会按浏览器里的
-                   token 自动重建；重建时库里的密码哈希是随机写的、谁都不知道 ——
-                   没有这个入口就等于把账号锁死（能玩，但再也设不了密码）。
-                   详见 server/api/auth.js 的自证式 token 注释。 -->
-              <div class="pwd-block">
-                <button class="btn btn-sm" v-if="!pwdOpen" @click="openPwd">设置新密码</button>
-                <div v-else>
-                  <div class="field">
-                    <label>新密码（至少 6 位）</label>
-                    <input class="input" type="password" v-model="pwd1" maxlength="64"
-                           placeholder="新密码" @keyup.enter="savePassword">
-                  </div>
-                  <div class="field">
-                    <label>确认新密码</label>
-                    <input class="input" type="password" v-model="pwd2" maxlength="64"
-                           placeholder="再输一次" @keyup.enter="savePassword">
-                  </div>
-                  <div class="pwd-actions">
-                    <button class="btn btn-sm" @click="cancelPwd">取消</button>
-                    <button class="btn btn-sm btn-primary" @click="savePassword" :disabled="busy.pwd">
-                      {{ busy.pwd ? '保存中...' : '保存' }}
-                    </button>
-                  </div>
+              <!-- 右：局志列表（单人 / 剧情 / 联机都记） -->
+              <div class="pf-runs">
+                <div class="pf-runs-head">
+                  <span>最近对局</span>
+                  <span class="pf-runs-hint" v-if="runs.length">点一行看这局的全部数值</span>
                 </div>
+                <div class="pf-run-list" v-if="runs.length">
+                  <button class="pf-run" v-for="r in runs" :key="r.i" @click="openRun(r.i)">
+                    <span class="pr-no">{{ r.i < 9 ? '0' + (r.i + 1) : (r.i + 1) }}</span>
+                    <span class="pr-mode" :class="'m-' + r.mode">{{ r.modeText }}</span>
+                    <span class="pr-main">第 {{ r.wave }} 波 · {{ group3(r.kills) }} 击杀</span>
+                    <span class="pr-time">{{ r.timeText }}</span>
+                    <span class="pr-res" :class="r.resCls">{{ r.resText }}</span>
+                  </button>
+                </div>
+                <div class="pf-run-empty" v-else>
+                  这一台还没有局志<br>
+                  <span class="dim">打完一局回来就会出现在这里</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="pf-foot">
+              <span class="pf-acc" v-if="!self.isGuest">
+                账号战绩（服务器 · 仅联机入榜）：{{ group3(stats.total_matches) }} 局 ·
+                {{ group3(stats.total_kills) }} 击杀
+              </span>
+              <span class="pf-acc" v-else>
+                本机档案：单人 / 剧情 / 联机都记 · 换浏览器或清缓存会丢
+              </span>
+              <button class="btn btn-sm pf-pwd" v-if="!self.isGuest && !pwdOpen" @click="openPwd">
+                设置密码
+              </button>
+            </div>
+
+            <!-- 设置新密码：只要还登录着就能重设，**不需要旧密码**。
+                 【为什么需要它】线上跑在「重新发布就把数据回滚」的沙箱里，账号会按浏览器里的
+                 token 自动重建；重建时库里的密码哈希是随机写的、谁都不知道 ——
+                 没有这个入口就等于把账号锁死（能玩，但再也设不了密码）。
+                 详见 server/api/auth.js 的自证式 token 注释。 -->
+            <div class="pwd-block" v-if="!self.isGuest && pwdOpen">
+              <div class="field">
+                <label>新密码（至少 6 位）</label>
+                <input class="input" type="password" v-model="pwd1" maxlength="64"
+                       placeholder="新密码" @keyup.enter="savePassword">
+              </div>
+              <div class="field">
+                <label>确认新密码</label>
+                <input class="input" type="password" v-model="pwd2" maxlength="64"
+                       placeholder="再输一次" @keyup.enter="savePassword">
+              </div>
+              <div class="pwd-actions">
+                <button class="btn btn-sm" @click="cancelPwd">取消</button>
+                <button class="btn btn-sm btn-primary" @click="savePassword" :disabled="busy.pwd">
+                  {{ busy.pwd ? '保存中...' : '保存' }}
+                </button>
               </div>
             </div>
           </div>
+
+          <!-- 右列：在线玩家 + 排行榜。
+               用 .hall-side 包起来让它俩平分高度 —— 不包的话，档案卡（跨两行）
+               会把右列底部空出一大块，看起来像少了一张卡。 -->
+          <div class="hall-side">
 
           <!-- 在线玩家 -->
           <div class="card">
@@ -603,6 +713,7 @@
             </div>
           </div>
 
+          </div><!-- /hall-side -->
         </div>
 
         <p class="footer">
@@ -656,6 +767,10 @@
                  内层用一个普通 span 承载 flex 就没有这个问题（button 只当块级盒子）。
                  这个 bug 在 Chromium 下**完全复现不出来**，本地全绿、iPad 上才坏。 -->
             <span class="sc-inner">
+            <span class="sc-thumb">
+              <img :src="mapThumb(st.mapId)" :alt="st.mapName" width="240" height="150"
+                   @error="mapThumbFallback">
+            </span>
             <span class="sc-no">{{ st.no }}</span>
             <span class="sc-body">
               <span class="sc-name">
@@ -713,13 +828,20 @@
             妖物收录 <b>{{ hallMobDone }}</b> / {{ hallMobs.length }}
             <span class="hall-note">击杀过的会点亮</span>
           </div>
-          <div class="hall-list">
-            <div class="hall-row" v-for="m in hallMobs" :key="m.id" :class="{ locked: !m.kills }">
+          <div class="hall-list mob-list">
+            <!-- 整行都是点击目标（44px 触摸下限），点开看立绘 + 属性。 -->
+            <button class="hall-row mob-row" v-for="m in hallMobs" :key="m.id"
+                    :class="{ locked: !m.kills }" @click="openMob(m.id)">
+              <img class="mob-mini" :src="mobThumb(m.id)" :alt="m.name" loading="lazy"
+                   @error="mobThumbFallback">
               <span class="hr-name">{{ m.name }}</span>
               <span class="hr-tag" v-if="m.tierLabel">{{ m.tierLabel }}</span>
               <span class="hr-num">{{ m.kills ? (m.kills + ' 击杀') : '未遭遇' }}</span>
-            </div>
+              <span class="mob-chevron" aria-hidden="true">›</span>
+            </button>
           </div>
+          <!-- 外部素材署名：MIT 不强制署名，但把来源留在玩家看得见的地方更稳妥。 -->
+          <p class="hall-tip dim" style="margin-top:6px">妖物造型参考 sprite-foundry-packs（MIT），配色已按需调整</p>
 
           <div class="hall-sec">
             武器精通 <b>{{ hallWeaponDone }}</b> / {{ hallWeapons.length }}
@@ -766,6 +888,118 @@
           </div>
           <p class="hall-tip dim">累计投入 {{ hallTalSpent }} 灵玉 · 一共 {{ hallTalTotal }} 级</p>
         </div>
+
+        <!-- ---------- 妖物详情浮层（点图鉴某一行弹出） ---------- -->
+        <div class="mob-mask" v-if="mobDetail" @click="closeMobOnMask">
+          <div class="mob-card" role="dialog" aria-label="妖物详情">
+            <button class="mob-x" @click="closeMob" aria-label="关闭">×</button>
+            <div class="mob-head">
+              <div class="mob-portrait">
+                <img :src="mobThumb(mobDetail.id)" :alt="mobDetail.name" @error="mobThumbFallback">
+              </div>
+              <div class="mob-id">
+                <div class="mob-name">{{ mobDetail.name }}</div>
+                <div class="mob-badges">
+                  <span class="mob-badge tier">{{ mobDetail.tierFull }}</span>
+                  <span class="mob-badge kind">{{ mobDetail.kindLabel }}</span>
+                </div>
+                <div class="mob-seen">已击杀 <b>{{ mobDetail.kills }}</b> 只</div>
+              </div>
+            </div>
+            <div class="mob-stats">
+              <div class="mob-stat"><span>生命</span><b>{{ mobDetail.hp }}</b></div>
+              <div class="mob-stat"><span>移速</span><b>{{ mobDetail.speed }}</b></div>
+              <div class="mob-stat"><span>伤害</span><b>{{ mobDetail.dmg }}</b></div>
+              <div class="mob-stat"><span>体型</span><b>{{ mobDetail.r }}</b></div>
+            </div>
+            <div class="mob-trait">
+              <span class="mob-trait-lb">特性</span>
+              <span class="mob-trait-tx">{{ mobDetail.trait }}</span>
+            </div>
+            <p class="mob-tip">属性为基础值；关卡与难度会按波次放大。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== 局志（单局明细） ==================== -->
+    <!--
+      【为什么做成浮层而不是展开行】一局的数值有十几个（伤害构成、武器、成就…），
+        展开行会把档案卡撑得很长，还会把右边的在线/排行榜顶走位。
+      ★居中同样用 margin:auto（不写 align-items:center）：内容比视口高时，
+        居中的子元素顶部会被推到容器外且滚不回来（项目踩过两次）。
+    -->
+    <div class="runmask" v-if="runOpen && runDetail">
+      <div class="runbox">
+        <div class="run-head">
+          <div class="run-title">
+            局志 <em>第 {{ runDetail.no }} 局</em>
+            <span class="run-res" :class="runDetail.resCls">{{ runDetail.resText }}</span>
+          </div>
+          <button class="btn btn-sm run-close" @click="closeRun">收起</button>
+        </div>
+
+        <p class="run-meta">
+          <span>{{ runDetail.dateText }}</span>
+          <span class="pf-dot">·</span>
+          <span>{{ runDetail.modeText }}</span>
+          <span class="pf-dot">·</span>
+          <span>{{ runDetail.char }}</span>
+          <span class="pf-dot">·</span>
+          <span>{{ runDetail.map }}</span>
+          <span class="pf-dot">·</span>
+          <span>{{ runDetail.diff }}</span>
+        </p>
+
+        <div class="run-grid">
+          <div class="rg-item"><b>{{ runDetail.timeText }}</b><span>存活</span></div>
+          <div class="rg-item"><b>{{ runDetail.wave }}</b><span>波次</span></div>
+          <div class="rg-item"><b>{{ runDetail.level }}</b><span>等级</span></div>
+          <div class="rg-item"><b>{{ group3(runDetail.kills) }}</b><span>击杀</span></div>
+          <div class="rg-item"><b>{{ group3(runDetail.gold) }}</b><span>金币</span></div>
+          <div class="rg-item"><b>{{ group3(runDetail.dmg) }}</b><span>伤害</span></div>
+        </div>
+
+        <div class="run-sec" v-if="runDetail.dmgRows.length">
+          <div class="run-sec-h">伤害构成</div>
+          <div class="rd-row" v-for="d in runDetail.dmgRows" :key="d.name">
+            <span class="rd-name">{{ d.name }}</span>
+            <span class="rd-bar"><i :style="{ width: d.pct + '%' }"></i></span>
+            <span class="rd-num">{{ group3(d.dmg) }}<em>{{ d.pct }}%</em></span>
+          </div>
+        </div>
+
+        <div class="run-sec" v-if="runDetail.weapons.length">
+          <div class="run-sec-h">携带武器</div>
+          <div class="rw-list">
+            <span class="rw-chip" v-for="w in runDetail.weapons" :key="w.name">
+              {{ w.name }}<em>Lv{{ w.level }}</em>
+            </span>
+          </div>
+        </div>
+
+        <div class="run-sec"
+             v-if="runDetail.evos || runDetail.combos || runDetail.shrines || runDetail.challengers">
+          <div class="run-sec-h">本局特殊</div>
+          <div class="rw-list">
+            <span class="rw-chip dim" v-if="runDetail.evos">进化 {{ runDetail.evos }}</span>
+            <span class="rw-chip dim" v-if="runDetail.combos">组合技 {{ runDetail.combos }}</span>
+            <span class="rw-chip dim" v-if="runDetail.shrines">神龛 {{ runDetail.shrines }}</span>
+            <span class="rw-chip dim" v-if="runDetail.challengers">挑战者 {{ runDetail.challengers }}</span>
+          </div>
+        </div>
+
+        <div class="run-sec" v-if="runDetail.ach.length">
+          <div class="run-sec-h">本局解锁成就</div>
+          <div class="rw-list">
+            <span class="rw-chip ach" v-for="a in runDetail.ach" :key="a">{{ a }}</span>
+          </div>
+        </div>
+
+        <div class="run-jade" v-if="runDetail.jade > 0">
+          本局获得灵玉 <b>+{{ runDetail.jade }}</b>
+        </div>
+        <p class="run-tip" v-else>联机局不计灵玉（灵玉只来自单机与剧情）</p>
       </div>
     </div>
 

@@ -319,7 +319,13 @@
     drawn: 0,
     total: 0,
     pendingLevels: 0,
-    toasts: [],
+    // 战况记录（右下角常驻面板）。
+    // ★以前这里叫 toasts：每条 2.4 秒后 setTimeout 删掉 —— 玩家反馈「文字一会就不见了，
+    //   没法知道之前具体发生了什么」。现在改成**本局历史**：只进不删，最多留 80 条
+    //   （超出丢最旧的，防止长时间局把内存与 DOM 撑爆），每条带局内时间戳。
+    //   面板可折叠，折叠态仍显示最新一条的入口，不会「静默消失」。
+    logs: [],
+    logOpen: true,
     surviveText: '0秒',
 
     // ---------------- 联机状态（P2-4） ----------------
@@ -1004,6 +1010,8 @@
       }
       console.log('[net] 对局结束 reason=' + msg.reason +
         ' 参战=' + ui.resultList.length + ' 人（已记入战绩的是账号玩家）');
+      // 联机局也进局志（不发灵玉 / 不判成就，见 settleOnlineRun 的注释）
+      settleOnlineRun();
       return;
     }
 
@@ -1126,7 +1134,8 @@
 
     acc = 0;
     lastNow = 0;
-    ui.toasts = [];
+    ui.logs = [];
+    ui.logOpen = true;
     ui.pendingLevels = 0;
     ui.surviveText = '0秒';
     ui.screen = 'playing';
@@ -1744,17 +1753,31 @@ function goLobby(why) {
   }
 
   // ============================================================
-  // 悬浮提示
+  // 战况记录（原「悬浮提示」）
   // ============================================================
+  //
+  // ★这里原来是一条 2.4 秒就删掉的居中 toast。玩家反馈「文字一会就不见了，
+  //   没法知道之前具体发生了什么」—— 提示本身是可回看的信息，不该烧掉。
+  //   现在：只追加不自动删除（超过 LOG_KEEP 才丢最旧的），带局内时间戳，
+  //   最新一条在最上面，右下角面板可滚动回看；折叠时标题栏仍显示最新一条。
+
+  const LOG_KEEP = 80;
+
+  function logClock() {
+    const n = Math.max(0, Math.floor(hud.time || 0));
+    const m = Math.floor(n / 60);
+    const s = n % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+  }
 
   function pushToast(text, isBoss) {
-    const item = { id: ++toastSeq, text: text, boss: !!isBoss };
-    ui.toasts.push(item);
-    // 2.4 秒后自动消失
-    setTimeout(function () {
-      const idx = ui.toasts.indexOf(item);
-      if (idx >= 0) ui.toasts.splice(idx, 1);
-    }, 2400);
+    // unshift：最新一条在最上面，打开面板第一眼就能看到「刚刚发生了什么」。
+    ui.logs.unshift({ id: ++toastSeq, text: String(text || ''), boss: !!isBoss, at: logClock() });
+    if (ui.logs.length > LOG_KEEP) ui.logs.length = LOG_KEEP;
+  }
+
+  function toggleLog() {
+    ui.logOpen = !ui.logOpen;
   }
 
   // ============================================================
@@ -2461,6 +2484,14 @@ function goLobby(why) {
     if (ONLINE || !world || !world.player || ui.runExtra.ready) return;
     const sum = SIM.runSummary(world, world.player);
 
+    // 局志要显示「角色 / 地图 / 难度」的名字，sim 只给 id —— 这里从 hud 补上。
+    // ★必须用 hud 的名字而不是自己拼：剧情模式的名字来自关卡的 nameTable
+    //   （同一只妖在不同章节叫法不同），拼错了图鉴与局志就对不上。
+    sum.charName = hud.charName || '';
+    sum.mapName = hud.mapName || '';
+    sum.diffName = hud.diffName || '';
+    sum.state = hud.state === 'won' ? 'won' : (hud.state === 'failed' ? 'failed' : 'dead');
+
     // 伤害构成：把 id 翻成中文名并算占比。
     // ★占比用「本局总伤害」当分母，而不是「列表里最大的一项」——
     //   否则「前几项占比加起来才 60%」看着像丢数据。
@@ -2503,6 +2534,45 @@ function goLobby(why) {
     };
     console.log('[codex] 本局入账：灵玉 +' + (r.jade || 0) +
       '，伤害来源 ' + list.length + ' 项，新成就 ' + ((r.newAch || []).length) + ' 个');
+  }
+
+
+  // 联机局的局志（第三十七轮 · 我的档案要能算准「总对局」）。
+  // 【为什么也要记】以前只有单机会入账，玩家打完联机回到大厅，档案里一局都没多，
+  //   看起来像「战绩坏了」。这里只记局志与累计（击杀/金币/时长），
+  //   **不发灵玉、不判成就** —— 那条成长线属于单机与剧情（见 progress.settle 的 opts.online）。
+  // 【数据从哪来】联机时 HUD 是服务端下发的，结算那一下还没被清掉，
+  //   所以 hud 里的数字就是这一局的最终值；伤害构成与图鉴明细服务端不下发，只能空着。
+  function settleOnlineRun() {
+    if (!ONLINE || ui.runExtra.ready || ui.spectating) return;
+    if (!hud.time && !hud.kills) return;      // 还没收到过 HUD，别记一条全 0 的假局
+    const sum = {
+      kills: hud.kills || 0,
+      gold: hud.gold || 0,
+      level: hud.level || 0,
+      wave: hud.wave || 0,
+      time: hud.time || 0,
+      dmgDealt: hud.dmgDealt || 0,
+      weapons: hud.weapons || [],
+      combos: (hud.combos || []).length,
+      charName: hud.charName || '',
+      mapName: hud.mapName || '',
+      diffName: hud.diffName || '',
+      won: hud.state === 'won',
+      state: hud.state === 'won' ? 'won' : 'dead',
+      campaign: false
+    };
+    const r = PROGRESS ? PROGRESS.settle(sum, { online: true }) : null;
+    ui.runExtra = {
+      ready: true,
+      jade: 0,
+      newAch: [],
+      dmgList: [],
+      total: sum.dmgDealt,
+      online: true
+    };
+    console.log('[codex] 联机局已记入局志：击杀 ' + sum.kills + '、波次 ' + sum.wave +
+      '（联机不发灵玉）', r ? '' : '（存档层没加载上）');
   }
 
 
@@ -2855,6 +2925,11 @@ function goLobby(why) {
       window.VS_GAME = {
         ui: ui,
         hud: hud,
+        // 战况记录的入口与上限：供自动化脚本验证「不消失 / 到上限丢最旧的」。
+        // ★走 pushToast 这个真入口，别在测试里直接改 ui.logs —— 那样验不到
+        //   「事件 → 文案 → 记录」这条真链路。
+        pushLog: pushToast,
+        logKeep: LOG_KEEP,
         // 联机时对外暴露的是「从快照拼出来的那个世界」，
         // 本地那个 world 在联机下只负责铺背景，tick 永远不动。
         get world() { return ONLINE ? onlineWorld : world; },
@@ -3005,6 +3080,11 @@ function goLobby(why) {
         dockLevelUp: function () {
           return ui.online === true && ui.screen === 'levelup';
         },
+        // 联机升级贴底面板占掉底部一大块（62vh）：战况记录若还贴在右下角会被盖住。
+        // 简单抬高的办法是给它加 .lift —— 面板收起时记录回到原位。
+        logLift: function () {
+          return ui.online === true && ui.screen === 'levelup';
+        },
         // 世界是否仍在推进。低血警示（屏幕泛红）与 Boss 血条属于「战场信息」，
         // 只有世界真的在动时才该显示 —— 单机暂停 / 结算时显示它们是误导。
         // 联机下升级面板开着世界也没停（这也是为什么联机升级面板不能盖住画面）。
@@ -3031,7 +3111,9 @@ function goLobby(why) {
           return Math.max(0, Math.ceil(hud.reviveLeft || 0));
         },
         charId: function () { return ui.charId; },
-        toasts: function () { return ui.toasts; },
+        // 战况记录：模板只读这两个，不在模板里按下标取（见 ui.logs 注释）
+        logs: function () { return ui.logs; },
+        logLatest: function () { return ui.logs.length ? ui.logs[0] : null; },
         tick: function () { return ui.tick; },
         fps: function () { return ui.fps; },
         drawn: function () { return ui.drawn; },
@@ -3394,6 +3476,7 @@ function goLobby(why) {
         // 技能说明卡
         onSlotsClick: onSlotsClick,
         toggleSlotsFold: toggleSlotsFold,
+        toggleLog: toggleLog,
         showSkillInfo: showSkillInfo,
         openMySkills: openMySkills,
         closeSlotCard: closeSlotCard,

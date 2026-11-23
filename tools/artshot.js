@@ -295,31 +295,21 @@ async function main() {
     // 那是正确行为，但截图里看不清另外 7 张立绘到底长什么样，也就验不了配色。
     // 这里直接调立绘函数把 8 张并排画出来，一屏看清。
     //
-    // ★★必须先「等图加载完」再画（第十九轮加的 AI 立绘是异步加载的）：
-    //   renderPortrait 是「图优先、没到就先用程序化版顶上」。异步图在截图那一刻
-    //   很可能还没到 → 截到的是兜底版 → 断言会误判成「立绘没换成功」，
-    //   而真正的错误方向完全错（要去查图片加载，而不是查绘图）。
-    //   所以先等 isLoaded 全为 true（带超时上限，绝不无限等）。
-    await P.eval([
-      '(async function(){',
+    // ★立绘已改为直接画战场像素矩阵（同步、零网络），不再有「等图加载」这一步。
+    //   isLoaded 的语义也跟着改成「战场素材存在」，这里仍逐角色确认一遍：
+    //   少一个就会静默走程序化兜底版，而断言「8 张都画了」照样绿 —— 所以要单列一条。
+    const artReady = await P.eval([
+      '(function(){',
       '  var PT = window.VS && window.VS.CharacterPortraits;',
       '  var C = window.VS && window.VS.CONST;',
       '  if (!PT || !C || !C.CHARACTERS) return "NO_MODULE";',
       '  var ids = C.CHARACTERS.map(function (c) { return c.id; });',
-      // 触发加载：先画一次到离屏 canvas，图片才会开始请求
-      '  for (var i = 0; i < ids.length; i++) {',
-      '    var t = document.createElement("canvas"); t.width = t.height = 150;',
-      '    PT.renderPortrait(t, ids[i], 150);',
-      '  }',
-      '  var deadline = Date.now() + 8000;',
-      '  while (Date.now() < deadline) {',
-      '    var ok = ids.every(function (id) { return PT.isLoaded(id); });',
-      '    if (ok) return "ALL_LOADED";',
-      '    await new Promise(function(r){ setTimeout(r, 100); });',
-      '  }',
-      '  return "TIMEOUT:" + ids.filter(function(id){ return !PT.isLoaded(id); }).join(",");',
+      '  var miss = ids.filter(function(id){ return !PT.isLoaded(id); });',
+      '  return miss.length ? "MISS:" + miss.join(",") : "ALL_READY";',
       '})()'
     ].join('\n'));
+    expect('[1b] 8 个角色的战场像素素材都存在（不是程序化兜底版）',
+      artReady === 'ALL_READY', String(artReady));
 
     // ★等图到位之后**再画一次**：第一次调用时图还在飞，canvas 上是程序化兜底版；
     //   load 回调把图补画上去，但那是**在另一个 canvas 上**（第一次那批离屏 canvas）。
@@ -363,10 +353,9 @@ async function main() {
       '})()'
     ].join('\n'));
 
-    // ★再验一次「canvas 上真的画上了东西」：isLoaded 只说明**图片下载完了**，
-    //   不代表**画到 canvas 上了**。第一版就栽在这：图加载成功、断言全绿，
-    //   但截图是 8 个空框 —— 那批 canvas 是图画好之前建的，
-    //   而 load 回调补画的是**另一批**（第一次触发加载用的离屏 canvas）。
+    // ★再验一次「canvas 上真的画上了东西」：isLoaded 只说明**战场素材存在**，
+    //   不代表**画到 canvas 上了**。以前用异步 AI 图时栽过：图加载成功、断言全绿，
+    //   但截图是 8 个空框。这条守住「确实落笔」这件事。
     const pdInk = await P.eval(`(function(){
       var cvs = document.querySelectorAll('#art-portraits canvas');
       var inked = 0;
@@ -387,16 +376,40 @@ async function main() {
     const pd = portraitDrawn || {};
     console.log('   立绘对照图：' + pd.n + ' 张，' + pd.w + 'x' + pd.h);
     expect('[1b] 8 张选择页立绘全部画出', pd.n === 8, JSON.stringify(portraitDrawn));
-    // ★第十九轮新增：AI 立绘（public/img/char/*.png）必须**真的加载到了**。
-    //   为什么要有这条：renderPortrait 是「图优先、没到先用程序化版顶上」，
-    //   所以图挂了（发布漏文件 / 路径写错 / 服务器 404）时界面**照常显示**，
-    //   只是变成程序化头像 —— 玩家看不出来，但「已经换成 AI 立绘」这件事悄悄失效了。
-    //   而上面那条 `pd.n === 8` 照样是绿的（8 个 canvas 都建了）。
-    //   ★所以必须单独盯「图有没有加载成功」这个**机制**，而不是「canvas 有没有建」。
-    expect('[1b] 8 张 AI 立绘图都加载成功（不是程序化兜底版）',
-      pd.loaded === 8, 'loaded=' + pd.loaded + '（缺失就是 public/img/char/ 下的图没取到）');
-    expect('[1b] 8 个 canvas 上真的画上了像素（不只是图下载完了）',
+    // ★选择页已改用战场原角色形象：认的是「战场矩阵画上去」，不再是「AI 图下载成功」。
+    //   上面 artReady 已确认素材存在；这里确认 8 张 canvas 都走的是战场素材。
+    expect('[1b] 8 张选择页立绘都用战场原角色形象（不是兜底版）',
+      pd.loaded === 8, 'loaded=' + pd.loaded + '（PLAYER_ART.has 缺角色）');
+    expect('[1b] 8 个 canvas 上真的画上了像素（不只是素材存在）',
       pdInk && pdInk.inked === 8, JSON.stringify(pdInk));
+
+    // ★★钉住「画的是战场那张脸」：把 canvas 像素与 player-art 直接绘制的结果逐点比对。
+    //   只验「有像素」不够 —— AI 图 / 程序化兜底版同样有像素，却和战场对不上。
+    const sameAsBattle = await P.eval(`(function(){
+      var PA = window.VS && window.VS.PLAYER_ART;
+      var C = window.VS && window.VS.CONST;
+      var PT = window.VS && window.VS.CharacterPortraits;
+      if (!PA || !C || !PT) return { err: 'NO_MODULE' };
+      var size = 160, bad = [];
+      C.CHARACTERS.forEach(function (c) {
+        var sel = document.createElement('canvas'); sel.width = sel.height = size;
+        PT.renderPortrait(sel, c.id, size);
+        var bat = document.createElement('canvas'); bat.width = bat.height = size;
+        var g = bat.getContext('2d');
+        var px = Math.max(1, Math.floor(size / 16));
+        PA.paintScaled(g, c.id, size / 2, size / 2, px);
+        var a = sel.getContext('2d').getImageData(0, 0, size, size).data;
+        var b = g.getImageData(0, 0, size, size).data;
+        var diff = 0;
+        for (var i = 0; i < a.length; i += 4) {
+          if (Math.abs(a[i]-b[i]) + Math.abs(a[i+1]-b[i+1]) + Math.abs(a[i+2]-b[i+2]) + Math.abs(a[i+3]-b[i+3]) > 12) diff++;
+        }
+        if (diff > 0) bad.push(c.id + ':' + diff);
+      });
+      return { bad: bad };
+    })()`);
+    expect('★选择页形象与战场像素小人逐点一致（所见即所得）',
+      sameAsBattle && sameAsBattle.bad && sameAsBattle.bad.length === 0, JSON.stringify(sameAsBattle));
     if (pd.n === 8) {
       await P.shot(SHOT_PORTRAITS, { x: 0, y: 0, width: pd.w, height: pd.h });
       console.log('   截图：' + SHOT_PORTRAITS);

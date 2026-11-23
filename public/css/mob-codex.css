@@ -1,0 +1,247 @@
+/* mob-codex.css —— 妖物图鉴的缩略头像与「点开看属性」详情浮层
+   ★最后加载（在 map-grid.css 之后）：要覆盖 theme.css 里的 .hall-row 基础规则。
+   ★形式语言沿用暗红 + 琥珀金 + 冷灰、硬边 0 圆角；禁紫。
+   ★触摸目标 ≥44px；列表项一律 flex:0 0 auto，避免被 flex 压扁。 */
+
+/* ---------------- 列表：每行带一张真实像素立绘 ---------------- */
+.hall-list.mob-list {
+  gap: 5px;
+}
+
+/* 整行是一个 button（不是 div）：无障碍 + 键盘可达 + 44px 触摸下限。
+   ★覆盖 .hall-row 的 div 样式时要重新写 border/background，button 有默认外观。 */
+.hall-row.mob-row {
+  width: 100%;
+  min-height: 48px;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text, #e8e4dc);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: border-color 0.12s, background 0.12s;
+}
+
+.hall-row.mob-row:hover,
+.hall-row.mob-row:focus-visible {
+  border-color: rgba(244, 196, 85, 0.5);
+  background: var(--panel-4, #2b3038);
+  outline: none;
+}
+
+.hall-row.mob-row.locked {
+  /* 未遭遇的怪仍可点开：让玩家「先看后打」，但整体压暗表示还没见过 */
+  opacity: 0.55;
+}
+
+.mob-mini {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  image-rendering: pixelated;
+  background: rgba(12, 14, 18, 0.7);
+  border: 1px solid rgba(244, 196, 85, 0.18);
+}
+
+.mob-row.locked .mob-mini {
+  filter: grayscale(0.8) brightness(0.7);
+}
+
+.mob-chevron {
+  flex: 0 0 auto;
+  width: 18px;
+  font-size: 20px;
+  line-height: 1;
+  text-align: center;
+  color: var(--amber, #f4c455);
+  opacity: 0.7;
+}
+
+/* ---------------- 详情浮层 ----------------
+   ★与 .hall-mask 同构：不用 align-items:center（面板比视口高时滚不回来），
+     靠 margin:auto 居中 + 整块可滚动；z-index 压在 hall-box 之上。 */
+.mob-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  padding: 18px;
+  background: rgba(6, 7, 9, 0.78);
+  overflow-y: auto;
+}
+
+.mob-card {
+  position: relative;
+  margin: auto;
+  width: min(420px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding: 18px 20px 16px;
+  background: linear-gradient(160deg, #241c20 0%, #1a1e24 60%, #1a1e24 100%);
+  border: 1px solid rgba(244, 196, 85, 0.5);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(244, 196, 85, 0.15);
+}
+
+/* 关闭按钮：44px 触摸目标，固定在卡片右上角 */
+.mob-x {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--text-mute, #8d97a3);
+  background: transparent;
+  border: 1px solid var(--border, #313842);
+  cursor: pointer;
+}
+
+.mob-x:hover,
+.mob-x:focus-visible {
+  color: var(--amber, #f4c455);
+  border-color: var(--amber, #f4c455);
+  outline: none;
+}
+
+.mob-head {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-right: 40px;
+  margin-bottom: 16px;
+}
+
+.mob-portrait {
+  flex: 0 0 auto;
+  width: 112px;
+  height: 112px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle at 50% 60%, rgba(244, 196, 85, 0.1), rgba(10, 12, 16, 0.9) 72%);
+  border: 1px solid rgba(244, 196, 85, 0.35);
+}
+
+.mob-portrait img {
+  width: 104px;
+  height: 104px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.mob-id {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.mob-name {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--amber, #f4c455);
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+}
+
+.mob-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.mob-badge {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+  font-size: 11.5px;
+  line-height: 18px;
+  border: 1px solid rgba(244, 196, 85, 0.3);
+  color: var(--amber, #f4c455);
+  background: rgba(244, 196, 85, 0.1);
+}
+
+.mob-badge.kind {
+  color: #a8b6c4;
+  border-color: rgba(168, 182, 196, 0.3);
+  background: rgba(168, 182, 196, 0.08);
+}
+
+.mob-seen {
+  font-size: 12px;
+  color: var(--text-mute, #8d97a3);
+}
+
+.mob-seen b {
+  color: var(--amber, #f4c455);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 四项基础属性：等宽四列，手机上也是四列（字短，不会挤爆） */
+.mob-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.mob-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 9px 2px;
+  background: rgba(10, 12, 16, 0.55);
+  border: 1px solid var(--border, #313842);
+}
+
+.mob-stat span {
+  font-size: 11px;
+  color: var(--text-mute, #8d97a3);
+}
+
+.mob-stat b {
+  font-size: 16px;
+  color: var(--text, #e8e4dc);
+  font-variant-numeric: tabular-nums;
+}
+
+.mob-trait {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  background: rgba(244, 196, 85, 0.06);
+  border-left: 3px solid var(--amber, #f4c455);
+}
+
+.mob-trait-lb {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--amber, #f4c455);
+  letter-spacing: 1px;
+}
+
+.mob-trait-tx {
+  flex: 1 1 auto;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text, #e8e4dc);
+}
+
+.mob-tip {
+  margin: 12px 0 0;
+  font-size: 11px;
+  color: var(--text-mute, #8d97a3);
+  opacity: 0.8;
+}
+
+/* ---------------- 手机窄屏 ---------------- */
+@media (max-width: 620px) {
+  .mob-mask { padding: 10px; }
+  .mob-card { max-height: calc(100vh - 20px); padding: 14px 14px 12px; }
+  .mob-head { gap: 12px; }
+  .mob-portrait { width: 88px; height: 88px; }
+  .mob-portrait img { width: 82px; height: 82px; }
+  .mob-name { font-size: 19px; }
+  .mob-stat b { font-size: 14px; }
+}

@@ -1,0 +1,209 @@
+/* ============================================================
+   map-grid.css —— 统一的「地图缩略图卡片」版式
+   ------------------------------------------------------------
+   三处地图选择共用这一套：大厅单人战场、候场室对局地图、剧情关卡卡片。
+   ★为什么要单独一个文件、放在最后加载：
+     它要同时盖住 theme.css（单人 chip / 对局列表）与 story-campaign.css
+     （关卡卡）里各自的旧规则。写成「三个文件各改一段」就会各自为战，
+     以后换一次版式要改三处 —— 放最后一个文件里，改版只动这里。
+   ★视觉语言与全站一致：0 圆角、硬边 2px、实心偏移阴影、暗红/琥珀/冷灰，
+     绝不用紫（项目硬约定）。
+   ============================================================ */
+
+/* ---------- 行动条：昵称 + 按钮 ---------- */
+.action-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.action-id { flex: 1 1 200px; min-width: 0; }
+
+.action-name {
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.action-sub {
+  font-size: 12px;
+  color: var(--text-mute);
+  line-height: 1.5;
+}
+
+/* ---------- 战场选择区（大厅） ---------- */
+.battlefield {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 3px solid var(--border-soft);
+}
+
+.bf-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.bf-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--amber-hi);
+}
+
+.bf-note {
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+/* ---------- 地图卡片网格 ---------- */
+/* auto-fill 让卡片数量随宽度自适应：宽屏一行 6 张，窄屏折成 3/2 张。
+   ★minmax(150px,1fr) 而不是固定宽：固定宽在 390px 屏上会挤出横向滚动条。 */
+.map-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  width: 100%;
+}
+
+/* 卡片本身就是点击目标：整块可点（44px 触摸目标天然满足 —— 卡片远高于 44px）。
+   ★flex item 会被压扁这条坑对 grid 无效，但内部 span 仍显式 layout 以稳妥。 */
+.map-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text);
+  background: var(--panel-2);
+  border: 2px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, .45);
+  transition: transform .06s linear, box-shadow .06s linear, border-color .12s;
+}
+
+.map-card:hover:not(:disabled) { border-color: var(--amber-lo); }
+
+.map-card:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 rgba(0, 0, 0, .45);
+}
+
+/* 选中：琥珀边 + 琥珀底纹 —— 与全站「选中」语言一致 */
+.map-card.on {
+  border-color: var(--amber);
+  background: var(--panel-3);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, .45), inset 0 0 0 1px rgba(244, 196, 85, .25);
+}
+
+/* 候场室非房主：看得见、比得了、点不动 */
+.map-card.locked {
+  opacity: .62;
+  cursor: not-allowed;
+}
+
+.map-card:disabled { cursor: not-allowed; }
+
+/* ---------- 缩略图 ---------- */
+.mc-thumb {
+  position: relative;
+  display: block;
+  width: 100%;
+  /* 8:5 与出的图 240×150 同比例，object-fit 只是兜底不拉伸 */
+  aspect-ratio: 8 / 5;
+  background: #1a1416;
+  border-bottom: 2px solid var(--border-soft);
+  overflow: hidden;
+}
+
+.mc-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 「已选」角标：盖在缩略图右上角，琥珀底 + 暗字，一眼看出当前图 */
+.mc-check {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: #241a06;
+  background: var(--amber-hi);
+  border: 1px solid #7a5410;
+}
+
+/* ---------- 卡片文字 ---------- */
+.mc-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px 10px;
+  min-height: 0;
+}
+
+.mc-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: .5px;
+  line-height: 1.3;
+  color: var(--amber-hi);
+}
+
+.mc-desc {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-dim);
+  /* 两行封顶：六张卡等高，描述长短不一也不会参差 */
+  min-height: 2.9em;
+}
+
+.mc-size {
+  font-size: 10px;
+  color: var(--text-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 剧情关卡卡片里的缩略图 ----------
+   ★不能改 .story-card 的 display:block / overflow:visible / min-height:0 ——
+     那三条是 WebKit「最后一行被切半截」的命门（storylist.js 守着）。
+     缩略图作为 .sc-inner 的一个 flex item 加进去，flex:0 0 auto 不被压扁。 */
+.sc-thumb {
+  position: relative;
+  flex: 0 0 auto;
+  width: 84px;
+  height: 54px;
+  overflow: hidden;
+  background: #1a1416;
+  border: 2px solid var(--border);
+  align-self: flex-start;
+}
+
+.sc-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.story-card.cur .sc-thumb { border-color: var(--amber); }
+.story-card.done .sc-thumb { border-color: #3c5a45; }
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 620px) {
+  .map-grid { grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 9px; }
+  .mc-body { padding: 7px 8px 8px; }
+  .mc-name { font-size: 13px; }
+  .mc-desc { font-size: 10px; }
+  .sc-thumb { width: 66px; height: 44px; }
+}

@@ -18,11 +18,16 @@ const { spawn } = require('node:child_process');
 
 // 第二个参数也可以是**线上域名**（发布后复验用）—— 这个 bug 修完必须在线上量一次，
 // 因为「CSS 传上去了」和「浏览器里真的生效了」是两件事。
-const APP_PORT = Number(process.argv[2] || 3000);
-const LIVE = /^(https?:)?\/\//.test(String(process.argv[2] || ''));
-const BASE = LIVE ? String(process.argv[2]).replace(/\/$/, '') : ('http://127.0.0.1:' + APP_PORT);
+const APP_IN = String(process.argv[2] || 3000);
+// ★线上链接带 ?sharecode=XXXX：必须先拆出来再拼 /game.html，
+//   否则会拼成「/?sharecode=XXX/game.html」直接 404，探活误判成「目标未就绪」。
+const { TMP, CHROME, splitShare } = require('./env');
+const SHARE_RAW = splitShare(APP_IN);
+const APP_PORT = Number(APP_IN);
+const LIVE = /^(https?:)?\/\//.test(SHARE_RAW.url);
+const BASE = LIVE ? SHARE_RAW.url.replace(/\/$/, '') : ('http://127.0.0.1:' + APP_PORT);
+const SHARE = SHARE_RAW.code ? ('?sharecode=' + SHARE_RAW.code) : '';
 const CDP_PORT = 9353;
-const { TMP, CHROME } = require('./env');
 const PROFILE = TMP + '/vs_charoverflow_profile';
 
 // 启动参数里的代理部分。
@@ -172,7 +177,7 @@ async function main() {
   if (!require('node:fs').existsSync(CHROME)) { console.log('!! 找不到无头浏览器'); process.exit(1); }
   // 线上没有本地那套 pglite 服务，探活改成抓页面本身
   const alive = LIVE
-    ? await fetch(BASE + '/game.html').then(function (r) { return r.status === 200; }).catch(function () { return false; })
+    ? await fetch(BASE + '/game.html' + SHARE).then(function (r) { return r.status === 200; }).catch(function () { return false; })
     : await fetch(BASE + '/api/health').then(function (r) { return r.status === 200; }).catch(function () { return false; });
   if (!alive) { console.log('!! 目标未就绪'); process.exit(1); }
 
@@ -191,7 +196,7 @@ async function main() {
   await send('Network.enable');
   await send('Network.setCacheDisabled', { cacheDisabled: true });
   await send('Page.startScreencast', { format: 'jpeg', quality: 25, everyNthFrame: 4 });
-  await send('Page.navigate', { url: BASE + '/game.html?debug=1&_t=' + Date.now() });
+  await send('Page.navigate', { url: BASE + '/game.html?debug=1&_t=' + Date.now() + (SHARE ? '&sharecode=' + SHARE_RAW.code : '') });
   await sleep(3000);
 
   console.log('\n--- 各尺寸下的角色选择页 ---');
@@ -228,6 +233,42 @@ async function main() {
   const phone = await runAt(send, '竖屏', 390, 844, true);
   ok('竖屏：8 张卡都在', phone.cards === 8, String(phone.cards));
   ok('竖屏：第一张卡可见', phone.firstCardTop >= 0, 'top=' + phone.firstCardTop);
+  // ★用户反馈「手机下看不到进入游戏的按钮」：按钮挪到网格上方后，
+  //   必须验证它在**首屏**（不滚动就能点到），而不是只验「DOM 里存在」。
+  ok('★竖屏：开始对局按钮在首屏内（无需滚动）',
+    phone.startBtnTop !== null && phone.startBtnTop >= 0 && phone.startBtnTop < phone.vh,
+    'btnTop=' + phone.startBtnTop + ' vh=' + phone.vh);
+  ok('★竖屏：开始对局按钮在第一张卡上方（抬头就能点）',
+    phone.startBtnTop !== null && phone.firstCardTop !== null && phone.startBtnTop < phone.firstCardTop,
+    'btnTop=' + phone.startBtnTop + ' firstCardTop=' + phone.firstCardTop);
+
+  // ★选择页形象必须是战场的像素小人，不是 AI 图。
+  //   逐点比对选择页 canvas 与 PLAYER_ART.paintScaled 的直接绘制结果；
+  //   只验「canvas 有像素」会把 AI 图误判成通过（那正是这次要修的 bug）。
+  const faceMatch = await evalJS(`(function(){
+    var PA = window.VS && window.VS.PLAYER_ART;
+    var PT = window.VS && window.VS.CharacterPortraits;
+    var C = window.VS && window.VS.CONST;
+    if (!PA || !PT || !C) return { err: 'NO_MODULE' };
+    var size = 160, bad = [];
+    C.CHARACTERS.forEach(function (c) {
+      var sel = document.createElement('canvas'); sel.width = sel.height = size;
+      PT.renderPortrait(sel, c.id, size);
+      var bat = document.createElement('canvas'); bat.width = bat.height = size;
+      var g = bat.getContext('2d');
+      PA.paintScaled(g, c.id, size/2, size/2, Math.max(1, Math.floor(size/16)));
+      var a = sel.getContext('2d').getImageData(0,0,size,size).data;
+      var b = g.getImageData(0,0,size,size).data;
+      for (var i = 0; i < a.length; i += 4) {
+        if (Math.abs(a[i]-b[i])+Math.abs(a[i+1]-b[i+1])+
+            Math.abs(a[i+2]-b[i+2])+Math.abs(a[i+3]-b[i+3]) > 12) { bad.push(c.id); break; }
+      }
+    });
+    return { n: C.CHARACTERS.length, bad: bad };
+  })()`);
+  ok('★8 个选择页头像都与战场像素小人逐点一致（不是 AI 图/兜底版）',
+    faceMatch && faceMatch.n === 8 && faceMatch.bad && faceMatch.bad.length === 0,
+    JSON.stringify(faceMatch));
 
   // ★内容超出时能不能滚到顶（这是 flex 居中溢出的第二个症状）
   const scrolled = await runAt(send, '矮窗口+滚到底再回顶', 1080, 580, false);

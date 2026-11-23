@@ -173,6 +173,17 @@ createApp({
       hallAchDone: 0,
       hallTalSpent: 0,
       hallTalTotal: 0,
+      mobDetail: null,   // 妖物图鉴详情（点击某一行后填入整条记录）
+
+      // ---------- 我的档案（第三十七轮：改成本机生涯 + 局志）----------
+      // 【为什么不再只显示服务器战绩】单人局根本不上报，游客更是连账号都没有 ——
+      //   玩家打了一下午，打开档案还是「0 局」，那不是数据不准，是**数据源不对**。
+      //   现在这份数据来自本机存档（progress.js 的 vs_codex），单人与联机都记。
+      career: {},        // 生涯汇总（见 progress.career）
+      runs: [],          // 局志列表（已算好显示文本，模板只 v-for）
+      spark: [],         // 近 12 局击杀柱状（h = 高度百分比）
+      runOpen: false,    // 「局志」明细浮层
+      runDetail: null,
       // 当前选中的模组 id。默认取「有进度的那个」，没有就按 MOD_IDS 顺序取第一个真剧情模组。
       // ★不能用 MOD_IDS[0]（那是 vanilla 自由模式，它没有 stages）——
       //   这样写会打开一个空列表，而且不报错，只是「弹层里什么都没有」。
@@ -233,6 +244,9 @@ createApp({
           no: st.no || (i + 1),
           name: st.name,
           epigraph: st.epigraph || '',
+          // ★缩略图认的是「真实地图 id」而不是剧情改名后的 mapName ——
+          //   图里的地形按 mapId 生成，显示名可以随模组换，图片不能跟着换。
+          mapId: st.mapId,
           mapName: CP.mapName(modId, st.mapId),
           minutes: Math.round(st.matchSec / 60),
           startCharName: CP.charName(modId, st.startChar),
@@ -371,6 +385,11 @@ createApp({
   created() {
     log('页面初始化 host=' + location.host);
 
+    // 我的档案先按本机存档填一次：登录/进大厅后会再刷。
+    // ★放在最前面而不是等 enterLobby：登录页也要能点开档案看一眼
+    //   （局志是纯本机数据，和登不登录无关）。
+    this.refreshCareer();
+
     // 恢复上次的游客昵称，省得每次重填
     this.guestNickname = localStorage.getItem(GUEST_KEY) || '';
 
@@ -457,6 +476,30 @@ createApp({
         },
         // 买一级天赋（测试点按不到按钮时走这条；UI 上仍然是真按钮）
         buyTal: function (id) { self.buyTal(id); },
+        // 妖物详情：测试断言「点开后真的有图有属性」，比扒 DOM 文本稳。
+        openMob: function (id) { self.openMob(id); },
+        closeMob: function () { self.closeMob(); },
+        get mobDetail() {
+          if (!self.mobDetail) return null;
+          const d = self.mobDetail;
+          return { id: d.id, name: d.name, hp: d.hp, speed: d.speed, dmg: d.dmg,
+            r: d.r, trait: d.trait, kills: d.kills, tierFull: d.tierFull, kindLabel: d.kindLabel };
+        },
+        // ---- 我的档案 / 局志（第三十七轮）----
+        // 断言要能读到「局数、局志条数、明细开了没」，靠扒 DOM 文本太脆。
+        get career() { return self.career; },
+        get runCount() { return self.runs.length; },
+        refreshCareer: function () { self.refreshCareer(); },
+        openRun: function (i) { self.openRun(i); },
+        closeRun: function () { self.closeRun(); },
+        get runOpen() { return self.runOpen; },
+        get runDetail() { return self.runDetail; },
+        // 以游客身份进大厅：档案卡在 <section v-else> 里，不登录根本不在 DOM 上，
+        // 自动化要量它就得先真的进大厅（走的是和点按钮完全同一条 enterAsGuest）。
+        enterAsGuest: function (nick) {
+          self.guestNickname = nick || '档案测试';
+          self.enterAsGuest();
+        },
         // 连接日志（新的在前）。测试脚本据此断言「界面真的把事件记下来了」，
         // 也是排查线上问题时唯一能拿到的完整时间线。
         get connLog() { return self.connLog.slice(); },
@@ -494,6 +537,64 @@ createApp({
   // 方法
   // ==========================================================
   methods: {
+
+    // 地图缩略图路径：tools/mapthumbs.js 按 mapId 出图，文件名与 id 一一对应。
+    // ★必须放 methods 而不是 computed —— 带参调用 computed 会白屏（项目踩过两次）。
+    mapThumb(id) {
+      return '/img/maps/' + id + '.png';
+    },
+
+    // 妖物立绘路径：tools/mobthumbs.js 按怪物 id 出图，素材取自游戏里的真实像素精灵。
+    // ★同样是带参方法，必须放 methods（放 computed 会白屏）。
+    mobThumb(id) {
+      return '/img/mobs/' + id + '.png';
+    },
+
+    // 立绘裂了时的兜底：一张带妖名首字的暗红 SVG，不出现浏览器的碎图图标。
+    mobThumbFallback(ev) {
+      const el = ev && ev.target;
+      if (!el || el.dataset.fb) return;
+      el.dataset.fb = '1';
+      const name = el.getAttribute('alt') || '?';
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="160" height="160">' +
+        '<rect width="160" height="160" fill="#2a2024"/>' +
+        '<text x="80" y="98" font-size="64" fill="#8a6a3a" text-anchor="middle">' +
+        name.charAt(0) + '</text></svg>';
+      el.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    },
+
+    // 点图鉴某一行 → 打开该妖物的详情浮层。
+    // ★从 hallMobs（已经算好的数组）里找，不去漫天找 const.js —— 模板只认 data。
+    openMob(id) {
+      const list = this.hallMobs || [];
+      for (let i = 0; i < list.length; i++) {
+        if (list[i].id === id) { this.mobDetail = list[i]; return; }
+      }
+    },
+
+    // 点遮罩空白处关闭。★vue.global.prod.js 没有 _withModifiers，
+    // 不能用 @click.self —— 只能自己比对 target/currentTarget（项目踩过）。
+    closeMobOnMask(ev) {
+      if (ev && ev.target === ev.currentTarget) this.mobDetail = null;
+    },
+
+    closeMob() {
+      this.mobDetail = null;
+    },
+
+    // 缩略图加载失败时的兜底：换成一张内嵌的纯色 SVG（带地图首字），
+    // 保证「图裂了」也不会出现浏览器那张难看的碎图图标。
+    mapThumbFallback(ev) {
+      const el = ev && ev.target;
+      if (!el || el.dataset.fb) return;
+      el.dataset.fb = '1';
+      const name = el.getAttribute('alt') || '?';
+      const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="240" height="150">' +
+        '<rect width="240" height="150" fill="#2a2024"/>' +
+        '<text x="120" y="88" font-size="48" fill="#8a6a3a" text-anchor="middle">' +
+        name.charAt(0) + '</text></svg>';
+      el.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+    },
 
     // ---------------- 通用请求封装 ----------------
     // 统一带上登录凭证；错误走 callback，不用 try/catch 做流程控制
@@ -748,6 +849,10 @@ createApp({
       this.self.nickname = info.nickname || '';
       this.view = 'lobby';
       this.wsRetry = 0;
+
+      // 从对局页返回大厅是整页重载，存档已是最新 —— 这里再刷一次是给
+      // 「同一页面里先登录后进大厅」的路径用的（保险，成本只是一次数组重算）。
+      this.refreshCareer();
 
       this.saveProfile();
       this.connectWs();
@@ -1377,7 +1482,12 @@ createApp({
           name: m.name,
           // 只给「精怪 / 妖王」挂标签：绝大多数怪都是寻常妖物，
           // 每行都挂一个标签等于没有信息，还会把每行挤得更窄（手机上看得很明显）。
-          tierLabel: m.tier === 'normal' ? '' : (X.TIER_LABEL[m.tier] || ''),
+          tierLabel: (m.tier === 'normal' || m.tier === 'small') ? '' : (X.TIER_LABEL[m.tier] || ''),
+          // 详情面板用：完整档位名 / 行为类别 / 基础属性 / 中文特性
+          tierFull: X.TIER_LABEL[m.tier] || '寻常妖物',
+          kindLabel: X.KIND_LABEL[m.kind] || '近身',
+          hp: m.hp, speed: m.speed, dmg: m.dmg, r: m.r,
+          trait: m.trait || '',
           kills: k
         });
       }
@@ -1452,6 +1562,156 @@ createApp({
       }
       log('山海谱升级：' + id + ' 花了 ' + r.cost + ' 灵玉，余额 ' + P.meta.jade);
       this.refreshHall();
+    },
+
+    // ---------------- 我的档案（本机生涯 + 局志） ----------------
+    // 【为什么是这里算而不是模板里算】模板里带参调用会白屏（项目踩过），
+    // 而且局志每一行要拼「第 N 局 / 模式 / 结果 / 时长」这些派生文本，
+    // 一次算好塞进 data，模板只负责 v-for 与取值。
+    refreshCareer() {
+      const P = window.VS_PROGRESS;
+      if (!P) {
+        log('档案数据没加载上（VS_PROGRESS 缺失）');
+        return;
+      }
+      this.career = P.career();
+
+      const hist = P.history();
+      const rows = [];
+      for (let i = 0; i < hist.length && i < 20; i++) {
+        rows.push(this.buildRunRow(hist[i], i));
+      }
+      this.runs = rows;
+
+      // 近 12 局击杀柱状：**最新的排最右**，读起来像时间轴从左到右长出来。
+      // 最高那根给 100%，其余按比例；最低也给 6%，否则「0 击杀」的局会看不见。
+      const n = Math.min(12, hist.length);
+      let max = 1;
+      for (let i = 0; i < n; i++) {
+        const k = hist[i].kills || 0;
+        if (k > max) max = k;
+      }
+      const bars = [];
+      for (let i = n - 1; i >= 0; i--) {
+        const k = hist[i].kills || 0;
+        bars.push({ k: k, h: Math.max(6, Math.round(k / max * 100)) });
+      }
+      this.spark = bars;
+    },
+
+    // 一行局志的显示数据（列表与明细共用）
+    buildRunRow(e, idx) {
+      let modeText = '单人';
+      if (e.mode === 'online') modeText = '联机';
+      else if (e.mode === 'story') modeText = '剧情';
+
+      // 三种结局与结算页用同一套说法：通关 / 未通过 / 阵亡
+      let resText = '阵亡';
+      let resCls = 'lose';
+      if (e.state === 'won') { resText = '通关'; resCls = 'win'; }
+      else if (e.state === 'failed') { resText = '未通过'; resCls = 'fail'; }
+
+      return {
+        i: idx,
+        mode: e.mode || 'solo',
+        modeText: modeText,
+        resText: resText,
+        resCls: resCls,
+        wave: e.wave || 0,
+        kills: e.kills || 0,
+        level: e.level || 0,
+        timeText: this.formatSec(e.sec),
+        dateText: this.stampText(e.t),
+        raw: e
+      };
+    },
+
+    // 打开「局志」明细：把伤害构成算成百分比、武器名字与等级摊平
+    openRun(idx) {
+      const row = this.runs[idx];
+      if (!row) return;
+      const e = row.raw || {};
+
+      const dmgRows = [];
+      let sum = 0;
+      const dl = e.dmgList || [];
+      for (let i = 0; i < dl.length; i++) sum += dl[i][1] || 0;
+      const base = sum || 1;
+      for (let i = 0; i < dl.length; i++) {
+        dmgRows.push({
+          name: dl[i][0],
+          dmg: dl[i][1],
+          pct: Math.max(1, Math.round((dl[i][1] || 0) / base * 100))
+        });
+      }
+
+      const ws = [];
+      const wl = e.weapons || [];
+      for (let i = 0; i < wl.length; i++) ws.push({ name: wl[i][0], level: wl[i][1] });
+
+      this.runDetail = {
+        i: row.i,
+        no: row.i + 1,
+        modeText: row.modeText,
+        resText: row.resText,
+        resCls: row.resCls,
+        dateText: row.dateText,
+        char: e.char || '—',
+        map: e.map || '—',
+        diff: e.diff || '普通',
+        timeText: this.formatSec(e.sec),
+        wave: e.wave || 0,
+        level: e.level || 0,
+        kills: e.kills || 0,
+        gold: e.gold || 0,
+        dmg: e.dmg || 0,
+        jade: e.jade || 0,
+        combos: e.combos || 0,
+        evos: e.evos || 0,
+        shrines: e.shrines || 0,
+        challengers: e.challengers || 0,
+        dmgRows: dmgRows,
+        weapons: ws,
+        ach: e.ach || []
+      };
+      this.runOpen = true;
+    },
+
+    closeRun() {
+      this.runOpen = false;
+      this.runDetail = null;
+    },
+
+    // 累计时长用「h时mm分」：档案里放 1:42:08 这种冒号格式在像素字体下太挤
+    formatLong(sec) {
+      const n = Math.max(0, Math.floor(Number(sec) || 0));
+      const h = Math.floor(n / 3600);
+      const m = Math.floor((n % 3600) / 60);
+      if (h > 0) return h + '时' + (m < 10 ? '0' + m : m) + '分';
+      return m + '分';
+    },
+
+    // 千分位：累计金币/伤害动辄五位数，不加分隔符读不出量级
+    group3(n) {
+      const v = Math.max(0, Math.round(Number(n) || 0));
+      const s = String(v);
+      let out = '';
+      for (let i = 0; i < s.length; i++) {
+        if (i > 0 && (s.length - i) % 3 === 0) out += ',';
+        out += s[i];
+      }
+      return out;
+    },
+
+    // 局志的时间戳：今天的只显示时分，其余显示 月-日 时:分
+    stampText(t) {
+      const d = new Date(Number(t) || 0);
+      const p = function (n) { return (n < 10 ? '0' : '') + n; };
+      const hm = p(d.getHours()) + ':' + p(d.getMinutes());
+      const now = new Date();
+      if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() &&
+        d.getDate() === now.getDate()) return '今天 ' + hm;
+      return (d.getMonth() + 1) + '-' + d.getDate() + ' ' + hm;
     },
 
     switchStoryMod(id) {

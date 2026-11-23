@@ -201,11 +201,20 @@ async function main() {
   // 连点同一项到满级，再点一次应当被拒且不改数据。
   // ★先把灵玉补足：不补的话「点满」这一步会因为钱不够中途停下，
   //   断言就变成「检验我的存款」，而不是「检验满级拦截」。
-  await P.eval('(function(){ var P = window.VS_PROGRESS; P.meta.jade = 500; P.saveMeta(); return true; })()');
-  await P.eval('VS_LOBBY.buyTal("hand"); VS_LOBBY.buyTal("hand");');
+  // ★上限已提到 8：这里按天赋表的 max 循环点，不再写死 3 —— 写死数字会让
+  //   以后每次调上限都要改测试，而且「点到 3 就以为满了」正是这轮要修的假绿。
+  const talDef = JSON.parse((await P.eval('JSON.stringify(VS.CODEX.TALENT_MAP.hand)')) || '{}');
+  ok('★天赋表价目与上限配套（costs 长度 === max）',
+    !!(talDef && talDef.costs && talDef.costs.length === talDef.max), JSON.stringify(talDef));
+  await P.eval('(function(){ var P = window.VS_PROGRESS; P.meta.jade = 20000; P.saveMeta(); return true; })()');
+  for (let i = 0; i < talDef.max + 2; i++) await P.eval('VS_LOBBY.buyTal("hand")');
   await sleep(250);
   const full = JSON.parse((await P.eval('JSON.stringify({lv: VS_PROGRESS.meta.tal.hand, jade: VS_PROGRESS.meta.jade})')) || '{}');
-  ok('★能连点到满级（Lv' + full.lv + '）', full.lv === 3, '灵玉余 ' + full.jade);
+  ok('★能连点到新上限（Lv' + full.lv + '/' + talDef.max + '）', full.lv === talDef.max, '灵玉余 ' + full.jade);
+  // ★高等级加成真的进模拟：Lv8 拾取倍率应是 8×15%，不是被夹回 3 级
+  const bonus = JSON.parse((await P.eval('JSON.stringify(VS.CODEX.talBonus({hand: 8}))')) || '{}');
+  ok('★Lv8 加成按 8 级算（不是偷偷夹到旧上限）',
+    Math.abs(bonus.pickupMul - 1.2) < 1e-9, JSON.stringify(bonus));
   await P.eval('VS_LOBBY.buyTal("hand")');
   await sleep(250);
   const full2 = JSON.parse((await P.eval('JSON.stringify({lv: VS_PROGRESS.meta.tal.hand, jade: VS_PROGRESS.meta.jade})')) || '{}');

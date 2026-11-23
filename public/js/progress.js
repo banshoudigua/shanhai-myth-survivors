@@ -51,13 +51,23 @@
       v: 1,
       runs: 0, wins: 0, kills: 0, gold: 0, dmg: 0, challengers: 0,
       bestWave: 0, bestKills: 0,
+      bestLevel: 0,   // 单局最高等级（生涯）
+      playSec: 0,     // 累计游玩秒数（单人 + 联机）
       mobs: {},       // { 怪 id: 击杀数 }  —— 图鉴
       weapons: {},    // { 武器 id: { u: 使用局数, w: 通关局数, best: 单局最高等级 } }
       ach: {},        // { 成就 id: 1 }
       chars: {},      // { 角色 id: 使用局数 }
-      maps: {}        // { 地图 id: 使用局数 }
+      maps: {},       // { 地图 id: 使用局数 }
+      // 每局明细（第三十七轮 · 局志）：最近 RUN_KEEP 局，最新的在**前面**。
+      // ★为什么存本机而不是服务器：这游戏的库每次发布都可能回滚（见 server 的
+      //   「会话不依赖库」），单人局也根本不上报；本机存档才是「一定算得准」的那份。
+      history: []
     };
   }
+
+  // 局志最多留多少局。再多也没人看，而且 localStorage 有 5MB 上限 ——
+  // 一条记录约 300~700 字节，60 局撑死 40KB，留够余量。
+  const RUN_KEEP = 60;
 
   function emptyMeta() {
     return { v: 1, jade: 0, totalJade: 0, tal: {} };
@@ -67,7 +77,8 @@
   function normCodex(raw) {
     const out = emptyCodex();
     if (!raw) return out;
-    const nums = ['runs', 'wins', 'kills', 'gold', 'dmg', 'challengers', 'bestWave', 'bestKills'];
+    const nums = ['runs', 'wins', 'kills', 'gold', 'dmg', 'challengers', 'bestWave', 'bestKills',
+      'bestLevel', 'playSec'];
     for (let i = 0; i < nums.length; i++) {
       const k = nums[i];
       if (typeof raw[k] === 'number' && raw[k] >= 0) out[k] = Math.floor(raw[k]);
@@ -77,6 +88,8 @@
       const k = bags[i];
       if (raw[k] && typeof raw[k] === 'object') out[k] = raw[k];
     }
+    // 局志：老存档没有这个字段 → 空数组（不伪造历史）。
+    if (raw.history && raw.history.length) out.history = raw.history.slice(0, RUN_KEEP);
     return out;
   }
 
@@ -143,8 +156,13 @@
   // 返回 { jade, newAch:[成就定义], codex, meta }。
   // ★先把「本局」并进累计，再用累计 + 本局去判定成就 —— 顺序反了会出现
   //   「这一局明明达标了，但成就要等下一局才亮」。
-  function settle(summary) {
+  //
+  // ★opts.online：联机局。联机世界由服务端推进、结算包也在服务端，
+  //   这里**只记局志、不给灵玉与成就**（灵玉是单机/剧情的成长线，
+  //   让联机也发就等于「开黑刷灵玉」；排行榜是另一套，走服务器）。
+  function settle(summary, opts) {
     const s = summary || {};
+    const online = !!(opts && opts.online);
     const before = totals();
 
     codex.runs += 1;
@@ -179,10 +197,17 @@
     if (s.charId) codex.chars[s.charId] = (codex.chars[s.charId] || 0) + 1;
     if (s.mapId) codex.maps[s.mapId] = (codex.maps[s.mapId] || 0) + 1;
 
-    // 灵玉
-    const jade = CODEX ? CODEX.jadeOf(s) : 0;
-    meta.jade += jade;
-    meta.totalJade += jade;
+    // 生涯汇总：最高等级 / 累计时长（我的档案要显示，不能只有「最高击杀」）
+    if ((s.level || 0) > codex.bestLevel) codex.bestLevel = s.level || 0;
+    codex.playSec += Math.max(0, Math.round(s.time || 0));
+
+    // 灵玉（联机不发）
+    let jade = 0;
+    if (!online) {
+      jade = CODEX ? CODEX.jadeOf(s) : 0;
+      meta.jade += jade;
+      meta.totalJade += jade;
+    }
 
     // 成就：判定用「累计（已含本局）+ 本局」
     const after = totals();
@@ -198,6 +223,54 @@
         }
       }
     }
+
+    // ---------- 局志：这一局的全部最终数值 ----------
+    // 只存**显示需要的东西**（名字而不是 id、伤害只留前 6 项、武器前 8 把）。
+    // 一条 300~700 字节，60 局约 40KB —— 以后加字段别把 killsBy 全量塞进来。
+    const names = CODEX ? CODEX : null;
+    const dmgTop = [];
+    const dl = s.dmgList || [];
+    for (let i = 0; i < dl.length && i < 6; i++) {
+      const id = dl[i].src || '';
+      dmgTop.push([names ? names.srcLabel(id) : id, Math.round(dl[i].dmg || 0)]);
+    }
+    const wTop = [];
+    const wl2 = s.weapons || [];
+    for (let i = 0; i < wl2.length && i < 8; i++) {
+      wTop.push([names ? names.srcLabel(wl2[i].id) : wl2[i].id, wl2[i].level || 0]);
+    }
+    const achNames = [];
+    for (let i = 0; i < newAch.length; i++) achNames.push(newAch[i].name);
+
+    let state = 'dead';
+    if (s.won) state = 'won';
+    else if (s.state) state = s.state;          // 'failed'（剧情时间到）/ 'dead'
+
+    const entry = {
+      t: Date.now(),
+      mode: online ? 'online' : (s.campaign ? 'story' : 'solo'),
+      won: s.won ? 1 : 0,
+      state: state,
+      char: s.charName || s.charId || '',
+      map: s.mapName || s.mapId || '',
+      diff: s.diffName || '',
+      sec: Math.round(s.time || 0),
+      wave: s.wave || 0,
+      level: s.level || 0,
+      kills: s.kills || 0,
+      gold: s.gold || 0,
+      dmg: Math.round(s.dmgDealt || 0),
+      jade: jade,
+      ach: achNames,
+      dmgList: dmgTop,
+      weapons: wTop,
+      combos: s.combos || 0,
+      evos: s.evolutions || 0,
+      shrines: s.shrineKinds || 0,
+      challengers: s.challengers || 0
+    };
+    codex.history.unshift(entry);                 // 最新的在最前面
+    if (codex.history.length > RUN_KEEP) codex.history.length = RUN_KEEP;
 
     saveCodex();
     saveMeta();
@@ -232,12 +305,57 @@
     return out;
   }
 
+  // ---------- 生涯汇总（我的档案用） ----------
+  // 与 totals() 的区别：totals 是给成就判定用的「够不够」，这里是给玩家看的
+  // 「打成什么样」—— 多了胜率、场均击杀、最高等级、累计时长、天赋级数。
+  function career() {
+    const t = totals();
+    let talTotal = 0;
+    if (CODEX) {
+      for (let i = 0; i < CODEX.TALENTS.length; i++) {
+        let lv = meta.tal[CODEX.TALENTS[i].id] || 0;
+        if (lv > CODEX.TALENTS[i].max) lv = CODEX.TALENTS[i].max;
+        talTotal += lv;
+      }
+    }
+    return {
+      runs: codex.runs,
+      wins: codex.wins,
+      kills: codex.kills,
+      gold: codex.gold,
+      dmg: codex.dmg,
+      playSec: codex.playSec,
+      bestWave: codex.bestWave,
+      bestKills: codex.bestKills,
+      bestLevel: codex.bestLevel,
+      challengers: codex.challengers,
+      mobKinds: t.mobKinds,
+      mastered: t.mastered,
+      // 分母也一起给：界面要写「3 / 15」，模板里算不了（别在模板里查表）
+      mobTotal: CODEX ? CODEX.MOB_LIST.length : 0,
+      jade: meta.jade,
+      jadeTotal: meta.totalJade,
+      talTotal: talTotal,
+      // 胜率按「局数」算；0 局时给 0，别显示 NaN
+      winRate: codex.runs ? Math.round(codex.wins / codex.runs * 100) : 0,
+      avgKills: codex.runs ? Math.round(codex.kills / codex.runs) : 0
+    };
+  }
+
+  // 局志（最新的在前）。返回的就是存档里的数组，界面只读不写。
+  function history() {
+    return codex.history || [];
+  }
+
   root.VS_PROGRESS = {
     codex: codex,
     meta: meta,
+    RUN_KEEP: RUN_KEEP,
     saveCodex: saveCodex,
     saveMeta: saveMeta,
     totals: totals,
+    career: career,
+    history: history,
     unlockedList: unlockedList,
     settle: settle,
     buyTalent: buyTalent,

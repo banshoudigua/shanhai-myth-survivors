@@ -1816,3 +1816,681 @@ button:disabled {
   border-radius: 9px;
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================
+   我的档案 · 局志（第三十七轮改版）
+   ------------------------------------------------------------
+   设计取向：**竹简铭卷**。
+     · 不用六个等高方盒子（那是「通用后台卡片」的脸），改成
+       「主数字带 + 指标列 + 时间轴柱状」，靠字号与分隔线分层级；
+     · 纹章图只放在头部，卡面用两层极淡的渐变 + 编织纹做质感（零素材、不占带宽）；
+     · 右侧是局志，行像竹简：序号 → 模式 → 战果 → 时长 → 结局，越靠右越轻。
+   配色只用项目既有的暗红/琥珀/玉青/冷灰，**不引入紫与紫蓝**。
+   ============================================================ */
+
+/* 下区：档案占主列并跨两行，在线与排行叠在右列 */
+.hall-lower {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.profile-card {
+  grid-row: span 2;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 两层极淡的氛围色：左上琥珀暖光、右下暗红余韵 */
+.profile-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(115% 85% at 8% -12%, rgba(223, 164, 38, 0.10), rgba(0, 0, 0, 0) 58%),
+    radial-gradient(85% 70% at 102% 108%, rgba(163, 35, 35, 0.16), rgba(0, 0, 0, 0) 62%);
+}
+
+/* 编织纹：两向各一条 7px 的极细线，压在 2% 的透明度上只当「纸的纹理」用 */
+.profile-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.022) 0 1px, rgba(0, 0, 0, 0) 1px 7px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, rgba(0, 0, 0, 0) 1px 7px);
+}
+
+.profile-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---------- 头部：纹章 + 名字 ---------- */
+.pf-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.pf-crest-wrap {
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(223, 164, 38, 0.26);
+  background: radial-gradient(circle at 50% 42%, rgba(223, 164, 38, 0.20), rgba(0, 0, 0, 0) 70%);
+}
+
+.pf-crest {
+  width: 56px;
+  height: 56px;
+  /* 像素图放大必须用最近邻，否则纹样会被插值糊成一团 */
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.6));
+}
+
+.pf-id { min-width: 0; }
+
+.pf-name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.pf-name {
+  font-size: 20px;
+  color: var(--text);
+  letter-spacing: 0.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pf-sub {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+.pf-sub b {
+  font-weight: 400;
+  color: var(--amber);
+}
+
+.pf-dot { opacity: 0.45; }
+
+/* ---------- 主体：左数字 / 右局志 ---------- */
+.pf-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
+  gap: 16px;
+}
+
+/* 主数字：三个大数并排，用左侧细线分隔——不用方框 */
+.pf-hero {
+  display: flex;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.pf-hero-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-left: 12px;
+}
+
+.pf-hero-cell:first-child { padding-left: 0; }
+
+.pf-hero-cell + .pf-hero-cell {
+  border-left: 1px solid var(--border-soft);
+}
+
+.pf-num {
+  display: block;
+  font-family: 'VT323', var(--font-pixel);
+  font-size: 34px;
+  line-height: 1.02;
+  letter-spacing: 1px;
+  color: var(--amber);
+  text-shadow: 0 1px 6px rgba(223, 164, 38, 0.18);
+}
+
+.pf-num i {
+  font-style: normal;
+  font-size: 16px;
+  margin-left: 1px;
+  color: var(--text-dim);
+  text-shadow: none;
+}
+
+.pf-lbl {
+  display: block;
+  margin-top: 4px;
+  font-size: 11.5px;
+  letter-spacing: 0.5px;
+  color: var(--text-mute);
+}
+
+/* 指标列：2 行 3 列，每格左边一条细线，读起来像铭文的列 */
+.pf-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 0;
+  margin-top: 12px;
+}
+
+.pf-metric {
+  padding-left: 12px;
+  border-left: 1px solid var(--border-soft);
+}
+
+.m-v {
+  display: block;
+  font-size: 15.5px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.m-v i {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.m-k {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+/* 近十二局击杀：柱状时间轴 */
+.pf-spark { margin-top: 14px; }
+
+.sp-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  color: var(--text-mute);
+}
+
+.sp-note { opacity: 0.7; }
+
+.sp-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 46px;
+  padding-top: 4px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.sp-bars i {
+  flex: 1 1 0;
+  min-height: 2px;
+  border-radius: 1px 1px 0 0;
+  background: linear-gradient(180deg, rgba(223, 164, 38, 0.95), rgba(163, 35, 35, 0.6));
+  opacity: 0.82;
+}
+
+.pf-empty {
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--text-mute);
+}
+
+/* ---------- 右：局志列表 ---------- */
+.pf-runs {
+  border-left: 1px solid var(--border-soft);
+  padding-left: 14px;
+  min-width: 0;
+}
+
+.pf-runs-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.pf-runs-hint {
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.pf-run-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* 20 行也不会把卡片撑长：超出就在这里滚 */
+  max-height: 246px;
+  overflow-y: auto;
+}
+
+.pf-run {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex: 0 0 auto;
+  padding: 8px 10px;
+  text-align: left;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: var(--text-dim);
+  background: rgba(34, 39, 46, 0.72);
+  border: 1px solid rgba(49, 56, 66, 0.9);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.15s;
+}
+
+.pf-run:hover {
+  border-color: rgba(223, 164, 38, 0.5);
+  background: var(--panel-3);
+  transform: translateX(2px);
+}
+
+.pf-run:active { transform: translateX(2px) scale(0.995); }
+
+.pr-no {
+  flex: 0 0 22px;
+  font-family: 'VT323', var(--font-pixel);
+  font-size: 15px;
+  color: var(--text-mute);
+}
+
+.pr-mode {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  font-size: 10.5px;
+  line-height: 15px;
+  border-radius: 4px;
+  border: 1px solid;
+}
+
+/* 三种模式用项目既有的三色：玉青 / 琥珀 / 冷灰（都不是紫系） */
+.pr-mode.m-solo { color: #5fe0b0; border-color: rgba(95, 224, 176, 0.34); }
+.pr-mode.m-story { color: var(--amber); border-color: rgba(223, 164, 38, 0.4); }
+.pr-mode.m-online { color: #a8b6c4; border-color: rgba(168, 182, 196, 0.34); }
+
+.pr-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pr-time {
+  flex: 0 0 auto;
+  color: var(--text-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+.pr-res {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  font-size: 11px;
+  line-height: 16px;
+  border-radius: 4px;
+}
+
+.pr-res.win { color: #1a1410; background: var(--amber); }
+.pr-res.lose { color: #e0b9b9; background: rgba(163, 35, 35, 0.3); }
+.pr-res.fail { color: #f0d3a3; background: rgba(223, 164, 38, 0.16); }
+
+.pf-run-empty {
+  padding: 14px 4px;
+  font-size: 12px;
+  line-height: 1.8;
+  color: var(--text-mute);
+}
+
+.pf-run-empty .dim { opacity: 0.7; }
+
+/* ---------- 底部 ---------- */
+.pf-foot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+}
+
+.pf-acc {
+  flex: 1 1 auto;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--text-mute);
+}
+
+.pf-pwd { flex: 0 0 auto; }
+
+/* ============================================================
+   局志浮层
+   ============================================================ */
+.runmask {
+  position: fixed;
+  inset: 0;
+  z-index: 66;
+  display: flex;
+  padding: 18px;
+  background: rgba(8, 8, 10, 0.74);
+  overflow-y: auto;
+}
+
+.runbox {
+  /* 居中靠 margin:auto，理由同 .hall-box */
+  margin: auto;
+  width: min(520px, 100%);
+  max-height: calc(100vh - 36px);
+  overflow-y: auto;
+  padding: 16px 16px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+}
+
+.run-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.run-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.run-title em {
+  font-style: normal;
+  margin-left: 6px;
+  color: var(--amber);
+}
+
+.run-res {
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 11.5px;
+  line-height: 18px;
+  border-radius: 5px;
+  vertical-align: 2px;
+}
+
+.run-res.win { color: #1a1410; background: var(--amber); }
+.run-res.lose { color: #e0b9b9; background: rgba(163, 35, 35, 0.32); }
+.run-res.fail { color: #f0d3a3; background: rgba(223, 164, 38, 0.18); }
+
+.run-close { flex: 0 0 auto; }
+
+.run-meta {
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-mute);
+}
+
+.run-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  background: var(--border-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.rg-item {
+  padding: 10px 8px;
+  text-align: center;
+  background: var(--panel);
+}
+
+.rg-item b {
+  display: block;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--amber);
+  font-variant-numeric: tabular-nums;
+}
+
+.rg-item span {
+  display: block;
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-mute);
+}
+
+.run-sec { margin-top: 14px; }
+
+.run-sec-h {
+  margin-bottom: 7px;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: var(--text-dim);
+}
+
+.rd-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.rd-name {
+  flex: 0 0 86px;
+  font-size: 12px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rd-bar {
+  flex: 1 1 auto;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--panel-3);
+  overflow: hidden;
+}
+
+.rd-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #9c3129 0%, var(--amber) 100%);
+}
+
+.rd-num {
+  flex: 0 0 auto;
+  min-width: 82px;
+  text-align: right;
+  font-size: 11.5px;
+  color: var(--text-mute);
+  font-variant-numeric: tabular-nums;
+}
+
+.rd-num em {
+  font-style: normal;
+  margin-left: 6px;
+  color: var(--amber);
+}
+
+.rw-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rw-chip {
+  padding: 3px 8px;
+  font-size: 11.5px;
+  color: var(--text);
+  background: var(--panel-3);
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+}
+
+.rw-chip em {
+  font-style: normal;
+  margin-left: 5px;
+  color: var(--amber);
+}
+
+.rw-chip.dim { color: var(--text-dim); }
+.rw-chip.ach { color: #f0d3a3; border-color: rgba(223, 164, 38, 0.35); }
+
+.run-jade {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 12.5px;
+  color: var(--text-dim);
+}
+
+.run-jade b { color: var(--amber); font-size: 15px; }
+
+.run-tip {
+  margin: 14px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
+  font-size: 11.5px;
+  color: var(--text-mute);
+}
+
+/* ---------- 窄屏 ---------- */
+@media (max-width: 980px) {
+  .hall-lower { grid-template-columns: minmax(0, 1fr); }
+  .profile-card { grid-row: auto; }
+  .pf-run-list { max-height: 260px; }
+}
+
+@media (max-width: 620px) {
+  .pf-body { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .pf-runs {
+    border-left: 0;
+    padding-left: 0;
+    border-top: 1px solid var(--border-soft);
+    padding-top: 12px;
+  }
+  .pf-num { font-size: 28px; }
+  .pf-name { font-size: 18px; }
+  .pf-crest-wrap { width: 56px; height: 56px; }
+  .pf-crest { width: 48px; height: 48px; }
+  .runmask { padding: 10px; }
+  .runbox { padding: 13px 12px 12px; max-height: calc(100vh - 20px); }
+  .run-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rd-name { flex: 0 0 64px; }
+  .rd-num { min-width: 70px; }
+}
+
+/* 右列（在线 + 排行）平分档案卡的高度：
+   不给它跨两行的话，档案卡跨两行会把右列底部空出一大块（第一版就是这样）。 */
+.hall-side {
+  grid-row: span 2;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.hall-side .card {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  /* 基础样式里有 `.card + .card { margin-top:16px }`，这里已经有 gap 了，去掉避免双倍间距 */
+  margin-top: 0;
+}
+
+.hall-side .card .list,
+.hall-side .card .empty {
+  flex: 1 1 auto;
+}
+
+/* 名字上方的小标签：给卡片一个身份标题（原来只有 .card-title 那种红竖条标题，
+   而这张卡的头是纹章+名字，硬塞标题条会显得头重） */
+.pf-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 3px;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--text-mute);
+}
+
+.pf-src {
+  padding: 0 5px;
+  font-size: 10px;
+  line-height: 15px;
+  letter-spacing: 0;
+  color: var(--text-dim);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+}
+
+/* 柱状：定宽 + 左对齐。用 flex:1 平分会让「只有 3 局」时变成三根大方块，
+   看起来像进度条而不是趋势。 */
+.sp-bars i {
+  flex: 0 1 26px;
+  max-width: 26px;
+}
+
+@media (max-width: 980px) {
+  .hall-side {
+    grid-row: auto;
+    /* 单列时右列两卡不必拉高，按内容排更自然 */
+    display: block;
+  }
+  .hall-side .card + .card { margin-top: 16px; }
+}
+
+/* 右列要和左卡同高：.hall-lower 是 align-items:start，不显式 stretch 会短一截（实测差 11px） */
+.hall-side { align-self: stretch; }
+
+/* 右两卡的「空状态」垂直居中：拉高之后文字贴顶会显得上面空、下面更空 */
+.hall-side .card .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 模式章定宽：不定宽时「联机/剧情/单人」三个两字词宽度不同，
+   下面「第 N 波」的起点会参差不齐（手机上一眼就看出来） */
+.pr-mode {
+  min-width: 40px;
+  text-align: center;
+}

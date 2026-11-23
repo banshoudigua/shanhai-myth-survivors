@@ -4179,7 +4179,7 @@ function testRangeGrowth() {
   const r1 = C.weaponStats(fake, 1).range;
   const r8 = C.weaponStats(fake, 8).range;
   expect('★武器 1→8 级的范围至少长到 1.75 倍（4% 只有 1.28、8% 只有 1.56，'
-    + '五阿哥实测升一级仍看不出；第六十七轮提到 12%/级 = 满级 1.84）',
+    + '实测升一级仍看不出；第六十七轮提到 12%/级 = 满级 1.84）',
     r8 / r1 >= 1.75,
     '1 级=' + r1.toFixed(1) + ' 8 级=' + r8.toFixed(1) + ' 倍=' + (r8 / r1).toFixed(3));
   // 钉「每级跳一档」：相邻两级的差要足够大（12% 底值），不然「逐级升级」还是看不见。

@@ -709,47 +709,143 @@ body.game-body {
 }
 
 /* ============================================================
-   悬浮提示（波次 / Boss 来袭）
-   ============================================================ */
+   战况记录（原「悬浮提示」）—— 右下角常驻，可回看
+   ============================================================
+   ★原来这里是 .toast-wrap：居中贴在 top:152px，每条 2.4 秒后删掉。
+     两个毛病叠在一起 —— ① 一屏能堆 4~5 条长文，把战斗画面正中间盖死；
+     ② 想回看「刚才那条写了什么」时它已经没了。
+     现在：整块挪到右下角，宽高都受限（只占角上一小块），内容只进不删，
+     列表可滚动回看。默认展开；玩家可自行折叠，折叠态仍留一条最新摘要。
+   ★z-index 3：与 .hud-slots 同层，压在战场之上；但 .slot-card(3) 与
+     .spec-dock(6) 在其后 / 更高，说明卡与观战条仍可正常盖住它。 */
 
-.toast-wrap {
+.log-panel {
   position: absolute;
-  top: 152px;
-  left: 0;
-  right: 0;
+  right: 18px;
+  bottom: 16px;
+  z-index: 3;
   display: flex;
   flex-direction: column;
+  width: min(360px, 34vw);
+  max-height: min(38vh, 320px);
+  pointer-events: auto;             /* #hud 整体不吃事件，面板要单独打开才能滚动/折叠 */
+  background: rgba(16, 19, 23, 0.9);
+  border: 1px solid rgba(223, 164, 38, 0.38);
+  border-radius: 8px;
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+/* 调试浮层也占右下角：开着 ?debug=1 时把记录上移，两者不要叠一起 */
+.log-panel.debug {
+  bottom: 132px;
+}
+
+.log-head {
+  flex: 0 0 auto;
+  display: flex;
   align-items: center;
-  gap: 7px;
-  pointer-events: none;
-}
-
-.toast {
-  padding: 7px 18px;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 1px;
-  color: #ffe6a8;
-  background: rgba(18, 21, 25, 0.88);
-  border: 1px solid rgba(223, 164, 38, 0.45);
-  border-radius: 999px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
-  animation: toastIn 0.28s cubic-bezier(0.22, 1.2, 0.4, 1);
-}
-
-.toast.boss {
-  color: #ffd0d0;
-  border-color: rgba(201, 58, 58, 0.75);
-  background: rgba(60, 12, 18, 0.92);
+  gap: 8px;
+  width: 100%;
+  min-height: 44px;                 /* 触摸目标 ≥44px */
+  padding: 0 10px;
+  border: 0;
+  border-bottom: 1px solid rgba(223, 164, 38, 0.25);
+  background: linear-gradient(180deg, rgba(52, 30, 16, 0.96), rgba(30, 20, 14, 0.96));
+  color: #ffe0a0;
+  font-size: 12px;
   font-weight: 700;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 0 20px rgba(201, 58, 58, 0.4);
+  letter-spacing: 1px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.log-panel.folded .log-head {
+  border-bottom: 0;
+}
+
+.lg-ico {
+  color: #dfa426;
+  font-size: 14px;
+}
+
+.lg-title {
+  flex: 1 1 auto;
+}
+
+.lg-count {
+  min-width: 22px;
+  padding: 1px 5px;
+  border-radius: 9px;
+  background: rgba(223, 164, 38, 0.18);
+  color: #ffcb63;
+  font-size: 11px;
+  text-align: center;
+}
+
+.lg-arrow {
+  color: #c9a75a;
+  font-size: 12px;
+}
+
+.log-list {
+  flex: 1 1 auto;
+  min-height: 0;                    /* flex 子项默认 min-height:auto 会撑破 max-height */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 6px 6px;
+}
+
+.log-row {
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  padding: 4px 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  line-height: 1.55;
+  color: #cbd2da;
+  word-break: break-word;
+}
+
+.log-row:last-child {
+  border-bottom: 0;
+}
+
+.lg-time {
+  flex: 0 0 auto;
+  color: #7f8a97;
+  font-size: 10px;
+}
+
+.lg-text {
+  flex: 1 1 auto;
+}
+
+/* 重要事件（Boss / 机制开窗）保留原来的红调，但在右下角不再放大加粗刷屏 */
+.log-row.boss {
+  color: #ffb9b9;
+}
+
+.log-row.boss .lg-time {
+  color: #b57777;
+}
+
+/* 折叠态的最新摘要：单行截断，点开看全部 */
+.log-peek {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  color: #d8b878;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes toastIn {
   from { opacity: 0; transform: translateY(-10px) scale(0.96); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 /* ============================================================
    第 4 层：全屏遮罩（角色选择 / 升级 / 暂停 / 结算）
    ============================================================ */
@@ -2651,6 +2747,23 @@ body.game-body {
     line-height: 1.5;
     padding: 5px 7px;
     max-width: 62vw;
+  }
+
+  /* ---------- 战况记录：窄屏让开左下技能区 ----------
+     ★桌面在 right:18 bottom:16，窄屏技能区是「通栏贴底」的（max-width:100vw-20px），
+       所以不能放在 bottom:16 —— 会被技能格盖住。抬到技能区上方，并把宽度收到
+       62vw 以内，给左边的技能角标留位置。
+       ★开着 ?debug=1 时基础规则已经上移 132px，这里用更靠上的值覆盖。 */
+  .log-panel {
+    width: min(320px, 62vw);
+    bottom: calc(66px + env(safe-area-inset-bottom, 0px));
+    max-height: min(30vh, 240px);
+  }
+  .log-panel.debug {
+    bottom: calc(154px + env(safe-area-inset-bottom, 0px));
+  }
+  .log-row {
+    font-size: 10px;
   }
 
   /* ---------- 击杀 / 金币：压成一行紧凑徽章 ----------

@@ -227,41 +227,31 @@
     const g = canvas.getContext('2d');
     if (!g) return;
 
-    // 清空背景（先清，图到位后重画时不会叠上上一帧）
-    g.fillStyle = 'rgba(0,0,0,0)';
-    g.fillRect(0, 0, size, size);
+    // 清空背景（重画时不叠上一帧）
+    g.clearRect(0, 0, size, size);
 
-    // 走真图；到位后重画（同步命中时就是立刻画，所以「首次不闪」也成立）
-    const drew = loadPortraitImg(charId, function (im) {
-      if (!im) return;
-      const gg = canvas.getContext('2d');
-      if (!gg) return;
-      // ★**不要**用 canvas.isConnected 做「画布还在不在页面里」的判断。
-      //   它要求 canvas 已被插入 DOM —— 而调用方常见做法是
-      //   「新建 canvas → renderPortrait(cv) → 再 appendChild 到页面」，
-      //   那一刻 isConnected 还是 false，于是回调直接 return、**什么都不画**。
-      //   实测症状：图明明加载成功（isLoaded=true）、canvas 却全透明。
-      //   正确判据：画布的宽高还在（被卸载的节点 getContext 仍可用但尺寸归零）。
-      if (!canvas.width || !canvas.height) return;
-      gg.clearRect(0, 0, canvas.width, canvas.height);
-      // ★cover 式铺满：图是正方形、容器也是正方形，等价于直接 drawImage，
-      //   这里仍写成两段是为了将来换非方图时不改逻辑。
-      const side = Math.min(canvas.width, canvas.height);
-      gg.drawImage(im, (canvas.width - side) / 2, (canvas.height - side) / 2, side, side);
-    });
+    // ★直接画战场原角色形象 —— 这是玩家真正在战场上操控的那张 16×16 像素小人。
+    // 【为什么不再用 AI 图】选择页原来加载 /img/char/*.png（AI 生成的神话立绘），
+    //   但那是另一套形象：选的时候是精雕细描的神明，进战场变成 Q 版点阵小人，
+    //   玩家反馈「看不出这是同一个角色」。现在两条路共用 player-art.js 的
+    //   CHAR_ART 矩阵 + 调色板 —— 所见即所得，选完进去就是这个人。
+    // ★不用异步加载：矩阵是纯数据、paintScaled 同步画完，第一帧就有图，
+    //   也没有「图挂了悄悄回落成兜底版」那条静默坑。
+    const PA = root.VS && root.VS.PLAYER_ART;
+    if (PA && PA.has(charId)) {
+      // 16 格铺进 size：取整数格宽（像素风硬要求），size=160 → 每格 10px。
+      const px = Math.max(1, Math.floor(size / 16));
+      PA.paintScaled(g, charId, size / 2, size / 2, px);
+      return;
+    }
 
-    if (drew) return;      // 已发起加载（同步命中时上面已画好）
-
-    // ---- 回落：程序化头像（图片不可用时的样子，也是离线/无图时的样子） ----
+    // ---- 兜底：战场素材未加载时退回程序化头像（离线/旧缓存也不会白框） ----
     const cx = size / 2;
     const cy = size / 2;
     const r = size / 2 * 0.9;
     const pal = CHARACTER_PALETTE[charId] || CHARACTER_PALETTE.hunter;
-
     const painter = PortraitPainters[charId];
-    if (painter) {
-      painter(g, cx, cy, r, pal);
-    }
+    if (painter) painter(g, cx, cy, r, pal);
   }
 
   // 导出
@@ -277,11 +267,14 @@
     renderPortrait: renderPortrait,
     createCharacterPortrait: createCharacterPortrait,
     getCharacterPortraitDataURI: getCharacterPortraitDataURI,
-    // AI 立绘的地址表与「是否已加载完」，供自检与调试用
-    // （artshot 用它在截图前等图到位 —— 否则截到的是程序化兜底版，
-    //  断言会误判成「立绘没换成功」）
+    // 保留 AI 图地址表仅供调试追溯；选择页已不再加载这些图（见 renderPortrait）。
     images: PORTRAIT_IMG,
-    isLoaded: function (charId) { return !!imgCache[charId]; }
+    // 语义改为「这张脸有战场素材可画」——不再是「AI 图下载完了」。
+    // artshot 用它做截图前的前置断言，必须指向真正决定画面的那条路径。
+    isLoaded: function (charId) {
+      const PA = root.VS && root.VS.PLAYER_ART;
+      return !!(PA && PA.has(charId));
+    }
   };
 
 })(typeof window !== 'undefined' ? window : global);

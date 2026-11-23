@@ -21,6 +21,8 @@
   <!-- 剧情模式样式。单独一个文件：这块是自成一体的功能（卷首页/节拍/卷尾），
        混进 game.css 会让「剧情相关的规则」散在 2000 行里，改的时候找不全。 -->
   <link rel="stylesheet" href="/css/story-campaign.css">
+  <!-- 角色选择页 v2：操作条置顶 + 卡片横向紧凑 + 像素小人清晰缩放。最后加载。 -->
+  <link rel="stylesheet" href="/css/char-select-v2.css">
 </head>
 
 <body class="game-body">
@@ -170,9 +172,31 @@
       <span class="sb-mark">◆</span><span class="sb-text">{{ ui.storyLine }}</span>
     </div>
 
-    <!-- ==================== 波次 / Boss 提示 ==================== -->
-    <div class="toast-wrap">
-      <div class="toast" :class="{ boss: t.boss }" v-for="t in toasts" :key="t.id">{{ t.text }}</div>
+    <!-- ==================== 战况记录（右下角常驻，可回看） ==================== -->
+    <!--
+      ★以前这里是 .toast-wrap：每条提示挂在屏幕中上部，2.4 秒后 setTimeout 删掉。
+        玩家反馈「文字太多挡在中间，而且一会就没了，不知道之前发生了什么」。
+      现在改成右下角的战况记录：只进不删（保留最近 80 条），带局内时间戳，
+      最新一条在最上面；标题栏可折叠，折叠时仍露一条最新摘要，不会「静默消失」。
+      ★面板必须留在 #hud 内且在技能区之前：这样 z-index 抬高后不会被技能格盖住，
+        而弹层（.overlay）在它后面，仍照常盖住它。
+    -->
+    <div class="log-panel" :class="{ lift: logLift, debug: showDebug, folded: !ui.logOpen }"
+         v-if="logs.length">
+      <button class="log-head" @click="toggleLog"
+              :aria-expanded="ui.logOpen ? 'true' : 'false'" title="展开 / 收起战况记录">
+        <span class="lg-ico" aria-hidden="true">▤</span>
+        <span class="lg-title">战况记录</span>
+        <span class="lg-count">{{ logs.length }}</span>
+        <span class="lg-arrow" aria-hidden="true">{{ ui.logOpen ? '▾' : '▴' }}</span>
+      </button>
+      <div class="log-list" v-if="ui.logOpen">
+        <div class="log-row" :class="{ boss: l.boss }" v-for="l in logs" :key="l.id">
+          <span class="lg-time">{{ l.at }}</span><span class="lg-text">{{ l.text }}</span>
+        </div>
+      </div>
+      <!-- 折叠态也留一条最新摘要：玩家一眼就知道刚刚发生了什么，点开再看全部 -->
+      <div class="log-peek" v-else-if="logLatest">{{ logLatest.text }}</div>
     </div>
 
     <!-- ==================== 掉线重连提示（浮在顶部，不挡战场） ==================== -->
@@ -491,6 +515,16 @@
           <span class="warn-guest" v-if="isGuest">（游客：战绩不保存，只能用猎魔人）</span>
         </p>
 
+        <!-- 开局操作条：★放在角色网格**上面**。
+             原来它在 8 张卡后面，手机竖屏要滚过整片网格才够得到，
+             玩家截图里「进不了游戏」——按钮其实在，只是看不见。
+             选完角色抬头就是「开始对局」，不用往下翻。 -->
+        <div class="char-actions">
+          <button class="btn" @click="backToLobby">返回大厅</button>
+          <button class="btn" @click="toggleHelp">技能图鉴</button>
+          <button class="btn btn-primary" @click="startMatch">开始对局</button>
+        </div>
+
         <div class="character-grid">
           <button class="char-card"
                   v-for="c in chars" :key="c.id"
@@ -526,11 +560,6 @@
           </button>
         </div>
 
-        <div class="panel-actions">
-          <button class="btn" @click="backToLobby">返回大厅</button>
-          <button class="btn" @click="toggleHelp">技能图鉴</button>
-          <button class="btn btn-primary" @click="startMatch">开始对局</button>
-        </div>
       </div>
     </div>
 

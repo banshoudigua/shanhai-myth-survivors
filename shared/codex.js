@@ -33,13 +33,19 @@
   //   dmgMul    伤害倍率
   //   cdMul     冷却乘区（负数 = 更快）
   //   gold      开局金币（不是可花余额 shopGold 的直接来源，见 makePlayer）
+  // 【上限为什么从 3 提到 8】老存档六项全满只要 18 级 / 1330 灵玉，
+  //   老玩家一两天的产出就点完了，之后灵玉只剩数字没有去处。
+  //   提到 8 级（48 级总量）并给后段陡一点的价，让「每天攒一点」重新有意义；
+  //   仍只是舒适度成长（+40% 伤害 / -32% 冷却上限），且只在单机与剧情生效。
+  // ★costs 长度必须与 max 一致：talCost 按下标取价，短了会在半路返回 null
+  //   「假装满级」——老版本 3 项就是这个坑，补价时别只加 max。
   const TALENTS = [
-    { id: 'vigor', name: '炼气', desc: '生命上限 +12', per: { hp: 12 }, max: 3, costs: [30, 60, 120] },
-    { id: 'stride', name: '疾行', desc: '移速 +6%', per: { speedMul: 0.06 }, max: 3, costs: [30, 60, 120] },
-    { id: 'hand', name: '引灵', desc: '拾取范围 +15%', per: { pickupMul: 0.15 }, max: 3, costs: [25, 50, 100] },
-    { id: 'purse', name: '聚宝', desc: '开局金币 +20', per: { gold: 20 }, max: 3, costs: [25, 50, 100] },
-    { id: 'blade', name: '利刃', desc: '伤害 +5%', per: { dmgMul: 0.05 }, max: 3, costs: [40, 80, 160] },
-    { id: 'focus', name: '凝神', desc: '技能冷却 -4%', per: { cdMul: -0.04 }, max: 3, costs: [40, 80, 160] }
+    { id: 'vigor', name: '炼气', desc: '生命上限 +12', per: { hp: 12 }, max: 8, costs: [30, 60, 120, 200, 320, 500, 750, 1100] },
+    { id: 'stride', name: '疾行', desc: '移速 +6%', per: { speedMul: 0.06 }, max: 8, costs: [30, 60, 120, 200, 320, 500, 750, 1100] },
+    { id: 'hand', name: '引灵', desc: '拾取范围 +15%', per: { pickupMul: 0.15 }, max: 8, costs: [25, 50, 100, 170, 270, 420, 630, 920] },
+    { id: 'purse', name: '聚宝', desc: '开局金币 +20', per: { gold: 20 }, max: 8, costs: [25, 50, 100, 170, 270, 420, 630, 920] },
+    { id: 'blade', name: '利刃', desc: '伤害 +5%', per: { dmgMul: 0.05 }, max: 8, costs: [40, 80, 160, 260, 420, 650, 950, 1400] },
+    { id: 'focus', name: '凝神', desc: '技能冷却 -4%', per: { cdMul: -0.04 }, max: 8, costs: [40, 80, 160, 260, 420, 650, 950, 1400] }
   ];
 
   const TALENT_MAP = {};
@@ -142,19 +148,58 @@
   //
   // 图鉴条目直接从 const.js 的 MOBS 派生，不手写清单 ——
   // 手写的清单会在「加了一只怪但忘了加图鉴」时静默漏掉（项目踩过同类问题）。
+  // 【为什么把属性也搬进来】图鉴详情要显示「这只怪强在哪」，而这些数字
+  //   本来就在 const.js 的 MOBS 上。派生成一份纯数据（不手写第二份），
+  //   改怪的属性时图鉴自动跟着变 —— 手写副本迟早会出现「面板写 12、实际 15」。
+  //   派生一条中文「特性」描述，让玩家看懂 aura / charger / summoner 这些字段
+  //   到底意味着什么，而不是把 camelCase 直接摆到玩家面前。
+  function mobTrait(d) {
+    const t = [];
+    if (d.kind === 'charger' && d.chargeMul) t.push('周期性冲锋（×' + d.chargeMul + '）');
+    if (d.kind === 'buffer' && d.auraSpeedMul) t.push('光环：周围妖物移速 ×' + d.auraSpeedMul);
+    if (d.kind === 'buffer' && d.auraHpMul) t.push('光环：周围妖物生命 ×' + d.auraHpMul);
+    if (d.kind === 'boss' && d.auraDot) t.push('贴身灼烧：每 ' + d.auraTickSec + ' 秒 ' + d.auraDot + ' 点');
+    if (d.kind === 'summoner') t.push('保持距离，召唤妖群');
+    if (d.kind === 'devourer') t.push('吞食地上精魄');
+    if (d.kind === 'healer') t.push('为周围妖物疗伤');
+    if (d.twins) t.push('成对出现，同命相连');
+    if (d.mergeSoul) t.push('两只靠近会合体');
+    if (d.wangliang) t.push('倒影随行，难以分辨');
+    if (d.wobble) t.push('走位飘忽');
+    if (d.knockResist) t.push('抗击退 ' + Math.round(d.knockResist * 100) + '%');
+    if (d.challenger) t.push('击败必掉宝箱');
+    return t.length ? t.join(' · ') : '寻常近身妖物';
+  }
+
   const MOB_LIST = [];
   for (let i = 0; i < C.MOBS.length; i++) {
     const d = C.MOBS[i];
     MOB_LIST.push({
       id: d.id,
       name: d.name || d.id,
-      // tier: normal / elite / boss —— 图鉴按这三档分组显示
+      // tier: small/swift/elite/commander/boss/normal —— 图鉴按档位分组显示
       tier: d.tier || 'normal',
-      challenger: !!d.challenger
+      challenger: !!d.challenger,
+      // 详情用：基础属性直接从 def 读，视觉图片按 id 对应 tools/mobthumbs.js 产物
+      hp: d.hp || 0,
+      speed: d.speed || 0,
+      dmg: d.dmg || 0,
+      r: d.r || 0,
+      kind: d.kind || 'melee',
+      trait: mobTrait(d)
     });
   }
 
-  const TIER_LABEL = { normal: '寻常妖物', elite: '精怪', boss: '妖王' };
+  // tier 的中文显示名。图鉴列表里只给「精怪 / 妖王」挂标签，
+  // 详情面板里则完整显示全部档位（含寻常/迅捷/统领）。
+  const TIER_LABEL = {
+    normal: '寻常妖物', small: '寻常妖物', swift: '迅捷妖物',
+    elite: '精怪', commander: '妖将', boss: '妖王'
+  };
+  const KIND_LABEL = {
+    melee: '近身', charger: '冲锋', buffer: '光环', boss: '首领',
+    summoner: '召唤', devourer: '吞噬', healer: '疗愈', merge: '合体'
+  };
 
   // 「图鉴全收录」的阈值跟着 MOBS 表走（见 ACHIEVEMENTS 里 mob_all 的注释）
   for (let i = 0; i < ACHIEVEMENTS.length; i++) {
@@ -230,7 +275,7 @@
   return {
     TALENTS, TALENT_MAP, talCost, talBonus, talSpent,
     ACHIEVEMENTS, ACH_MAP, achMet,
-    MOB_LIST, TIER_LABEL,
+    MOB_LIST, TIER_LABEL, KIND_LABEL,
     MASTERY_STEPS, masteryOf,
     srcLabel, jadeOf
   };

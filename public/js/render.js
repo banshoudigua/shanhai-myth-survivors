@@ -1473,7 +1473,11 @@
       // 每格宽在**设备像素**上取整（pxFor 里做）—— 否则 dpr=2 时一个格子内部
       // 会被分到两个设备像素上，渲染器插值，整只怪边缘发灰。
       const px = PX.pxFor(def.r, cols, spread, R.dpr);
-      const pal = PX.paletteFor(def.color);
+      // 外部 MIT 素材带专属调色板（已从素材中位色提取并过滤紫色）。
+      // 只覆盖素材里实际出现的槽位，其余仍走项目主色，保证描边/高光统一。
+      const extPal = (typeof window !== 'undefined' && window.VS &&
+        window.VS.PIXEL_MOB_PALS && window.VS.PIXEL_MOB_PALS[def.id]) || null;
+      const pal = extPal ? Object.assign(PX.paletteFor(def.color), extPal) : PX.paletteFor(def.color);
 
       const size = Math.ceil(cols * px / 2 + 2) * 2;
       const pack = { rot: false, px: px, cols: cols };
