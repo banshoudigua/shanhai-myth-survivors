@@ -1336,6 +1336,24 @@
       vengeDone: 0,
       vengeFailed: 0,
 
+      // ---------- 登云诀（第七十四轮：限时靠真升级升 N 级）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      ascendNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一次升级要不要计数"的判据之一。
+      ascendActive: 0,
+      // 本轮窗口内已经真实升了几级 / 目标级数。
+      ascendLevels: 0,
+      ascendNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      ascendDeadline: 0,
+      // 过半播报只发一次的标记（整数级数逐次 +1，标记位防的是达标后刷屏）
+      ascendHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      ascendRounds: 0,
+      ascendDone: 0,
+      ascendFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -3643,6 +3661,100 @@
       w.events.push({
         type: 'venge_half', got: w.vengeKinds, need: w.vengeNeed,
         left: Math.max(0, w.vengeNeed - w.vengeKinds)
+      });
+    }
+  }
+
+  // ============================================================
+  // 登云诀（第七十四轮：限时靠真升级升 N 级）—— 目标制零实体第十九件
+  // ============================================================
+
+  // 某一轮要真实升几级：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function ascendNeedFor(roundIndex) {
+    const P = C.ASCEND;
+    if (!P) return 0;
+    return Math.min(P.maxLevels, P.needLevels + (roundIndex || 0) * P.levelStep);
+  }
+
+  // 每帧调一次（step 第 2.72 段，紧挨寻仇诀 —— 同为"目标制、零实体"一族）。
+  function tickAscend(w) {
+    const P = C.ASCEND;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须升级"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.ascendActive) {
+      // ② 达标优先于到期：最后一帧刚好凑够也算数（与前十八件同口径）。
+      if (w.ascendLevels >= w.ascendNeed) {
+        w.ascendActive = 0;
+        w.ascendDone = (w.ascendDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：升级钩子立刻失效，不会把同一窗口的后续升级算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'ascend_done', got: w.ascendLevels, need: w.ascendNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.ascendDeadline) return;
+      // 到期没凑够：★什么都不给，且**不责备**（与前十八件同一口径）。
+      w.ascendActive = 0;
+      w.ascendFailed = (w.ascendFailed || 0) + 1;
+      w.events.push({
+        type: 'ascend_fail', need: w.ascendNeed, got: w.ascendLevels,
+        left: Math.max(0, w.ascendNeed - w.ascendLevels)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.ascendNextTick`。
+    if (w.tick < w.ascendNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.ascendRounds = (w.ascendRounds || 0) + 1;
+    w.ascendActive = 1;
+    w.ascendLevels = 0;
+    w.ascendNeed = ascendNeedFor(w.ascendRounds - 1);
+    w.ascendHalfNoted = 0;
+    w.ascendDeadline = w.time + P.windowSec;
+    w.ascendNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'ascend_start', need: w.ascendNeed, sec: P.windowSec,
+      round: w.ascendRounds
+    });
+  }
+
+  // 真升级钩子：挂在 gainExp 的 while 循环里（拿得到"这一步真升了几级"）。
+  // ★只数窗口内 w.self（自己）靠**经验**升的级，宝箱白送的免费升级走 chest 分支、
+  //   不经过 gainExp → 天然不算（本件灵魂边界，见 const.js）。
+  // 【三重闸】窗口外不算 / 剧情关不算 / gained<=0 不算；无敌帧与升级定格与升级无关。
+  // 【过半标记位】整数级数逐次累加，=== 与 >= 等价；真正要防的是达标后刷屏。
+  function onAscendLevel(w, p, gained) {
+    const P = C.ASCEND;
+    if (!P || !w.ascendActive || w.storyStage) return;
+    if (!(gained > 0)) return;
+    if (p !== (w.self || w.player)) return;
+    w.ascendLevels += gained;
+    const half = w.ascendNeed / 2;
+    if (!w.ascendHalfNoted && w.ascendLevels >= half) {
+      w.ascendHalfNoted = 1;
+      w.events.push({
+        type: 'ascend_half', got: w.ascendLevels, need: w.ascendNeed,
+        left: Math.max(0, w.ascendNeed - w.ascendLevels)
       });
     }
   }
@@ -9033,6 +9145,11 @@
       gained += 1;
     }
 
+    // 登云诀（第七十四轮）：★只数这里 gainExp 真升的级（gained）。
+    //   宝箱白送的免费升级走 chest 分支的 p.level += 1，不经过这里 → 天然不算。
+    //   放在 while 之后、applyLevelHp 之前，拿的是这一口经验净升的整级数。
+    onAscendLevel(w, p, gained);
+
     if (gained > 0) {
       // 升级加血：等级已经涨过了，这里把上限与当前血量一起抬上去
       applyLevelHp(w, p, gained);
@@ -10025,6 +10142,14 @@
     //   与 tick 段解耦，达标当帧即可发奖。
     tickVenge(w);
 
+    // 【登云诀】目标制零实体第十九件，紧挨寻仇诀 —— 十九件摆在一起，
+    //   一眼能看出这一族的十九条轴。前十八件从不问"你在窗口里成长了多少"，
+    //   本件第一次把"靠吃经验球真实升几级"变成目标。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字、发一箱金币，
+    //   不碰怪的位置；真升级钩子挂在 gainExp 的 while 循环里（拿 gained），
+    //   与 tick 段解耦，升级发生在 updatePickups 时、达标当帧即可发奖。
+    tickAscend(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -10832,6 +10957,14 @@
     onVengeHit: onVengeHit,
     // ★onVengeHit 只做计数；★关键边界（无敌帧/升级定格/无来源伤害/队友挨打）
     //   必须走上面已导出的 damagePlayer 才能验到，不能绕过去直接喂钩子。
+    // 第七十四轮：登云诀（限时靠真升级升 N 级）——入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入"真实升了几级"，而不必真跑 522 秒。
+    ascendNeedFor: ascendNeedFor,
+    tickAscend: tickAscend,
+    onAscendLevel: onAscendLevel,
+    gainExp: gainExp,
+    // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
+    //   （绕过去直接喂 onAscendLevel 会漏掉"宝箱分支不经过 gainExp"这件事）。
     bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
