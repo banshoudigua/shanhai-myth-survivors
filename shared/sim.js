@@ -1298,6 +1298,24 @@
       swarmDone: 0,
       swarmFailed: 0,
 
+      // ---------- 猎变诀（第七十二轮：限时击杀带词缀的变异妖）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      huntNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一下击杀要不要计数"的判据之一。
+      huntActive: 0,
+      // 本轮累计亲手击杀的带词缀妖数 / 目标数（普通怪/分裂子怪/天火砸死/剧情关/窗口外都不算）。
+      huntKills: 0,
+      huntNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      huntDeadline: 0,
+      // 过半播报只发一次的标记（整数次逐次 +1，标记位防的是达标后刷屏）
+      huntHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      huntRounds: 0,
+      huntDone: 0,
+      huntFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -3408,6 +3426,109 @@
     }
   }
 
+  // ============================================================
+  // 猎变诀（第七十二轮：限时击杀带词缀的变异妖）—— 目标制零实体第十七件
+  // ============================================================
+
+  // 某一轮要亲手杀几只带词缀的妖：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function huntNeedFor(roundIndex) {
+    const P = C.HUNT;
+    if (!P) return 0;
+    return Math.min(P.maxKills, P.needKills + (roundIndex || 0) * P.killStep);
+  }
+
+  // ★"变异妖"的唯一判据：m.affix > 0（1 狂暴 / 2 坚壁 / 3 分裂，见 AFFIXES）。
+  //   0（普通怪）与 undefined（极简测试怪）都不算。词缀是 spawnMob 写入的实体字段。
+  //   ★分裂子怪绝不带词缀（spawnMob 传 0），这是分裂词缀的既有铁律，
+  //     所以"打死分裂怪裂出来的小怪"天然不算猎变数——反向验证就钉这一条。
+  function isAffixMob(m) {
+    return !!(m && m.affix > 0);
+  }
+
+  // 每帧调一次（step 第 2.70 段，紧挨妖潮诀 —— 同为"目标制、零实体"一族）。
+  function tickHunt(w) {
+    const P = C.HUNT;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须杀变异妖"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.huntActive) {
+      // ② 达标优先于到期：最后一帧刚好杀够也算数（与前十六件同口径）。
+      if (w.huntKills >= w.huntNeed) {
+        w.huntActive = 0;
+        w.huntDone = (w.huntDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：击杀钩子立刻失效，不会把同一窗口的后续击杀算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'hunt_done', got: w.huntKills, need: w.huntNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.huntDeadline) return;
+      // 到期没杀够：★什么都不给，且**不责备**（与前十六件同一口径）。
+      w.huntActive = 0;
+      w.huntFailed = (w.huntFailed || 0) + 1;
+      w.events.push({
+        type: 'hunt_fail', need: w.huntNeed, got: w.huntKills,
+        left: Math.max(0, w.huntNeed - w.huntKills)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.huntNextTick`。
+    if (w.tick < w.huntNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.huntRounds = (w.huntRounds || 0) + 1;
+    w.huntActive = 1;
+    w.huntKills = 0;
+    w.huntNeed = huntNeedFor(w.huntRounds - 1);
+    w.huntHalfNoted = 0;
+    w.huntDeadline = w.time + P.windowSec;
+    w.huntNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'hunt_start', need: w.huntNeed, sec: P.windowSec,
+      round: w.huntRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 里，与 onGeneralKill / onShootKill 并列。
+  // ★"亲手打死一只带词缀的妖"是唯一事实，词缀按击杀瞬间 m.affix 判。
+  // 【三重闸】窗口外不算 / 剧情关不算 / 无词缀（普通怪、分裂子怪）不算。
+  //   ★★★天火 / 灵泉砸死的不算（rageMute，与斩将令 / 降妖录同一条隔离线）：
+  //   否则等环境白送变异妖，"盯住带光环的怪去杀"这件事就失去意义。
+  // 【过半标记位】整数次逐次 +1，=== 与 >= 等价；真正要防的是达标后刷屏，故用标记位。
+  function onHuntKill(w, m) {
+    const P = C.HUNT;
+    if (!P || !w.huntActive || w.storyStage) return;
+    if (w.rageMute > 0) return;
+    if (!isAffixMob(m)) return;
+    w.huntKills += 1;
+    const half = w.huntNeed / 2;
+    if (!w.huntHalfNoted && w.huntKills >= half) {
+      w.huntHalfNoted = 1;
+      w.events.push({
+        type: 'hunt_half', got: w.huntKills, need: w.huntNeed,
+        left: Math.max(0, w.huntNeed - w.huntKills)
+      });
+    }
+  }
+
   function killMob(w, m) {
     if (!m.alive) return;
     m.alive = false;
@@ -3430,6 +3551,9 @@
     // 斩将令的击杀计数（第六十八轮）。同处并列，但按**怪的 tier 档次**判：
     // ★与前面几件互不干扰——小怪杀再多也不算、天火砸死不算，只认真·精英击杀。
     onGeneralKill(w, m);
+    // 猎变诀的击杀计数（第七十二轮）。同处并列，但按**怪的 affix 词缀**判：
+    // ★与前面几件互不干扰——只认带词缀的变异妖，普通怪 / 分裂子怪 / 天火砸死都不算。
+    onHuntKill(w, m);
 
     // 掉落经验球
     const def = m.def;
@@ -9758,6 +9882,15 @@
     onSwarmTime(w, dt);
     tickSwarm(w);
 
+    // ---------- 2.70 猎变诀（第七十二轮：限时击杀带词缀的变异妖） ----------
+    // 【为什么紧跟妖潮诀】同为"目标制、零实体、只发播报"——十七件摆在一起，
+    //   一眼能看出这一族的十七条轴。前十六件从不问"杀的怪带没带词缀"，
+    //   本件第一次把词缀（第 33 轮的老系统）变成目标：亲手猎杀变异妖。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字、发一箱金币，
+    //   不碰怪的位置与词缀；计数钩子挂在 killMob 漏斗里（打死那一瞬间判 affix），
+    //   与 tick 段解耦，达标当帧即可发奖。
+    tickHunt(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -10551,6 +10684,13 @@
     onSwarmTime: onSwarmTime,
     countSwarmMobs: countSwarmMobs,
     // ★countSwarmMobs 单独导出：半径外/死怪不算这条关键边界靠它直接验。
+    // 第七十二轮：猎变诀（限时击杀带词缀的变异妖）——入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次带词缀击杀，而不必真跑 528 秒。
+    huntNeedFor: huntNeedFor,
+    tickHunt: tickHunt,
+    onHuntKill: onHuntKill,
+    isAffixMob: isAffixMob,
+    // ★isAffixMob 单独导出：普通怪 / 分裂子怪不算这条关键边界靠它直接验。
     bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
