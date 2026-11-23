@@ -1414,6 +1414,7 @@ testShoot();console.log('');
 testGeneral();console.log('');
 testEvade();console.log('');
 testTemper();console.log('');
+testSwarm();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2819,6 +2820,7 @@ function testRage() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3021,6 +3023,7 @@ function testMoon() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5345,6 +5348,7 @@ function testDevourer() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5728,6 +5732,7 @@ function testBoon() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6146,6 +6151,7 @@ function testBell() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6662,6 +6668,7 @@ function testMerge() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7182,6 +7189,7 @@ function testEscort() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7586,6 +7594,7 @@ function testMarket() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8005,6 +8014,7 @@ function testCauldron() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8381,6 +8391,7 @@ function testBounty() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8664,6 +8675,7 @@ function testHealer() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8949,6 +8961,7 @@ function testSerenity() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9214,6 +9227,7 @@ function testGlean() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9529,6 +9543,7 @@ function testForge() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9851,6 +9866,7 @@ function testStride() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10186,6 +10202,7 @@ function testMend() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10367,6 +10384,7 @@ function testMend() {
   wF.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10517,6 +10535,7 @@ function testThunder() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10711,6 +10730,7 @@ function testThunder() {
   wF.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10845,6 +10865,7 @@ function testPeril() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11034,6 +11055,7 @@ function testPeril() {
   wF.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickPeril(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.perilDone === 0, 'pickups=' + wF.pickups.length);
@@ -11173,6 +11195,7 @@ function testDew() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11352,6 +11375,7 @@ function testDew() {
   wF.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickDew(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.dewDone === 0, 'pickups=' + wF.pickups.length);
@@ -11498,6 +11522,7 @@ function testStreak() {
     w.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -11686,6 +11711,7 @@ function testStreak() {
   wF.generalNextTick = 1e9;   // 第六十八轮：斩将令 474s 开窗，默认推远
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickStreak(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.streakDone === 0, 'pickups=' + wF.pickups.length);
@@ -11870,6 +11896,7 @@ function testBestiary() {
     w.generalNextTick = 1e9;  // 第六十八轮：斩将令同样默认不排期
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12053,6 +12080,7 @@ function testBestiary() {
   wF.generalNextTick = 1e9;
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickBestiary(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.bestiaryDone === 0, 'pickups=' + wF.pickups.length);
@@ -12621,6 +12649,7 @@ function testShoot() {
     w.generalNextTick = 1e9;  // 第六十八轮：finish 会推过斩将令首发 474s，必须推远隔离
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12803,6 +12832,7 @@ function testShoot() {
   wF.generalNextTick = 1e9; // 第六十八轮：斩将令同样关掉，推很远不误开
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickShoot(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.shootDone === 0, 'pickups=' + wF.pickups.length);
@@ -12946,6 +12976,7 @@ function testGeneral() {
     w.generalNextTick = 0;    // 本件默认开窗，干净世界里显式打开
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12959,6 +12990,7 @@ function testGeneral() {
     w.generalNextTick = 0;
     w.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
     w.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+    w.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
     SIM.tickGeneral(w);
   }
   // 按 tier 直接喂击杀钩子：不真 spawn，隔离掉落与随机流
@@ -13138,6 +13170,7 @@ function testGeneral() {
   wF.generalNextTick = 1e9;   // 关掉后续排期，推这么远不该再开一轮
   wF.evadeNextTick = 1e9;   // 第六十九轮：避锋诀 486s 开窗，默认推远
   wF.temperNextTick = 1e9;  // 第七十轮：淬骨诀 498s 开窗，默认推远
+  wF.swarmNextTick = 1e9;   // 第七十一轮：妖潮诀 516s 开窗，默认推远
   SIM.tickGeneral(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.generalDone === 0, 'pickups=' + wF.pickups.length);
@@ -13641,6 +13674,7 @@ function testTemper() {
     w.generalNextTick = 1e9;
     w.evadeNextTick = 1e9;
     w.temperNextTick = 0;     // 本件默认开窗，干净世界里显式打开
+    w.swarmNextTick = 1e9;    // 第七十一轮：妖潮诀 516s 开窗，本件不验，推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13655,6 +13689,9 @@ function testTemper() {
     w.tick = startTick;
     w.time = w.tick / HZ;
     w.temperNextTick = 0;
+    // ★妖潮诀首发 516s 晚于淬骨诀 498s；本测试会把 tick 推到 612s（下一轮），
+    //   必须推远，否则那里顺带开一轮妖潮诀、落空播报混进 events 干扰对照。
+    w.swarmNextTick = 1e9;
     SIM.tickTemper(w);
   }
   // ★走调用方入口 damagePlayer（不是直接喂 onTemperHurt）：
@@ -13957,4 +13994,415 @@ function testTemper() {
     storyAlive && wS2.temperActive === 0 && evs(wS2, 'temper_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.temperActive);
+}
+
+// ============================================================
+// 第七十一轮：妖潮诀（身陷怪潮累计秒数）—— 目标制零实体第十六件
+// ============================================================
+function testSwarm() {
+  console.log('[第七十一轮] 妖潮诀：第一件「身陷怪潮（周围活怪密度）累计秒数」目标');
+  const P = C.SWARM;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 隔离世界：其它机制全推远、关武器、血池拉大（避免被怪打死中断累计）。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;
+    p.maxHp = 1e6;
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9;
+    w.shootNextTick = 1e9;
+    w.generalNextTick = 1e9;
+    w.evadeNextTick = 1e9;
+    w.temperNextTick = 1e9;
+    w.swarmNextTick = 0;   // 本件默认开窗
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.effects.length = 0;
+    w.zones.length = 0;
+    w.strikes.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.swarmNextTick = 0;
+    SIM.tickSwarm(w);
+  }
+  // 往玩家周围塞 n 只怪（dist 为半径；alive=false 造死怪验闸）。
+  // ★用极简对象即可：妖潮诀只读 m.alive/m.x/m.y，不碰别的字段。
+  function surround(w, n, dist, alive) {
+    const p = w.player;
+    for (let i = 0; i < n; i++) {
+      const ang = (Math.PI * 2 / (n || 1)) * i + 0.3;
+      w.mobs.push({
+        alive: alive === false ? false : true,
+        x: p.x + Math.cos(ang) * dist,
+        y: p.y + Math.sin(ang) * dist,
+        id: 90000 + i
+      });
+    }
+  }
+  function feedSec(w, sec) {
+    SIM.onSwarmTime(w, sec);
+  }
+  // 精确轴向摆放（验半径边界含等号用）：不用三角函数，避免浮点误差把 dist 算偏。
+  function surroundExact(w, n, dx, dy) {
+    const p = w.player;
+    for (let i = 0; i < n; i++) {
+      w.mobs.push({ alive: true, x: p.x + dx, y: p.y + dy, id: 91000 + i });
+    }
+  }
+  // 真怪（带完整 def 字段）摆放：真实 step 会跑 updateMobs，极简对象缺 def 会崩。
+  // ★传 seed 让 spawnMob 走固定相位，不抽 nextRand。
+  function spawnReal(w, n, dist) {
+    const p = w.player;
+    for (let i = 0; i < n; i++) {
+      const ang = (Math.PI * 2 / n) * i + 0.3;
+      SIM.spawnMob(w, 'corpse', p.x + Math.cos(ang) * dist, p.y + Math.sin(ang) * dist,
+        1, 0, 100 + i);
+    }
+  }
+  function finish(w) {
+    w.time = w.swarmDeadline + 0.01;
+    SIM.tickSwarm(w);
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场没怪，白开一轮）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('首发已进 altar 收官区（第 17 波起怪密，才凑得出 8 只活怪）',
+    P.startSec / 30 >= 15, 'startSec=' + P.startSec);
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标按轮递增且封顶（第 2 轮 +2，第 99 轮到 max）',
+    SIM.swarmNeedFor(0) === P.needSec &&
+    SIM.swarmNeedFor(1) === P.needSec + P.secStep &&
+    SIM.swarmNeedFor(99) === P.maxSec,
+    '0=' + SIM.swarmNeedFor(0) + ' 1=' + SIM.swarmNeedFor(1) +
+    ' 99=' + SIM.swarmNeedFor(99));
+  expect('密度与时长合理（封顶撑秒在窗口内可达，不是死目标）',
+    P.mobsNeed >= 3 && P.mobsNeed <= 20 &&
+    P.needSec >= 3 && P.maxSec <= P.windowSec,
+    'mobs=' + P.mobsNeed + ' need=' + P.needSec + ' max=' + P.maxSec +
+    ' window=' + P.windowSec);
+  expect('奖励仍是「一箱 + 零钱」（与前十五个目标制同口径，不是巨款）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发错开所有既有事件（含淬骨诀 498，避免同一帧挤两条播报）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'PERIL',
+      'CAULDRON', 'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER',
+      'DEW', 'STREAK', 'BESTIARY', 'SHOOT', 'GENERAL', 'EVADE', 'TEMPER'].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'swarm=' + P.startSec + ' temper=' + C.TEMPER.startSec);
+
+  // ---------- 2. 零随机（直接调入口，隔离掉战斗掉落）----------
+  const wR = cleanWorld(10701);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  surround(wR, P.mobsNeed, P.radius / 2);
+  feedSec(wR, P.needSec);
+  SIM.tickSwarm(wR);
+  expect('★开窗/密度计数/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(10702);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(10710);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickSwarm(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.swarmRounds === 0 && evs(wT, 'swarm_start').length === 0,
+    'rounds=' + wT.swarmRounds);
+  const w0 = cleanWorld(10711);
+  openWindow(w0);
+  expect('到点开且只开一轮，播报一次说清「多久 / 几只怪 / 撑几秒」',
+    w0.swarmRounds === 1 && w0.swarmActive === 1 &&
+    evs(w0, 'swarm_start').length === 1 &&
+    evs(w0, 'swarm_start')[0].sec === P.windowSec &&
+    evs(w0, 'swarm_start')[0].mobs === P.mobsNeed &&
+    evs(w0, 'swarm_start')[0].need === P.needSec,
+    JSON.stringify(evs(w0, 'swarm_start')));
+  expect('★★开窗零实体：不给怪、不给球、不给特效、不给 zone / strike',
+    w0.mobs.length === 0 && w0.pickups.length === 0 && w0.effects.length === 0 &&
+    w0.zones.length === 0 && w0.strikes.length === 0,
+    'mob=' + w0.mobs.length + ' pick=' + w0.pickups.length + ' fx=' + w0.effects.length);
+  expect('deadline 零漂移（w.time 口径，整数 tick 换算）',
+    Math.abs(w0.swarmDeadline - (P.startSec + P.windowSec)) < 1e-9,
+    'deadline=' + w0.swarmDeadline);
+  expect('下一轮排期正确（按 everySec，不按窗口）',
+    w0.swarmNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + w0.swarmNextTick);
+  SIM.tickSwarm(w0);
+  expect('同帧重复调用不会二次开窗',
+    w0.swarmRounds === 1 && evs(w0, 'swarm_start').length === 1,
+    'rounds=' + w0.swarmRounds);
+  w0.time = w0.swarmDeadline - 0.01;
+  SIM.tickSwarm(w0);
+  expect('到期前一帧不结算（不达成也不落空）',
+    w0.swarmActive === 1 && w0.swarmDone === 0 && w0.swarmFailed === 0,
+    'active=' + w0.swarmActive);
+  const wLast = cleanWorld(10712);
+  openWindow(wLast);
+  surround(wLast, P.mobsNeed, P.radius / 2);
+  wLast.time = wLast.swarmDeadline - 0.01;
+  feedSec(wLast, P.needSec);
+  SIM.tickSwarm(wLast);
+  expect('★★最后一帧刚好撑够也算达成（达标判据优先于到期）',
+    wLast.swarmDone === 1 && wLast.swarmFailed === 0,
+    'done=' + wLast.swarmDone + ' fail=' + wLast.swarmFailed);
+
+  // ---------- 4. 过半（连续量：>= + 标记位，不是 ===）----------
+  const wH = cleanWorld(10720);
+  openWindow(wH);
+  surround(wH, P.mobsNeed, P.radius / 2);
+  feedSec(wH, P.needSec / 2 - 0.1);
+  expect('过半前零播报',
+    evs(wH, 'swarm_half').length === 0, 'half=' + evs(wH, 'swarm_half').length);
+  feedSec(wH, 0.1);
+  expect('刚跨半播报一次，数字来自服务端事实',
+    evs(wH, 'swarm_half').length === 1 &&
+    evs(wH, 'swarm_half')[0].got === Math.round(wH.swarmSec) &&
+    evs(wH, 'swarm_half')[0].need === P.needSec,
+    JSON.stringify(evs(wH, 'swarm_half')));
+  const wJump = cleanWorld(10721);
+  openWindow(wJump);
+  surround(wJump, P.mobsNeed, P.radius / 2);
+  feedSec(wJump, P.needSec / 2 + 1);
+  expect('★★一帧跨过半程也算（连续量必须 >=，写 === 会永远错过）',
+    evs(wJump, 'swarm_half').length === 1,
+    'half=' + evs(wJump, 'swarm_half').length);
+  feedSec(wH, P.needSec);
+  SIM.tickSwarm(wH);
+  expect('★★多撑一倍也不刷屏、不二次播报，数字锁在首次跨半那一下',
+    evs(wH, 'swarm_half').length === 1 &&
+    evs(wH, 'swarm_half')[0].got === Math.round(P.needSec / 2) &&
+    wH.swarmDone === 1,
+    'half=' + evs(wH, 'swarm_half').length + ' got=' +
+    (evs(wH, 'swarm_half')[0] ? evs(wH, 'swarm_half')[0].got : -1));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(10730);
+  openWindow(wD);
+  surround(wD, P.mobsNeed, P.radius / 2);
+  feedSec(wD, P.needSec);
+  SIM.tickSwarm(wD);
+  expect('撑够怪潮秒数即达成',
+    wD.swarmDone === 1 && wD.swarmActive === 0, 'done=' + wD.swarmDone);
+  expect('宝箱正好一个（不是一袋子）',
+    byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数与面值都正确（播报数字不是写死的）',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  expect('奖励落在玩家脚下（确定公式，不抽随机）',
+    byKind(wD, 'chest').length === 1 &&
+    Math.abs(byKind(wD, 'chest')[0].x - wD.player.x) < 1 &&
+    Math.abs(byKind(wD, 'chest')[0].y - wD.player.y) < 1,
+    'chest=' + JSON.stringify(byKind(wD, 'chest')));
+  const doneEv = evs(wD, 'swarm_done')[0];
+  expect('播报的 got/need/chest/gold 全来自事件事实',
+    doneEv && doneEv.got === P.needSec && doneEv.need === P.needSec &&
+    doneEv.chest === P.rewardChest && doneEv.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(doneEv));
+  const afterSec = wD.swarmSec;
+  feedSec(wD, 100);
+  SIM.tickSwarm(wD);
+  expect('★达标后再被围也不计数、不二次发奖',
+    wD.swarmSec === afterSec && wD.swarmDone === 1 &&
+    byKind(wD, 'chest').length === P.rewardChest,
+    'sec=' + wD.swarmSec + ' done=' + wD.swarmDone);
+  wD.tick = wD.swarmNextTick;
+  wD.time = wD.tick / HZ;
+  SIM.tickSwarm(wD);
+  expect('下一轮目标随轮次上涨、计数清零',
+    wD.swarmRounds === 2 && wD.swarmNeed === SIM.swarmNeedFor(1) &&
+    wD.swarmSec === 0 && wD.swarmActive === 1,
+    'round=' + wD.swarmRounds + ' need=' + wD.swarmNeed + ' sec=' + wD.swarmSec);
+
+  // ---------- 6. 落空（零奖励、不责备）----------
+  const wF = cleanWorld(10740);
+  openWindow(wF);
+  surround(wF, P.mobsNeed, P.radius / 2);
+  feedSec(wF, P.needSec - 0.5);
+  finish(wF);
+  expect('差一点也落空（不四舍五入、不放水）',
+    wF.swarmFailed === 1 && wF.swarmDone === 0,
+    'fail=' + wF.swarmFailed + ' done=' + wF.swarmDone);
+  expect('★★落空时一个掉落物都不多（宝箱/金币都不发）',
+    wF.pickups.length === 0, 'pick=' + wF.pickups.length);
+  expect('★★落空绝不出现「达成」播报',
+    evs(wF, 'swarm_done').length === 0, 'done=' + evs(wF, 'swarm_done').length);
+  const failEv = evs(wF, 'swarm_fail')[0];
+  expect('落空只陈述「还差多少」，不责备玩家',
+    failEv && failEv.left === 1 && JSON.stringify(failEv).indexOf('失败') < 0,
+    JSON.stringify(failEv));
+  wF.time = wF.swarmDeadline + 100;
+  SIM.tickSwarm(wF);
+  expect('推到很晚也不补发（不因为时间过头而误判达成）',
+    wF.swarmDone === 0 && evs(wF, 'swarm_done').length === 0 &&
+    evs(wF, 'swarm_fail').length === 1,
+    'fail=' + evs(wF, 'swarm_fail').length);
+  const held = wF.swarmSec;
+  feedSec(wF, 100);
+  expect('落空后再被围也不计数（窗口已关）',
+    wF.swarmSec === held, 'sec=' + wF.swarmSec);
+
+  // ---------- 7. ★密度闸（本件核心新轴：只认真·活·够近的怪）----------
+  const wOK = cleanWorld(10750);
+  openWindow(wOK);
+  surround(wOK, P.mobsNeed, P.radius / 2);
+  feedSec(wOK, 1);
+  expect('★★怪够数时累计（正向对照证明闸不是恒关）',
+    wOK.swarmSec === 1 &&
+    SIM.countSwarmMobs(wOK, wOK.player, P.radius) === P.mobsNeed,
+    'sec=' + wOK.swarmSec + ' near=' +
+    SIM.countSwarmMobs(wOK, wOK.player, P.radius));
+  const wFew = cleanWorld(10751);
+  openWindow(wFew);
+  surround(wFew, P.mobsNeed - 1, P.radius / 2);
+  feedSec(wFew, 5);
+  expect('★★★差一只也算没被围，一分不累计（密度闸不是摆设）',
+    wFew.swarmSec === 0, 'sec=' + wFew.swarmSec);
+  const wFar = cleanWorld(10752);
+  openWindow(wFar);
+  surround(wFar, P.mobsNeed + 20, P.radius + 5);
+  feedSec(wFar, 5);
+  expect('★★★半径外的怪不算（哪怕一大群贴着边外，也不算身陷怪潮）',
+    wFar.swarmSec === 0 &&
+    SIM.countSwarmMobs(wFar, wFar.player, P.radius) === 0,
+    'sec=' + wFar.swarmSec + ' near=' +
+    SIM.countSwarmMobs(wFar, wFar.player, P.radius));
+  const wEdge = cleanWorld(10753);
+  openWindow(wEdge);
+  // 精确放在正右方 P.radius 处：dx²+dy² 精确等于 r²，测的是"含等号"这条边界本身。
+  surroundExact(wEdge, P.mobsNeed, P.radius, 0);
+  feedSec(wEdge, 1);
+  expect('★★半径边界上的怪算数（平方比较含等号，不放过贴边的）',
+    wEdge.swarmSec === 1, 'sec=' + wEdge.swarmSec);
+  const wDead = cleanWorld(10754);
+  openWindow(wDead);
+  surround(wDead, P.mobsNeed + 5, P.radius / 2, false);  // 全死怪
+  feedSec(wDead, 5);
+  expect('★★★死怪不算（尸体堆成山也不是活怪潮）',
+    wDead.swarmSec === 0, 'sec=' + wDead.swarmSec);
+  const wMix = cleanWorld(10755);
+  openWindow(wMix);
+  surround(wMix, P.mobsNeed - 1, P.radius / 2);      // 够数-1 只活怪
+  surround(wMix, 10, P.radius / 2, false);           // 一堆死怪
+  feedSec(wMix, 5);
+  expect('死怪不补数：活怪差一只就是差一只',
+    wMix.swarmSec === 0, 'sec=' + wMix.swarmSec);
+  const wCorpse = cleanWorld(10756);
+  openWindow(wCorpse);
+  wCorpse.player.hp = 0;
+  surround(wCorpse, P.mobsNeed, P.radius / 2);
+  feedSec(wCorpse, 5);
+  expect('★★阵亡者不算被围（死亡不由本玩法奖励）',
+    wCorpse.swarmSec === 0, 'sec=' + wCorpse.swarmSec);
+  const wNeg = cleanWorld(10757);
+  openWindow(wNeg);
+  surround(wNeg, P.mobsNeed, P.radius / 2);
+  feedSec(wNeg, 0);
+  feedSec(wNeg, -1);
+  expect('零/负 dt 一分不算（钩子自带 dt>0 闸）',
+    wNeg.swarmSec === 0, 'sec=' + wNeg.swarmSec);
+  const wOut = cleanWorld(10758);
+  surround(wOut, P.mobsNeed, P.radius / 2);
+  feedSec(wOut, 5);
+  expect('窗口外的被围不计数',
+    wOut.swarmSec === 0, 'sec=' + wOut.swarmSec);
+  const wStoryHit = cleanWorld(10759);
+  openWindow(wStoryHit);
+  wStoryHit.storyStage = { id: 'ch6' };
+  surround(wStoryHit, P.mobsNeed, P.radius / 2);
+  feedSec(wStoryHit, 5);
+  expect('剧情关下即便开了窗口也不计数（钩子自带 story 闸）',
+    wStoryHit.swarmSec === 0, 'sec=' + wStoryHit.swarmSec);
+
+  // ★真实 step：钉住 onSwarmTime 调用点（直接喂钩子会漏掉"有没有被调用"）。
+  //   清了武器，怪不会被打死；step 第 2.69 段读的是本帧玩家位置与怪位置（此时怪还没动）。
+  const wStep = cleanWorld(10760);
+  openWindow(wStep);
+  spawnReal(wStep, P.mobsNeed, P.radius / 2);
+  SIM.step(wStep, { mx: 0, my: 0 });
+  expect('★★真实 step 里被怪围住 → 累计秒数增加（调用点钉在状态段）',
+    wStep.swarmSec > 0, 'sec=' + wStep.swarmSec);
+  const wStepFar = cleanWorld(10761);
+  openWindow(wStepFar);
+  spawnReal(wStepFar, P.mobsNeed + 20, P.radius + 15);
+  SIM.step(wStepFar, { mx: 0, my: 0 });
+  expect('★★真实 step 里怪全在半径外 → 一分不累计（调用点也被密度闸守住）',
+    wStepFar.swarmSec === 0, 'sec=' + wStepFar.swarmSec);
+
+  // ---------- 8. 剧情关隔离（双管 + step 明细证明世界还在跑）----------
+  const wS = cleanWorld(10770);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch6' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  SIM.tickSwarm(wS);
+  surround(wS, P.mobsNeed, P.radius / 2);
+  feedSec(wS, 5);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.swarmActive === 0 && wS.swarmRounds === 0 && wS.swarmSec === 0 &&
+    evs(wS, 'swarm_start').length === 0,
+    'active=' + wS.swarmActive + ' sec=' + wS.swarmSec);
+  // ★ch5 上限 480 秒 < 首发 516 秒，必须用 ch6（540 秒）才验得出"世界还在跑"。
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 10771, modId: 'myth', stageId: 'ch6' });
+  let storyAlive = true;
+  for (let k = 0; k < 2; k++) {
+    wS2.tick = Math.round((P.startSec + k * 2) * HZ) - 1;
+    SIM.step(wS2, { mx: 0, my: 0 });
+    if (wS2.ended || wS2.state !== 'playing') storyAlive = false;
+  }
+  expect('★★剧情关（《补天纪》ch6）走完整条 step 也没有妖潮诀，且那一刻世界确实还在跑',
+    storyAlive && wS2.swarmActive === 0 && evs(wS2, 'swarm_start').length === 0,
+    '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
+    wS2.matchSec + ' 秒）/ active=' + wS2.swarmActive);
 }

@@ -1280,6 +1280,24 @@
       temperDone: 0,
       temperFailed: 0,
 
+      // ---------- 妖潮诀（第七十一轮：身陷怪潮累计秒数）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      swarmNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是"这一帧被围要不要计数"的判据之一。
+      swarmActive: 0,
+      // 本轮累计身陷怪潮的秒数 / 目标秒数（半径外/死怪/阵亡/剧情关/窗口外都不算）。
+      swarmSec: 0,
+      swarmNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      swarmDeadline: 0,
+      // 过半播报只发一次的标记（连续量，标记位防的是跨阈值刷屏）
+      swarmHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      swarmRounds: 0,
+      swarmDone: 0,
+      swarmFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -3272,6 +3290,120 @@
       w.events.push({
         type: 'temper_half', got: Math.round(w.temperHurt), need: w.temperNeed,
         left: Math.max(0, Math.ceil(w.temperNeed - w.temperHurt))
+      });
+    }
+  }
+
+  // ============================================================
+  // 妖潮诀（第七十一轮：身陷怪潮累计秒数）—— 目标制零实体第十六件
+  // ============================================================
+
+  // 某一轮要在怪潮里累计撑多少秒：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function swarmNeedFor(roundIndex) {
+    const P = C.SWARM;
+    if (!P) return 0;
+    return Math.min(P.maxSec, P.needSec + (roundIndex || 0) * P.secStep);
+  }
+
+  // 统计玩家 radius 内还活着的怪数。★只读现成坐标，不抽随机、不写任何实体。
+  //   平方距离比较（含边界），与射日诀的远距离闸同一姿势；死怪一律不算。
+  function countSwarmMobs(w, p, radius) {
+    if (!p) return 0;
+    const r2 = radius * radius;
+    let n = 0;
+    const list = w.mobs;
+    for (let i = 0; i < list.length; i++) {
+      const m = list[i];
+      if (!m.alive) continue;
+      const dx = m.x - p.x;
+      const dy = m.y - p.y;
+      if (dx * dx + dy * dy <= r2) n += 1;
+    }
+    return n;
+  }
+
+  // 每帧调一次（step 第 2.69 段，紧挨淬骨诀 —— 同为"目标制、零实体"一族）。
+  function tickSwarm(w) {
+    const P = C.SWARM;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，逼着扎进怪堆会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.swarmActive) {
+      // ② 达标优先于到期：最后一帧刚好撑够也算数（与前十五件同口径）。
+      if (w.swarmSec >= w.swarmNeed) {
+        w.swarmActive = 0;
+        w.swarmDone = (w.swarmDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：被围钩子立刻失效，不会把同一窗口的后续帧算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'swarm_done', got: Math.round(w.swarmSec), need: w.swarmNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.swarmDeadline) return;
+      // 到期没撑够：★什么都不给，且**不责备**（与前十五件同一口径）。
+      w.swarmActive = 0;
+      w.swarmFailed = (w.swarmFailed || 0) + 1;
+      w.events.push({
+        type: 'swarm_fail', need: w.swarmNeed, got: Math.round(w.swarmSec),
+        left: Math.max(0, Math.ceil(w.swarmNeed - w.swarmSec))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.swarmNextTick`。
+    if (w.tick < w.swarmNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.swarmRounds = (w.swarmRounds || 0) + 1;
+    w.swarmActive = 1;
+    w.swarmSec = 0;
+    w.swarmNeed = swarmNeedFor(w.swarmRounds - 1);
+    w.swarmHalfNoted = 0;
+    w.swarmDeadline = w.time + P.windowSec;
+    w.swarmNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'swarm_start', need: w.swarmNeed, sec: P.windowSec,
+      radius: P.radius, mobs: P.mobsNeed, round: w.swarmRounds
+    });
+  }
+
+  // 身陷怪潮钩子：每帧在 step 的状态段调一次，只有"半径内活怪够数"才累计。
+  // ★这是本件唯一计数入口：数玩家 radius 内还活着的怪（含边界），
+  //   半径外 / 死怪 / 阵亡（hp<=0）/ 窗口外 / 剧情关 / 落空后一律一分不算。
+  // 【为什么只加数字、不发奖】达标/落空的结算全在 tickSwarm 里做，钩子只累计。
+  // 【过半为什么用 >= + 标记位】身陷秒数是连续量，一帧跨过半程是常事；=== 会漏报。
+  function onSwarmTime(w, dt) {
+    const P = C.SWARM;
+    if (!P || !w.swarmActive || w.storyStage) return;
+    if (!(dt > 0)) return;
+    const p = w.self || w.player;
+    // ★阵亡的那一瞬间不算活着被围（死亡不由本玩法奖励）。
+    if (!p || !(p.hp > 0)) return;
+    if (countSwarmMobs(w, p, P.radius) < P.mobsNeed) return;
+    w.swarmSec += dt;
+    const half = w.swarmNeed / 2;
+    if (!w.swarmHalfNoted && w.swarmSec >= half) {
+      w.swarmHalfNoted = 1;
+      w.events.push({
+        type: 'swarm_half', got: Math.round(w.swarmSec), need: w.swarmNeed,
+        left: Math.max(0, Math.ceil(w.swarmNeed - w.swarmSec))
       });
     }
   }
@@ -9615,6 +9747,17 @@
     //   承伤计数钩子挂在 damagePlayer 的真扣血分支，这里只管状态迁移。
     tickTemper(w);
 
+    // ---------- 2.69 妖潮诀（第七十一轮：身陷怪潮累计秒数） ----------
+    // 【为什么紧跟淬骨诀】同为"目标制、零实体、只发播报"——十六件摆在一起，
+    //   一眼能看出这一族的十六条轴。前十五件从不问"身边围了多少怪"，
+    //   本件第一次把怪群密度变成目标：被至少 mobsNeed 只活怪围住撑够秒数。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字，不碰怪的位置；
+    //   被围计数钩子就挂在紧挨它之前（读现成怪坐标——目标制段统一在 updateMobs
+    //   之前，用的是上一帧末的位置，差 0.05 秒不影响密度判定）。
+    //   "先累计、后结算"与前十五件一致，达标当帧即可发奖。
+    onSwarmTime(w, dt);
+    tickSwarm(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -10401,6 +10544,13 @@
     onTemperHurt: onTemperHurt,
     // ★淬骨诀另用上面已导出的 damagePlayer 验证：它数的是"真扣进血条"的那一段，
     //   绕过去直接喂钩子会漏掉无敌帧早退、升级定格与溢出不算这三条关键边界。
+    // 第七十一轮：妖潮诀（身陷怪潮累计秒数）——三个入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确往玩家周围塞怪，而不必真跑 516 秒。
+    swarmNeedFor: swarmNeedFor,
+    tickSwarm: tickSwarm,
+    onSwarmTime: onSwarmTime,
+    countSwarmMobs: countSwarmMobs,
+    // ★countSwarmMobs 单独导出：半径外/死怪不算这条关键边界靠它直接验。
     bestiaryNeedFor: bestiaryNeedFor,
     // ★导出回血漏斗本身：养元诀的"只认真回进血条的量"只能在真实 healPlayer
     //   上验（绕过去直接喂钩子会漏掉"满血/溢出算 0"这条最关键的边界）。
