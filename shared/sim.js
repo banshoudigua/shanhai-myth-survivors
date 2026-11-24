@@ -1440,6 +1440,23 @@
       retaliateDone: 0,
       retaliateFailed: 0,
 
+      // ---------- 踏罡诀（第八十一轮：四方站位覆盖）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      tagaNextTick: 0,
+      tagaActive: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      tagaDeadline: 0,
+      tagaRounds: 0,
+      // 每个方位本轮累计站了多久（每方位一个槽，0=东 1=南 2=西 3=北）
+      tagaHold: [0, 0, 0, 0],
+      // 每个方位要求站够的秒数（逐轮递增）
+      tagaNeed: 0,
+      // 本轮已经站够的方位数（0~4），过半播报按它判。
+      tagaDoneCount: 0,
+      tagaHalfNoted: 0,
+      tagaDone: 0,
+      tagaFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -4329,6 +4346,116 @@
         left: Math.max(0, w.retaliateNeed - w.retaliateKills)
       });
     }
+  }
+
+  // ============================================================
+  // 第八十一轮：踏罡诀（目标制零实体第二十五件，全新轴「四方站位覆盖」）
+  // ============================================================
+  function tagaNeedFor(roundIndex) {
+    const P = C.TAGA;
+    return Math.min(P.maxHold, P.needHold + (roundIndex || 0) * P.holdStep);
+  }
+
+  // 方位判定：0=东 1=南 2=西 3=北，-1=不在任何方位。
+  // ★只有走出地图中心那一圈才算「到了某一方」，贴着中心抖两下拿不到。
+  function tagaZoneAt(w) {
+    const P = C.TAGA;
+    if (!P) return -1;
+    const p = w.self || w.player;
+    if (!p || p.hp <= 0) return -1;
+    const cx = w.map.w / 2;
+    const cy = w.map.h / 2;
+    const dx = p.x - cx;
+    const dy = p.y - cy;
+    const minD = Math.min(w.map.w, w.map.h) * P.distRatio;
+    // 平方比较含边界：正好踩在圈线上算到了；圈内（含正中心）一律不算。
+    if (dx * dx + dy * dy < minD * minD) return -1;
+    // 主导轴定方位；正好 45° 时固定归东/西，避免浮点抖动来回换方。
+    if (Math.abs(dx) >= Math.abs(dy)) return dx > 0 ? 0 : 2;
+    return dy > 0 ? 1 : 3;
+  }
+
+  // 站位累计钩子：每帧在 tickTaga 之前调，只读玩家当前位置，零实体零随机。
+  function onTagaStay(w, dt) {
+    const P = C.TAGA;
+    if (!P || !w.tagaActive || w.storyStage || !(dt > 0)) return;
+    const z = tagaZoneAt(w);
+    if (z < 0) return;
+    if ((w.tagaHold[z] || 0) >= w.tagaNeed) return;
+    w.tagaHold[z] = Math.min(w.tagaNeed, (w.tagaHold[z] || 0) + dt);
+    if (w.tagaHold[z] < w.tagaNeed) return;
+    // 一个方位只记一次：站再久也不重复计数。
+    w.tagaDoneCount = (w.tagaDoneCount || 0) + 1;
+    // 整数次逐次 +1：标记位防的是「多站一个方位就再播一次过半」。
+    if (!w.tagaHalfNoted && w.tagaDoneCount >= 2) {
+      w.tagaHalfNoted = 1;
+      w.events.push({
+        type: 'taga_half', got: w.tagaDoneCount, need: 4,
+        left: 4 - w.tagaDoneCount
+      });
+    }
+  }
+
+  function tickTaga(w) {
+    const P = C.TAGA;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞「必须跑遍四方」会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.tagaActive) {
+      // ② 达标优先于到期：最后一帧刚好站满第四方也算数。
+      if (w.tagaDoneCount >= 4) {
+        w.tagaActive = 0;
+        w.tagaDone = (w.tagaDone || 0) + 1;
+        // ★先清 active 再发奖：奖励里的球/钱就算当场被捡走，也不算进新一轮。
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'taga_done', got: w.tagaDoneCount, need: 4,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.tagaDeadline) return;
+      // 到期没凑够：★什么都不给，且**不责备**。
+      w.tagaActive = 0;
+      w.tagaFailed = (w.tagaFailed || 0) + 1;
+      w.events.push({
+        type: 'taga_fail', need: 4, got: w.tagaDoneCount,
+        left: Math.max(0, 4 - w.tagaDoneCount)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.tagaNextTick`。
+    if (w.tick < w.tagaNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.tagaRounds = (w.tagaRounds || 0) + 1;
+    w.tagaActive = 1;
+    w.tagaHold = [0, 0, 0, 0];
+    w.tagaNeed = tagaNeedFor(w.tagaRounds - 1);
+    w.tagaDoneCount = 0;
+    w.tagaHalfNoted = 0;
+    w.tagaDeadline = w.time + P.windowSec;
+    w.tagaNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'taga_start', need: w.tagaNeed, sec: P.windowSec,
+      round: w.tagaRounds
+    });
   }
 
   function killMob(w, m, wasFullBeforeHit, isWorld) {
@@ -10783,6 +10910,13 @@
     //   与 tick 段解耦，下一帧 tick 即可结算发奖。
     tickRetaliate(w);
 
+    // 【踏罡诀】目标制零实体第二十五件，紧挨反击诀 —— 二十五件的轴摆在一起。
+    //   前二十四件从不问「你去过哪儿」，本件第一次把四方空间覆盖变成目标。
+    // 【为什么站位钩子紧跟 tick 之前】只读写几个数字与玩家坐标，不碰怪与拾取物；
+    //   先累计再结算，达标当帧即可发奖。
+    onTagaStay(w, dt);
+    tickTaga(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -11624,6 +11758,13 @@
     tickRetaliate: tickRetaliate,
     onRetaliateHit: onRetaliateHit,
     onRetaliateKill: onRetaliateKill,
+    // 第八十一轮：踏罡诀（四方站位覆盖）——方位判定单独导出，测试要能钉
+    //   「中心圈不算 / 边界含等号 / 四方位不串」；状态机入口也导出，
+    //   便于在精确 tick 上开窗、精确注入站位。
+    tagaNeedFor: tagaNeedFor,
+    tagaZoneAt: tagaZoneAt,
+    tickTaga: tickTaga,
+    onTagaStay: onTagaStay,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
