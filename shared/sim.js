@@ -1390,6 +1390,56 @@
       yongjinDone: 0,
       yongjinFailed: 0,
 
+      // ---------- 聚灵诀（第七十七轮：限时捡够 N 点经验面额）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      julingNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是「这次吃球要不要计数」的判据之一。
+      julingActive: 0,
+      // 本轮窗口内已经真实入账多少经验 / 目标面额。
+      julingExp: 0,
+      julingNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      julingDeadline: 0,
+      // 过半播报只发一次的标记（面额是连续量，标记位防的是跨阈值刷屏）
+      julingHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      julingRounds: 0,
+      julingDone: 0,
+      julingFailed: 0,
+
+      // ---------- 崩山诀（第七十八轮：限时一击秒杀满血妖）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      onehitNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是「这次击杀要不要计数」的判据之一。
+      onehitActive: 0,
+      // 本轮窗口内已经一击秒杀几只满血妖 / 目标只数。
+      onehitKills: 0,
+      onehitNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      onehitDeadline: 0,
+      // 过半播报只发一次的标记（次数是整数逐次 +1，标记位防的是多杀刷屏）
+      onehitHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      onehitRounds: 0,
+      onehitDone: 0,
+      onehitFailed: 0,
+
+      // ---------- 反击诀（第八十轮：挨打后 4 秒内亲手清怪）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      retaliateNextTick: 0,
+      retaliateActive: 0,
+      retaliateKills: 0,
+      retaliateNeed: 0,
+      retaliateDeadline: 0,
+      // 最近一次真受伤换来的反击截止时刻（w.time 口径）；0 = 当前没有反击期。
+      retaliateUntil: 0,
+      retaliateHalfNoted: 0,
+      retaliateRounds: 0,
+      retaliateDone: 0,
+      retaliateFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1808,6 +1858,12 @@
     const af = m.affix ? (C.AFFIX_MAP && C.AFFIX_MAP[m.affix]) : null;
     if (af && af.dmgReduce) dmg = dmg * (1 - af.dmgReduce);
 
+    // 崩山诀（第七十八轮）：★必须在扣血之前记下「这一击打的是不是满血妖」。
+    //   扣完血这个事实就永久丢失（补刀判据要的就是击杀前那一刻的状态）。
+    //   ★判的是 m.hp >= m.maxHp：回春巫回满血的怪也算满血（它确实被治满了）；
+    //   ★maxHp<=0 的手搓测试怪不算（没有"满血"这个概念）。
+    const wasFullBeforeHit = m.maxHp > 0 && m.hp >= m.maxHp;
+
     m.hp -= dmg;
     w.stats.dmgDealt += dmg;
 
@@ -1840,7 +1896,10 @@
     }
 
     if (m.hp <= 0) {
-      killMob(w, m);
+      // 崩山诀（第七十八轮）：把「击杀前满血」与「是不是世界伤害」一并传进漏斗。
+      // ★tickBurn（灼烧磨死）那一处调 killMob 不传这两个参数 → 天然不算本件，
+      //   这正是"一击秒杀"与"慢慢磨死"的分界线（灵魂断言钉这里）。
+      killMob(w, m, wasFullBeforeHit, isWorld);
     }
     return dmg;
   }
@@ -3980,7 +4039,299 @@
     }
   }
 
-  function killMob(w, m) {
+  // ============================================================
+  // 聚灵诀（第七十七轮：限时捡到 N 点经验面额）—— 目标制零实体第二十二件
+  // ============================================================
+
+  // 某一轮要吸多少经验面额：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function julingNeedFor(roundIndex) {
+    const P = C.JULING;
+    if (!P) return 0;
+    return Math.min(P.maxExp, P.needExp + (roundIndex || 0) * P.expStep);
+  }
+
+  // 每帧调一次（step 第 2.75 段，紧挨涌金诀 —— 同为「目标制、零实体」一族）。
+  function tickJuling(w) {
+    const P = C.JULING;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞「限时吸修为」会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.julingActive) {
+      // ② 达标优先于到期：最后一帧刚好吸够也算数（与前二十一件同口径）。
+      if (w.julingExp >= w.julingNeed) {
+        w.julingActive = 0;
+        w.julingDone = (w.julingDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励里的球/钱就算当场被捡走，也不算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'juling_done', got: w.julingExp, need: w.julingNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.julingDeadline) return;
+      // 到期没吸够：★什么都不给，且**不责备**。
+      w.julingActive = 0;
+      w.julingFailed = (w.julingFailed || 0) + 1;
+      w.events.push({
+        type: 'juling_fail', need: w.julingNeed, got: w.julingExp,
+        left: Math.max(0, Math.round(w.julingNeed - w.julingExp))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.julingNextTick`。
+    if (w.tick < w.julingNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.julingRounds = (w.julingRounds || 0) + 1;
+    w.julingActive = 1;
+    w.julingExp = 0;
+    w.julingNeed = julingNeedFor(w.julingRounds - 1);
+    w.julingHalfNoted = 0;
+    w.julingDeadline = w.time + P.windowSec;
+    w.julingNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'juling_start', need: w.julingNeed, sec: P.windowSec,
+      round: w.julingRounds
+    });
+  }
+
+  // 经验入账钩子：挂在 updatePickups 的 exp 分支里，拿的是**真实入账**的 got
+  //   （已经乘过 attrs.expMul 与赤月 expMul），所以一颗大球可以顶几颗小球。
+  // ★只数窗口内 w.self（自己）吃的球；队友吃的、宝箱白送的免费升级（走 chest
+  //   分支、根本不产生经验入账）、剧情关、窗口外都不算。
+  // 【过半标记位】面额是连续量，用 >= 防一次跨阈值漏报，标记位防刷屏。
+  function onJulingExp(w, p, got) {
+    const P = C.JULING;
+    if (!P || !w.julingActive || w.storyStage) return;
+    if (p !== (w.self || w.player)) return;
+    if (!(got > 0)) return;
+    w.julingExp = (w.julingExp || 0) + got;
+    const half = w.julingNeed / 2;
+    if (!w.julingHalfNoted && w.julingExp >= half) {
+      w.julingHalfNoted = 1;
+      w.events.push({
+        type: 'juling_half', got: w.julingExp, need: w.julingNeed,
+        left: Math.max(0, Math.round(w.julingNeed - w.julingExp))
+      });
+    }
+  }
+
+  // ============================================================
+  // 崩山诀（第七十八轮：限时一击秒杀满血妖）—— 目标制零实体第二十三件
+  // ============================================================
+
+  // 某一轮要一击秒杀几只满血妖：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function onehitNeedFor(roundIndex) {
+    const P = C.ONEHIT;
+    if (!P) return 0;
+    return Math.min(P.maxKills, P.needKills + (roundIndex || 0) * P.killStep);
+  }
+
+  // 每帧调一次（step 第 2.76 段，紧挨聚灵诀 —— 同为「目标制、零实体」一族）。
+  function tickOnehit(w) {
+    const P = C.ONEHIT;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞「限时秒杀」会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.onehitActive) {
+      // ② 达标优先于到期：最后一帧刚好秒够也算数（与前二十二件同口径）。
+      if (w.onehitKills >= w.onehitNeed) {
+        w.onehitActive = 0;
+        w.onehitDone = (w.onehitDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励里的球/钱就算当场被捡走，也不算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'onehit_done', got: w.onehitKills, need: w.onehitNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.onehitDeadline) return;
+      // 到期没秒够：★什么都不给，且**不责备**。
+      w.onehitActive = 0;
+      w.onehitFailed = (w.onehitFailed || 0) + 1;
+      w.events.push({
+        type: 'onehit_fail', need: w.onehitNeed, got: w.onehitKills,
+        left: Math.max(0, w.onehitNeed - w.onehitKills)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.onehitNextTick`。
+    if (w.tick < w.onehitNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.onehitRounds = (w.onehitRounds || 0) + 1;
+    w.onehitActive = 1;
+    w.onehitKills = 0;
+    w.onehitNeed = onehitNeedFor(w.onehitRounds - 1);
+    w.onehitHalfNoted = 0;
+    w.onehitDeadline = w.time + P.windowSec;
+    w.onehitNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'onehit_start', need: w.onehitNeed, sec: P.windowSec,
+      round: w.onehitRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 漏斗里，只认「窗口内 + 一击 + 满血 + 玩家输出」。
+  // ★wasFullBeforeHit 由 damageMob 在扣血**之前**算出——先削血再补刀不算。
+  // ★isWorld 闸：天火/灵泉/引魂灯收尾砸死不算（白送）。
+  // ★tickBurn 走 killMob 时不传参 → wasFullBeforeHit 为 undefined → 灼烧磨死天然不算。
+  function onOneHitKill(w, m, wasFullBeforeHit, isWorld) {
+    const P = C.ONEHIT;
+    if (!P || !w.onehitActive || w.storyStage) return;
+    if (isWorld) return;
+    if (!wasFullBeforeHit) return;
+    w.onehitKills = (w.onehitKills || 0) + 1;
+    const half = w.onehitNeed / 2;
+    // 次数是整数逐次 +1：标记位防的是"多杀刷屏"，不是跨阈值漏报。
+    if (!w.onehitHalfNoted && w.onehitKills >= half) {
+      w.onehitHalfNoted = 1;
+      w.events.push({
+        type: 'onehit_half', got: w.onehitKills, need: w.onehitNeed,
+        left: Math.max(0, w.onehitNeed - w.onehitKills)
+      });
+    }
+  }
+
+  // ============================================================
+  // 第八十轮：反击诀（目标制零实体第二十四件，全新轴「挨打后的反击」）
+  // ============================================================
+  function retaliateNeedFor(roundIndex) {
+    const P = C.RETALIATE;
+    return Math.min(P.maxKills, P.needKills + (roundIndex || 0) * P.killStep);
+  }
+
+  // 每帧调一次（step 第 2.77 段，紧挨崩山诀 —— 同为「目标制、零实体」一族）。
+  function tickRetaliate(w) {
+    const P = C.RETALIATE;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞"必须挨打"会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.retaliateActive) {
+      // ② 达标优先于到期：最后一帧刚好凑够也算数（与前二十三件同口径）。
+      if (w.retaliateKills >= w.retaliateNeed) {
+        w.retaliateActive = 0;
+        // ★先清 active 再发奖：奖励里的球/钱就算当场被捡走，也不算进新一轮。
+        w.retaliateUntil = 0;
+        w.retaliateDone = (w.retaliateDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'retaliate_done', got: w.retaliateKills, need: w.retaliateNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.retaliateDeadline) return;
+      // 到期没凑够：★什么都不给，且**不责备**。
+      w.retaliateActive = 0;
+      w.retaliateUntil = 0;
+      w.retaliateFailed = (w.retaliateFailed || 0) + 1;
+      w.events.push({
+        type: 'retaliate_fail', need: w.retaliateNeed, got: w.retaliateKills,
+        left: Math.max(0, w.retaliateNeed - w.retaliateKills)
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.retaliateNextTick`。
+    if (w.tick < w.retaliateNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.retaliateRounds = (w.retaliateRounds || 0) + 1;
+    w.retaliateActive = 1;
+    w.retaliateKills = 0;
+    w.retaliateNeed = retaliateNeedFor(w.retaliateRounds - 1);
+    w.retaliateHalfNoted = 0;
+    w.retaliateUntil = 0;
+    w.retaliateDeadline = w.time + P.windowSec;
+    w.retaliateNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'retaliate_start', need: w.retaliateNeed, sec: P.windowSec,
+      after: P.afterSec, round: w.retaliateRounds
+    });
+  }
+
+  // 受击钩子：挂在 damagePlayer 真扣血分支（扣血之后、死亡判定之前）。
+  // ★只认 w.self：队友挨打不给玩家开门；无敌帧/升级定格根本走不到这一行。
+  // ★连续挨打只续期（不清空已反击只数）：被围住时门会一直开着，
+  //   但玩家仍要在 4 秒内真的清掉怪，白站着不会白拿。
+  function onRetaliateHit(w, p) {
+    const P = C.RETALIATE;
+    if (!P || !w.retaliateActive || w.storyStage) return;
+    if (p !== (w.self || w.player)) return;
+    w.retaliateUntil = w.time + P.afterSec;
+  }
+
+  // 击杀钩子：挂在 killMob 漏斗里，只认「窗口内 + 反击期内 + 玩家输出」。
+  // ★isWorld 闸：天火/灵泉/引魂灯砸死不算白送的反击。
+  function onRetaliateKill(w, isWorld) {
+    const P = C.RETALIATE;
+    if (!P || !w.retaliateActive || w.storyStage) return;
+    if (isWorld) return;
+    // ★反击期是闭区间：[开窗, until] 都算；until=0 表示从未挨打。
+    if (!w.retaliateUntil || w.time > w.retaliateUntil) return;
+    w.retaliateKills = (w.retaliateKills || 0) + 1;
+    const half = w.retaliateNeed / 2;
+    // 次数是整数逐次 +1：标记位防的是"多杀刷屏"，不是跨阈值漏报。
+    if (!w.retaliateHalfNoted && w.retaliateKills >= half) {
+      w.retaliateHalfNoted = 1;
+      w.events.push({
+        type: 'retaliate_half', got: w.retaliateKills, need: w.retaliateNeed,
+        left: Math.max(0, w.retaliateNeed - w.retaliateKills)
+      });
+    }
+  }
+
+  function killMob(w, m, wasFullBeforeHit, isWorld) {
     if (!m.alive) return;
     m.alive = false;
     w.stats.kills += 1;
@@ -4005,6 +4356,12 @@
     // 猎变诀的击杀计数（第七十二轮）。同处并列，但按**怪的 affix 词缀**判：
     // ★与前面几件互不干扰——只认带词缀的变异妖，普通怪 / 分裂子怪 / 天火砸死都不算。
     onHuntKill(w, m);
+    // 崩山诀的击杀计数（第七十八轮）。同处并列，但按**击杀前是否满血 + 是否一击**判：
+    // ★先削血再补刀不算、灼烧磨死不算（tickBurn 不传参）、天火/灵泉砸死不算（isWorld）。
+    onOneHitKill(w, m, wasFullBeforeHit, isWorld);
+    // 反击诀的击杀计数（第八十轮）。同处并列，但按**挨打后 4 秒的反击期**判：
+    // ★必须先真受伤开门、且天火白送不算；与崩山诀的"满血一击"互不干扰。
+    onRetaliateKill(w, isWorld);
 
     // 掉落经验球
     const def = m.def;
@@ -4178,8 +4535,11 @@
       }
     }
 
-    // 死亡特效，让打击感有反馈
-    w.effects.push({ kind: 'death', x: m.x, y: m.y, r: def.r, life: 0.25, maxLife: 0.25, color: def.color });
+    // 死亡特效，让打击感有反馈。
+    // ★第七十九轮：寿命 0.25 → 0.36 秒。渲染层在这 0.36 秒里叠了冲击环 + 碎芒 + 魂火；
+    //   原来的 0.25 秒只够 pixelfx 的小火花闪一下，爆发刚起手就没了。
+    //   只改已有字段（life/maxLife），不往快照里加任何新字段。
+    w.effects.push({ kind: 'death', x: m.x, y: m.y, r: def.r, life: 0.36, maxLife: 0.36, color: def.color });
 
     // ---------- 词缀「分裂」：死后原地裂成两只 ----------
     // 【三条必须守住的线】
@@ -4242,6 +4602,9 @@
     // 寻仇诀（第七十三轮）：只在真扣血的这一刻记"打我的是哪一种妖"。
     // ★放在扣血之后、死亡判定之前：致死一击也是真被咬中，只是人没撑住拿不到奖励。
     onVengeHit(w, p, srcMob);
+    // 反击诀（第八十轮）：真扣血的这一刻开一段 4 秒反击期。
+    // ★放在扣血之后：无敌帧早退 / 升级定格 / 队友挨打都走不到这里，天然不算。
+    onRetaliateHit(w, p);
     p.invuln = C.PLAYER.invulnSec;
 
     // ---------- 守心劫（第五十六轮）：只统计"真掉了血"的那一下 ----------
@@ -9183,9 +9546,14 @@
           //   赤月结束时地上还躺着一堆球，若按生成时算，玩家会看到
           //   「同一个球，赤月里吃 13 点、赤月后吃 10 点」——同一颗球两个价，最难解释。
           const moonExp = w.moonOn ? C.BLOOD_MOON.expMul : 1;
-          gainExp(w, it.value * p.attrs.expMul * moonExp);
+          // 聚灵诀（第七十七轮）：先算出这一颗球的真实入账面额，再喂给经验槽与钩子。
+          //   ★钩子拿的是同一个 expGot（已乘 expMul 与赤月倍率），不是颗数、不是名义值；
+          //   宝箱白送的免费升级走 chest 分支，根本到不了这里，天然不算进本件。
+          const expGot = it.value * p.attrs.expMul * moonExp;
+          gainExp(w, expGot);
           // 拾荒令（第五十七轮）：这一份精魄算进"限时收集"。★只计数、不在这里发奖。
           onGleanPickup(w);
+          onJulingExp(w, p, expGot);
         } else if (it.kind === 'gold') {
           // 难度金币倍率在这里乘，而不是结算时再乘：
           // 让 HUD 上跳的数字、结算面板里的数字、落库的数字永远是同一个 ——
@@ -10394,6 +10762,27 @@
     //   与 tick 段解耦，捡到钱之后下一帧 tick 即可结算发奖。
     tickYongjin(w);
 
+    // 【聚灵诀】目标制零实体第二十二件，紧挨涌金诀 —— 二十二件的轴摆在一起。
+    //   本件第一次问「这一轮吸了多少修为（按精魄真实入账面额，不按颗数）」。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字、发一箱金币，
+    //   不碰怪的位置；吃球钩子挂在 updatePickups 的 exp 分支里，
+    //   与 tick 段解耦，吃到球之后下一帧 tick 即可结算发奖。
+    tickJuling(w);
+
+    // 【崩山诀】目标制零实体第二十三件，紧挨聚灵诀 —— 二十三件的轴摆在一起。
+    //   本件第一次问「这一轮能不能一击把满血妖直接带走（爆发力，不是累计量）」。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字、发一箱金币，
+    //   不碰怪的位置；一击秒杀钩子挂在 damageMob → killMob 漏斗里（扣血前判满血），
+    //   与 tick 段解耦，击杀发生在战斗结算时、下一帧 tick 即可结算发奖。
+    tickOnehit(w);
+
+    // 【反击诀】目标制零实体第二十四件，紧挨崩山诀 —— 二十四件的轴摆在一起。
+    //   本件第一次把「受伤」与「清怪」接起来：真扣血后 4 秒内亲手击杀才算数。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字、发一箱金币，
+    //   不碰怪的位置；受击钩子挂在 damagePlayer 的真扣血分支、击杀钩子挂在 killMob，
+    //   与 tick 段解耦，下一帧 tick 即可结算发奖。
+    tickRetaliate(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -11217,6 +11606,24 @@
     yongjinNeedFor: yongjinNeedFor,
     tickYongjin: tickYongjin,
     onYongjinGold: onYongjinGold,
+    // 第七十七轮：聚灵诀（限时捡够 N 点经验面额）——入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次入账，而不必真跑 564 秒等场上自然掉球。
+    julingNeedFor: julingNeedFor,
+    tickJuling: tickJuling,
+    onJulingExp: onJulingExp,
+    // 第七十八轮：崩山诀（限时一击秒杀满血妖）——入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次满血/残血击杀，而不必真跑 576 秒。
+    onehitNeedFor: onehitNeedFor,
+    tickOnehit: tickOnehit,
+    onOneHitKill: onOneHitKill,
+    // 第八十轮：反击诀（挨打后 4 秒内亲手清怪）——入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入受击/击杀，而不必真跑 588 秒。
+    // ★onRetaliateHit 单独导出：无敌帧/队友挨打/升级定格不算这条灵魂边界，
+    //   必须走真实 damagePlayer 才能验到（绕过去直喂钩子会漏掉"谁受的伤"）。
+    retaliateNeedFor: retaliateNeedFor,
+    tickRetaliate: tickRetaliate,
+    onRetaliateHit: onRetaliateHit,
+    onRetaliateKill: onRetaliateKill,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验

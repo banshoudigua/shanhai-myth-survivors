@@ -1237,7 +1237,7 @@
       // 没有它就没法判断「卡」到底是渲染还是逻辑造成的。
       // teammates：本帧真正画出来的队友数（联机用）。roomcheck 靠它断言
       // 「队友确实被绘制」，而不是只看截图靠肉眼 —— 这个 bug 就是这么漏掉的。
-      stat: { drawn: 0, total: 0, drawMs: 0, teammates: 0 },
+      stat: { drawn: 0, total: 0, drawMs: 0, teammates: 0, killBursts: 0 },
       groundTex: null,
       groundTexMap: null,   // 地面纹理是哪张地图的（换图要重建）
       // ★初始值不能是 null：resize（canvas 尺寸变化时触发）会读 curMap().w，
@@ -3982,11 +3982,99 @@
       }
     }
 
+    /**
+     * 击杀爆发（第七十九轮）：在既有 death 特效上叠一层冲击环 + 碎芒 + 魂火。
+     *
+     * ★为什么画在这里而不是加新特效 kind：death 已经在协议串池、快照与 pixelfx 里跑通，
+     *   新 kind 要动串池/带宽/老客户端兼容，代价远大于这一层纯渲染增强。
+     *   本函数只读 e 上本来就有的 x/y/r/color/life/maxLife —— 单机与联机看到同一套效果。
+     * ★形状用坐标哈希而不是 Math.random：同一只怪在同一位置每次炸开都得一样，
+     *   也绝不碰世界随机流（nextRand），否则波次与掉落会被视觉副作用带偏。
+     */
+    function drawKillBurst(e, t) {
+      const r = Math.max(8, e.r || 10);
+      if (!visible(e.x, e.y, r * 3.2)) return;
+
+      const k = 1 - t;                       // 0 → 1：从炸开到散尽
+      const big = r >= 18;                   // 精英 / Boss：多一道环、多一倍的碎芒
+      // 位置的整数哈希：同位置稳定、相邻位置又能错开，避免连杀时全屏一个模子。
+      const h = ((Math.round(e.x) * 73856093) ^ (Math.round(e.y) * 19349663)) >>> 0;
+      const prevOp = ctx.globalCompositeOperation;
+      ctx.globalCompositeOperation = 'lighter';
+      R.stat.killBursts += 1;
+
+      // ① 外冲击环：从尸身往外推，越到后期越淡。加法混合压不住暗红地面。
+      ctx.globalAlpha = t * 0.85;
+      ctx.strokeStyle = mixRgba('#ffcf5c', '#ffffff', 0.45, 1);
+      ctx.lineWidth = 1.5 + 3.5 * t;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, r * (1.1 + 1.7 * k), 0, TAU);
+      ctx.stroke();
+
+      // ② 精英以上补一道内环：两道环错开走，才有"厚重"的分层感；小怪仍是一道，
+      //    不然满屏小怪各画两圈，视觉噪音盖过真正的大场面。
+      if (big) {
+        ctx.globalAlpha = t * 0.45;
+        ctx.strokeStyle = rgbaOf('#ff8c42', 1);
+        ctx.lineWidth = 2 + 2 * t;
+        ctx.beginPath();
+        ctx.arc(e.x, e.y, r * (0.75 + 1.15 * k), 0, TAU);
+        ctx.stroke();
+      }
+
+      // ③ 白热核心：径向渐变收口，比原来那个纯色小圆有"热"的层次。
+      const coreR = r * (0.85 + 0.65 * t);
+      const g = ctx.createRadialGradient(e.x, e.y, 0, e.x, e.y, coreR);
+      g.addColorStop(0, 'rgba(255,251,232,' + (0.9 * t).toFixed(3) + ')');
+      g.addColorStop(0.42, 'rgba(255,180,60,' + (0.55 * t).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(255,120,40,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(e.x, e.y, coreR, 0, TAU);
+      ctx.fill();
+
+      // ④ 碎芒：朝外飞的小三角。颜色取妖物本色往琥珀金拉一半，
+      //    既保留"这是什么妖"的辨识度，又不会在暗底上变成一块看不清的脏色。
+      const n = big ? 9 : 6;
+      ctx.fillStyle = mixRgba(e.color || '#ff8c42', '#ffcf5c', 0.5, t * 0.9);
+      const phase = (h % 997) / 997 * TAU;
+      for (let i = 0; i < n; i++) {
+        const a = phase + i * TAU / n;
+        const ca = Math.cos(a), sa = Math.sin(a);
+        const d = r * (0.7 + 2.0 * k) + ((h >> (i % 12)) & 7) * 0.7;
+        const fx = e.x + ca * d, fy = e.y + sa * d;
+        const len = r * (0.35 + 0.7 * t);
+        const wd = Math.max(1.2, r * 0.11 * t);
+        ctx.beginPath();
+        ctx.moveTo(fx + ca * len, fy + sa * len);
+        ctx.lineTo(fx - sa * wd, fy + ca * wd);
+        ctx.lineTo(fx + sa * wd, fy - ca * wd);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // ⑤ 三点上飘的魂火：击杀是"往上走"的动作，光有横向冲击环会显得像砸地。
+      ctx.fillStyle = 'rgba(255,243,176,' + (t * 0.85).toFixed(3) + ')';
+      for (let i = 0; i < 3; i++) {
+        const a = phase + i * TAU / 3 + 0.4;
+        const d = r * (0.5 + 2.2 * k);
+        dot(ctx, e.x + Math.cos(a) * d, e.y + Math.sin(a) * d - r * k,
+          Math.max(1.5, r * 0.12 * t), 'rgba(255,243,176,' + (t * 0.85).toFixed(3) + ')');
+      }
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = prevOp;
+    }
+
     function drawEffects(w, alpha) {
       const list = w.effects;
       for (let i = 0; i < list.length; i++) {
         const e = list[i];
         const t = Math.max(0, e.life) / Math.max(0.001, e.maxLife);   // 1 -> 0
+
+        // ★第七十九轮：击杀爆发先画。它是纯几何层，即使 pixelfx 没就绪或本帧
+        //   像素预算被大招吃满，这层反馈也一定在——击杀是核心循环，不能降级成没反馈。
+        if (e.kind === 'death') drawKillBurst(e, t);
 
         // ★技能特效：挥砍 / 爆发 / 光环 / 命中先交给 pixelfx 画；
         // draw 返回 false 说明库没就绪或本帧像素预算用尽，下面的原绘制照常兜底。
@@ -4716,6 +4804,7 @@
       R.stat.drawn = 0;
       R.stat.total = 0;
       R.stat.teammates = 0;
+      R.stat.killBursts = 0;
       R._frame += 1;
 
       // 换了世界（重开一局）就重建地面纹理

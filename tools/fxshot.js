@@ -164,6 +164,10 @@ const INJECT = `(function () {
   w.effects.push({kind:'boom', x:px+300, y:py+170, r:75, life:L, maxLife:L, color:'#ff9f45'});
   w.effects.push({kind:'ring', x:px, y:py, r:145, life:L, maxLife:L, color:'#e8d9b8'});
   w.effects.push({kind:'hitplayer', x:px, y:py+220, r:20, life:L, maxLife:L, color:'#ff6b6b'});
+  // 第七十九轮：真实击杀会留下的 death 特效。一小一大，截图里要能同时看到
+  // 小怪的一道冲击环与 Boss 的两道环 + 碎芒，证明分层按半径生效。
+  w.effects.push({kind:'death', x:px-150, y:py+40, r:11, life:L, maxLife:L, color:'#8a7b46'});
+  w.effects.push({kind:'death', x:px+150, y:py+40, r:40, life:L, maxLife:L, color:'#7a1224'});
   function pr(id, kind, dx, dy, color, vx, vy) {
     w.projectiles.push({id:id, kind:kind, x:px+dx, y:py+dy, px:px+dx, py:py+dy,
       vx:vx, vy:vy, r:4, color:color, life:L, pierce:1, hitIds:{}});
@@ -242,8 +246,13 @@ async function main() {
   console.log('  注入：effects|projectiles|layer = ' + injected);
 
   await sleep(700);
-  const stats = await P.eval('JSON.stringify({fx:VS.PixelFx.stats(), drawMs:VS_GAME.renderer.stat.drawMs, fps:VS_GAME.fps})');
+  const stats = await P.eval('JSON.stringify({fx:VS.PixelFx.stats(), drawMs:VS_GAME.renderer.stat.drawMs, fps:VS_GAME.fps, killBursts:VS_GAME.renderer.stat.killBursts})');
   console.log('  运行时：' + stats);
+  // ★钉住"几何爆发真的画了"：光截图看不出像素级差异，计数器能证明这一帧
+  //   drawKillBurst 被调用，而不是被 pixelfx 吃掉或视口裁掉。
+  const runtime = JSON.parse(stats);
+  expect('★★真实页面里击杀爆发层每帧都在画', runtime.killBursts >= 2,
+    'killBursts=' + runtime.killBursts);
   await P.shot(SHOT);
   console.log('  截图：' + SHOT);
 
