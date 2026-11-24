@@ -1418,6 +1418,7 @@ testSwarm();console.log('');
 testHunt();console.log('');
 testVenge();console.log('');
 testAscend();console.log('');
+testUnseal();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2827,6 +2828,7 @@ function testRage() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3033,6 +3035,7 @@ function testMoon() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5361,6 +5364,7 @@ function testDevourer() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5748,6 +5752,7 @@ function testBoon() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6170,6 +6175,7 @@ function testBell() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6690,6 +6696,7 @@ function testMerge() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7214,6 +7221,7 @@ function testEscort() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7622,6 +7630,7 @@ function testMarket() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8045,6 +8054,7 @@ function testCauldron() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8425,6 +8435,7 @@ function testBounty() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8712,6 +8723,7 @@ function testHealer() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9001,6 +9013,7 @@ function testSerenity() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9270,6 +9283,7 @@ function testGlean() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9589,6 +9603,7 @@ function testForge() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9915,6 +9930,7 @@ function testStride() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10254,6 +10270,7 @@ function testMend() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10439,6 +10456,7 @@ function testMend() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10593,6 +10611,7 @@ function testThunder() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10791,6 +10810,7 @@ function testThunder() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10929,6 +10949,7 @@ function testPeril() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11122,6 +11143,7 @@ function testPeril() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickPeril(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.perilDone === 0, 'pickups=' + wF.pickups.length);
@@ -11265,6 +11287,7 @@ function testDew() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11448,6 +11471,7 @@ function testDew() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickDew(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.dewDone === 0, 'pickups=' + wF.pickups.length);
@@ -11598,6 +11622,7 @@ function testStreak() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -11790,6 +11815,7 @@ function testStreak() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickStreak(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.streakDone === 0, 'pickups=' + wF.pickups.length);
@@ -11978,6 +12004,7 @@ function testBestiary() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12165,6 +12192,7 @@ function testBestiary() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickBestiary(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.bestiaryDone === 0, 'pickups=' + wF.pickups.length);
@@ -12737,6 +12765,7 @@ function testShoot() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12923,6 +12952,7 @@ function testShoot() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickShoot(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.shootDone === 0, 'pickups=' + wF.pickups.length);
@@ -13070,6 +13100,7 @@ function testGeneral() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13087,6 +13118,7 @@ function testGeneral() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     SIM.tickGeneral(w);
   }
   // 按 tier 直接喂击杀钩子：不真 spawn，隔离掉落与随机流
@@ -13270,6 +13302,7 @@ function testGeneral() {
   wF.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickGeneral(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.generalDone === 0, 'pickups=' + wF.pickups.length);
@@ -13777,6 +13810,7 @@ function testTemper() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13797,6 +13831,7 @@ function testTemper() {
     w.huntNextTick = 1e9;   // 第七十二轮：猎变诀 528s 开窗，默认推远
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     SIM.tickTemper(w);
   }
   // ★走调用方入口 damagePlayer（不是直接喂 onTemperHurt）：
@@ -14570,6 +14605,7 @@ function testHunt() {
     w.huntNextTick = 0;       // 本件默认开窗，干净世界里显式打开
     w.vengeNextTick = 1e9;    // 寻仇诀 534s 推远：否则开窗落箱会污染本件"零实体"断言
     w.ascendNextTick = 1e9;   // 登云诀 522s：同理推远，免得落箱污染"零实体"断言
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -14764,6 +14800,7 @@ function testHunt() {
   wF.huntNextTick = 1e9;      // 关掉后续排期，推这么远不该再开一轮
   wF.vengeNextTick = 1e9;     // 寻仇诀 534s：同样关掉，否则落箱污染对照
   wF.ascendNextTick = 1e9;    // 登云诀 522s：同理关掉，免得落箱污染对照
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickHunt(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.huntDone === 0, 'pickups=' + wF.pickups.length);
@@ -14908,6 +14945,7 @@ function testVenge() {
     w.time = w.tick / HZ;
     w.vengeNextTick = 0;
     w.ascendNextTick = 1e9;   // 登云诀 522s：testVenge 把 tick 推过 522，关掉免得开窗落箱
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     SIM.tickVenge(w);
   }
   function finish(w, count) {
@@ -14958,6 +14996,7 @@ function testVenge() {
     w.huntNextTick = 1e9;
     w.vengeNextTick = 0;      // 本件默认开窗，干净世界里由 openWindow 精确触发
     w.ascendNextTick = 1e9;   // 登云诀：推过 522s，关掉免得落箱污染本件零实体断言
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -15125,6 +15164,7 @@ function testVenge() {
   wF.time = wF.tick / HZ;
   wF.vengeNextTick = 1e9;      // 关掉后续排期，推这么远不该再开一轮
   wF.ascendNextTick = 1e9;     // 登云诀：同理关掉，推这么远不该再开一轮
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickVenge(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.vengeDone === 0, 'pickups=' + wF.pickups.length);
@@ -15269,6 +15309,7 @@ function testAscend() {
     w.tick = startTick;
     w.time = w.tick / HZ;
     w.ascendNextTick = 0;
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     SIM.tickAscend(w);
   }
   function finish(w, count) {
@@ -15320,6 +15361,7 @@ function testAscend() {
     w.huntNextTick = 1e9;
     w.vengeNextTick = 1e9;
     w.ascendNextTick = 0;      // 本件默认开窗，干净世界里由 openWindow 精确触发
+    w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -15488,6 +15530,7 @@ function testAscend() {
   wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
   wF.time = wF.tick / HZ;
   wF.ascendNextTick = 1e9;    // 关掉后续排期，推这么远不该再开一轮
+  wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
   SIM.tickAscend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.ascendDone === 0, 'pickups=' + wF.pickups.length);
@@ -15570,4 +15613,336 @@ function testAscend() {
     storyAlive && wS2.ascendActive === 0 && evs(wS2, 'ascend_start').length === 0,
     '世界还在跑=' + storyAlive + '（state=' + wS2.state + '，上限 ' +
     wS2.matchSec + ' 秒）/ active=' + wS2.ascendActive);
+}
+
+function testUnseal() {
+  console.log('[第七十五轮] 启匣诀：第一件「限时亲手开 N 个宝箱」目标（奖励兑现轴，只认真开箱）');
+  const P = C.UNSEAL;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 直接喂计数钩子（绕开 chest 拾取的 openLevelUp 固有随机），专用于零随机断言：
+  //   目标制状态机本身不碰 nextRand，开箱三选一的随机不属于本件的验证范围。
+  function feedDirect(w, count) {
+    for (let i = 0; i < count; i++) SIM.onUnsealChest(w, w.self || w.player);
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.unsealNextTick = 0;
+    SIM.tickUnseal(w);
+  }
+  function finish(w, count) {
+    feedDirect(w, count);
+    w.time = w.unsealDeadline + 0.01;
+    SIM.tickUnseal(w);
+  }
+  // 隔离世界：其它机制全推远、关武器、清场。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.exp = 0;
+    p.hp = p.maxHp;
+    p.invuln = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9;
+    w.shootNextTick = 1e9;
+    w.generalNextTick = 1e9;
+    w.evadeNextTick = 1e9;
+    w.temperNextTick = 1e9;
+    w.swarmNextTick = 1e9;
+    w.huntNextTick = 1e9;
+    w.vengeNextTick = 1e9;
+    w.ascendNextTick = 1e9;
+    w.unsealNextTick = 0;      // 本件默认开窗，干净世界里由 openWindow 精确触发
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场没箱可开）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('首发已进 altar 收官区（此前挑战者/Boss/事件已发过箱）',
+    P.startSec / 30 >= 15, 'startSec=' + P.startSec);
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标箱数按轮递增且封顶（第 2 轮 +1，第 99 轮到 max）',
+    SIM.unsealNeedFor(0) === P.needChests &&
+    SIM.unsealNeedFor(1) === P.needChests + P.chestStep &&
+    SIM.unsealNeedFor(99) === P.maxChests,
+    '0=' + SIM.unsealNeedFor(0) + ' 1=' + SIM.unsealNeedFor(1) +
+    ' 99=' + SIM.unsealNeedFor(99));
+  expect('目标数合理：首轮至少 2 个、封顶小于窗口秒数（跑图要时间，不能白送）',
+    P.needChests >= 2 && P.needChests <= P.maxChests && P.maxChests < P.windowSec,
+    'need=' + P.needChests + ' max=' + P.maxChests + ' / ' + P.windowSec);
+  expect('奖励仍是「一箱 + 零钱」（与前十九件同口径，不是巨款）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发时刻错开全部既有事件（含登云 522、寻仇 534、猎变 528）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'PERIL',
+      'CAULDRON', 'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER',
+      'DEW', 'STREAK', 'BESTIARY', 'SHOOT', 'GENERAL', 'EVADE', 'TEMPER', 'SWARM',
+      'HUNT', 'VENGE', 'ASCEND'
+    ].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'unseal=' + P.startSec + ' ascend=' + C.ASCEND.startSec);
+  expect('中文表名存在（前端播报用的就是它）',
+    typeof P.name === 'string' && P.name.length > 0, P.name);
+
+  // ---------- 2. 零随机（直接调状态机入口 + 计数钩子，隔离掉开箱三选一的固有随机）----------
+  const wR = cleanWorld(11201);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feedDirect(wR, P.needChests);
+  wR.time = wR.unsealDeadline + 0.01;
+  SIM.tickUnseal(wR);
+  expect('★开窗/开箱/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(11202);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  feedDirect(wR2, 0);
+  wR2.time = wR2.unsealDeadline + 0.01;
+  SIM.tickUnseal(wR2);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(11210);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickUnseal(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.unsealRounds === 0 && evs(wT, 'unseal_start').length === 0,
+    'rounds=' + wT.unsealRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.unsealActive === 1 && wT.unsealRounds === 1,
+    'rounds=' + wT.unsealRounds + ' active=' + wT.unsealActive);
+  expect('★★开窗零实体：没怪、没球、没特效、没 zone、没 strike（与前十九件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'unseal_start')[0];
+  expect('开窗播报一次说清三件事：多久 / 几个 / 轮次',
+    !!st && st.sec === P.windowSec && st.need === P.needChests && st.round === 1 &&
+    evs(wT, 'unseal_start').length === 1, JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.unsealDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.unsealDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.unsealNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.unsealNextTick);
+  SIM.tickUnseal(wT);
+  expect('同帧重复调用不会二次开窗', wT.unsealRounds === 1,
+    'rounds=' + wT.unsealRounds);
+  wT.time = wT.unsealDeadline - 0.001;
+  SIM.tickUnseal(wT);
+  expect('到期前一帧不发奖也不结算', wT.unsealActive === 1 &&
+    wT.unsealChests === 0 && evs(wT, 'unseal_done').length === 0 &&
+    evs(wT, 'unseal_fail').length === 0,
+    'active=' + wT.unsealActive + ' chests=' + wT.unsealChests);
+
+  // ---------- 4. 过半（整数个数逐次累加：标记位防刷屏）----------
+  const wH = cleanWorld(11221);
+  openWindow(wH);
+  feedDirect(wH, Math.floor((P.needChests - 1) / 2));
+  expect('过半前零播报', evs(wH, 'unseal_half').length === 0,
+    'half=' + evs(wH, 'unseal_half').length + ' chests=' + wH.unsealChests);
+  feedDirect(wH, 1);
+  expect('过半报一次', evs(wH, 'unseal_half').length === 1,
+    'half=' + evs(wH, 'unseal_half').length);
+  for (let i = 0; i < 100; i++) feedDirect(wH, 1);
+  expect('多开箱不刷屏（过半播报恰好一次）', evs(wH, 'unseal_half').length === 1,
+    'half=' + evs(wH, 'unseal_half').length);
+  const wH2 = cleanWorld(11222);
+  openWindow(wH2);
+  finish(wH2, P.needChests);
+  expect('★★整轮只报一次过半（标记位防刷屏，数字锁在首次跨半那一刻）',
+    evs(wH2, 'unseal_half').length === 1 &&
+    evs(wH2, 'unseal_half')[0].got === Math.ceil(P.needChests / 2),
+    'half=' + evs(wH2, 'unseal_half').length +
+    ' got=' + ((evs(wH2, 'unseal_half')[0] || {}).got));
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(11230);
+  openWindow(wD);
+  finish(wD, P.needChests);
+  expect('窗口内亲手开够箱 → 达成', wD.unsealActive === 0 && wD.unsealDone === 1 &&
+    evs(wD, 'unseal_done').length === 1, 'done=' + wD.unsealDone);
+  expect('宝箱正好一个（与前十九件同口径）', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'unseal_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === P.needChests && dn.need === P.needChests &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feedDirect(wD, 200);
+  SIM.tickUnseal(wD);
+  expect('★达标后再开箱、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.unsealDone === 1 && evs(wD, 'unseal_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.unsealDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickUnseal(wD);
+  expect('下一轮目标递增、箱数清零', wD.unsealRounds === 2 &&
+    wD.unsealNeed === P.needChests + P.chestStep && wD.unsealChests === 0,
+    'need=' + wD.unsealNeed + ' chests=' + wD.unsealChests);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(11240);
+  openWindow(wF);
+  finish(wF, P.needChests - 1);
+  expect('差一个也落空', wF.unsealActive === 0 && wF.unsealFailed === 1 &&
+    wF.unsealDone === 0, 'failed=' + wF.unsealFailed + ' done=' + wF.unsealDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现「达成」播报', evs(wF, 'unseal_done').length === 0,
+    'done=' + evs(wF, 'unseal_done').length);
+  const fl = evs(wF, 'unseal_fail')[0];
+  expect('落空只陈述还差几个（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === P.needChests - 1 && fl.need === P.needChests,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  wF.unsealNextTick = 1e9;    // 关掉后续排期，推这么远不该再开一轮
+  SIM.tickUnseal(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.unsealDone === 0, 'pickups=' + wF.pickups.length);
+  const chestsAfterFail = wF.unsealChests;
+  feedDirect(wF, 100);
+  expect('落空后再开箱也不计数（钩子只认 active）',
+    wF.unsealChests === chestsAfterFail && wF.unsealActive === 0,
+    'chests=' + wF.unsealChests + '（落空时 ' + chestsAfterFail + '）');
+
+  // ---------- 7. ★★★核心新轴：只数自己亲手开的箱 ----------
+  const wB = cleanWorld(11250);
+  openWindow(wB);
+  const pB = wB.self || wB.player;
+  const mate = Object.assign({}, pB);
+  SIM.onUnsealChest(wB, mate);
+  expect('★队友开箱不算（钩子核对 p === self）', wB.unsealChests === 0,
+    'chests=' + wB.unsealChests);
+  SIM.onUnsealChest(wB, pB);
+  expect('自己开箱 +1（正向对照，证明闸不是恒关）', wB.unsealChests === 1,
+    'chests=' + wB.unsealChests);
+  const wOut = cleanWorld(11251);
+  SIM.onUnsealChest(wOut, wOut.self || wOut.player);
+  expect('窗口外开箱不算', wOut.unsealChests === 0, 'chests=' + wOut.unsealChests);
+
+  // ---------- 8. ★★★灵魂断言：真实 step 拾取链路（与登云诀互补）----------
+  const wChest = cleanWorld(11260);
+  openWindow(wChest);
+  const pC = wChest.self || wChest.player;
+  const lvBeforeChest = pC.level;
+  SIM.spawnPickup(wChest, 'chest', pC.x, pC.y, 1, 30);
+  SIM.step(wChest, { mx: 0, my: 0 });
+  expect('★★★真实 step：脚下宝箱被开 → 白送的级照样算一个（与登云诀互补，钉住钩子在 chest 分支）',
+    pC.level > lvBeforeChest && wChest.unsealChests === 1,
+    'level ' + lvBeforeChest + '→' + pC.level + ' chests=' + wChest.unsealChests);
+  const wOther = cleanWorld(11261);
+  openWindow(wOther);
+  const pO = wOther.self || wOther.player;
+  SIM.spawnPickup(wOther, 'exp', pO.x, pO.y, 5, 30);
+  SIM.spawnPickup(wOther, 'gold', pO.x + 5, pO.y, 1, 30);
+  SIM.spawnPickup(wOther, 'heart', pO.x - 5, pO.y, 1, 30);
+  SIM.step(wOther, { mx: 0, my: 0 });
+  expect('★★捡经验/金币/红心一个都不算（钩子只挂 chest 分支）',
+    wOther.unsealChests === 0, 'chests=' + wOther.unsealChests);
+  const wLoop = cleanWorld(11262);
+  openWindow(wLoop);
+  finish(wLoop, P.needChests);
+  SIM.step(wLoop, { mx: 0, my: 0 });
+  expect('★★达标奖励里的那个箱就算被自己开掉，也不算进下一轮（active 闸）',
+    wLoop.unsealChests === P.needChests && wLoop.unsealDone === 1,
+    'chests=' + wLoop.unsealChests + ' done=' + wLoop.unsealDone);
+  const wOutStep = cleanWorld(11263);
+  const pOS = wOutStep.self || wOutStep.player;
+  SIM.spawnPickup(wOutStep, 'chest', pOS.x, pOS.y, 1, 30);
+  SIM.step(wOutStep, { mx: 0, my: 0 });
+  expect('窗口外真实开箱一个都不算（钉住 active 闸）',
+    wOutStep.unsealChests === 0, 'chests=' + wOutStep.unsealChests);
+
+  // ---------- 9. 剧情关隔离（两个入口都钉；step 验不了，见下面那条）----------
+  const wS = cleanWorld(11270);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch6' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  SIM.tickUnseal(wS);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.unsealActive === 0 && wS.unsealRounds === 0 && wS.unsealChests === 0 &&
+    evs(wS, 'unseal_start').length === 0,
+    'active=' + wS.unsealActive + ' chests=' + wS.unsealChests);
+  // ★先手动开 active，让钩子里的 story 闸成为唯一屏障（否则被 active 闸抢先挡住＝假绿）。
+  wS.unsealActive = 1;
+  feedDirect(wS, 5);
+  expect('★★★剧情关就算强行开窗喂 5 次开箱，钩子也不计数（钉钩子层 story 闸）',
+    wS.unsealChests === 0 && evs(wS, 'unseal_half').length === 0,
+    'chests=' + wS.unsealChests);
+  // ★首发 546 秒 > 全部剧情关上限 540 秒，走完整 step 时关卡早结束 → 必然假绿。
+  //   所以本件只钉上面两个入口，并断言这个前提仍然成立（改 startSec 时会提醒补 step 验证）。
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 11271, modId: 'myth', stageId: 'ch6' });
+  expect('剧情关上限 540 秒 < 首发 546 秒：step 验不出，两个入口断言就是唯一依据',
+    wS2.matchSec < P.startSec && P.startSec > 540,
+    'ch6上限=' + wS2.matchSec + ' 首发=' + P.startSec);
+
+  // ---------- 10. ★钉住 step 段的调用点（上面都直接调 tickUnseal，验不到它有没有被挂上）----------
+  // 用非剧情世界（没有 540 秒上限）走真实 step 跨过首发帧；其它机制已全推远。
+  const wStepOpen = cleanWorld(11280);
+  wStepOpen.tick = startTick - 1;
+  wStepOpen.time = wStepOpen.tick / HZ;
+  for (let k = 0; k < 3; k++) SIM.step(wStepOpen, { mx: 0, my: 0 });
+  expect('★★真实 step 跨过首发帧也会开窗（钉住 step 段的 tickUnseal 调用点）',
+    wStepOpen.unsealActive === 1 && wStepOpen.unsealRounds === 1 &&
+    evs(wStepOpen, 'unseal_start').length === 1,
+    'active=' + wStepOpen.unsealActive + ' rounds=' + wStepOpen.unsealRounds +
+    ' state=' + wStepOpen.state);
 }
