@@ -1419,6 +1419,7 @@ testHunt();console.log('');
 testVenge();console.log('');
 testAscend();console.log('');
 testUnseal();console.log('');
+testYongjin();console.log('');
 testRangeGrowth();console.log('');
 
 const tEnd = process.hrtime.bigint();
@@ -2829,6 +2830,7 @@ function testRage() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3036,6 +3038,7 @@ function testMoon() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5365,6 +5368,7 @@ function testDevourer() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -5753,6 +5757,7 @@ function testBoon() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6176,6 +6181,7 @@ function testBell() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -6697,6 +6703,7 @@ function testMerge() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7222,6 +7229,7 @@ function testEscort() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -7631,6 +7639,7 @@ function testMarket() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8055,6 +8064,7 @@ function testCauldron() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8436,6 +8446,7 @@ function testBounty() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -8724,6 +8735,7 @@ function testHealer() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9014,6 +9026,7 @@ function testSerenity() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9284,6 +9297,7 @@ function testGlean() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9604,6 +9618,7 @@ function testForge() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9931,6 +9946,7 @@ function testStride() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10271,6 +10287,7 @@ function testMend() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10457,6 +10474,7 @@ function testMend() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickMend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.mendDone === 0, 'pickups=' + wF.pickups.length);
@@ -10612,6 +10630,7 @@ function testThunder() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10811,6 +10830,7 @@ function testThunder() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickThunder(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.thunderDone === 0, 'pickups=' + wF.pickups.length);
@@ -10950,6 +10970,7 @@ function testPeril() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11144,6 +11165,7 @@ function testPeril() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickPeril(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.perilDone === 0, 'pickups=' + wF.pickups.length);
@@ -11288,6 +11310,7 @@ function testDew() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11472,6 +11495,7 @@ function testDew() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickDew(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.dewDone === 0, 'pickups=' + wF.pickups.length);
@@ -11623,6 +11647,7 @@ function testStreak() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -11816,6 +11841,7 @@ function testStreak() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickStreak(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.streakDone === 0, 'pickups=' + wF.pickups.length);
@@ -12005,6 +12031,7 @@ function testBestiary() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12193,6 +12220,7 @@ function testBestiary() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickBestiary(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.bestiaryDone === 0, 'pickups=' + wF.pickups.length);
@@ -12766,6 +12794,7 @@ function testShoot() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12953,6 +12982,7 @@ function testShoot() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickShoot(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.shootDone === 0, 'pickups=' + wF.pickups.length);
@@ -13101,6 +13131,7 @@ function testGeneral() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13119,6 +13150,7 @@ function testGeneral() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     SIM.tickGeneral(w);
   }
   // 按 tier 直接喂击杀钩子：不真 spawn，隔离掉落与随机流
@@ -13303,6 +13335,7 @@ function testGeneral() {
   wF.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
   wF.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickGeneral(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.generalDone === 0, 'pickups=' + wF.pickups.length);
@@ -13811,6 +13844,7 @@ function testTemper() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13832,6 +13866,7 @@ function testTemper() {
     w.vengeNextTick = 1e9;  // 第七十三轮：寻仇诀 534s 开窗，默认推远
     w.ascendNextTick = 1e9; // 第七十四轮：登云诀 522s 开窗，默认推远
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     SIM.tickTemper(w);
   }
   // ★走调用方入口 damagePlayer（不是直接喂 onTemperHurt）：
@@ -14606,6 +14641,7 @@ function testHunt() {
     w.vengeNextTick = 1e9;    // 寻仇诀 534s 推远：否则开窗落箱会污染本件"零实体"断言
     w.ascendNextTick = 1e9;   // 登云诀 522s：同理推远，免得落箱污染"零实体"断言
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -14801,6 +14837,7 @@ function testHunt() {
   wF.vengeNextTick = 1e9;     // 寻仇诀 534s：同样关掉，否则落箱污染对照
   wF.ascendNextTick = 1e9;    // 登云诀 522s：同理关掉，免得落箱污染对照
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickHunt(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.huntDone === 0, 'pickups=' + wF.pickups.length);
@@ -14946,6 +14983,7 @@ function testVenge() {
     w.vengeNextTick = 0;
     w.ascendNextTick = 1e9;   // 登云诀 522s：testVenge 把 tick 推过 522，关掉免得开窗落箱
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     SIM.tickVenge(w);
   }
   function finish(w, count) {
@@ -14997,6 +15035,7 @@ function testVenge() {
     w.vengeNextTick = 0;      // 本件默认开窗，干净世界里由 openWindow 精确触发
     w.ascendNextTick = 1e9;   // 登云诀：推过 522s，关掉免得落箱污染本件零实体断言
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -15165,6 +15204,7 @@ function testVenge() {
   wF.vengeNextTick = 1e9;      // 关掉后续排期，推这么远不该再开一轮
   wF.ascendNextTick = 1e9;     // 登云诀：同理关掉，推这么远不该再开一轮
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickVenge(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.vengeDone === 0, 'pickups=' + wF.pickups.length);
@@ -15310,6 +15350,7 @@ function testAscend() {
     w.time = w.tick / HZ;
     w.ascendNextTick = 0;
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     SIM.tickAscend(w);
   }
   function finish(w, count) {
@@ -15362,6 +15403,7 @@ function testAscend() {
     w.vengeNextTick = 1e9;
     w.ascendNextTick = 0;      // 本件默认开窗，干净世界里由 openWindow 精确触发
     w.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+    w.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -15531,6 +15573,7 @@ function testAscend() {
   wF.time = wF.tick / HZ;
   wF.ascendNextTick = 1e9;    // 关掉后续排期，推这么远不该再开一轮
   wF.unsealNextTick = 1e9; // 第七十五轮：启匣诀 546s 开窗，默认推远
+  wF.yongjinNextTick = 1e9; // 第七十六轮：涌金诀 558s 开窗，默认推远
   SIM.tickAscend(wF);
   expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
     wF.ascendDone === 0, 'pickups=' + wF.pickups.length);
@@ -15944,5 +15987,367 @@ function testUnseal() {
     wStepOpen.unsealActive === 1 && wStepOpen.unsealRounds === 1 &&
     evs(wStepOpen, 'unseal_start').length === 1,
     'active=' + wStepOpen.unsealActive + ' rounds=' + wStepOpen.unsealRounds +
+    ' state=' + wStepOpen.state);
+}
+
+// ============================================================
+// 第七十六轮：涌金诀（限时「金币真实入账面额」目标，目标制零实体第二十一件）
+// 【测试原则】钉「不该发生的事」：队友捡的不算、宝箱附带的 15 金不算、
+//   名义面额不算（只认真入账）、窗口外不算、剧情关不算、落空零掉落。
+//   面额是连续量：过半用 >= + 标记位，必须钉「一次大额跳变也报过半」。
+// ============================================================
+
+function testYongjin() {
+  console.log('[第七十六轮] 涌金诀：第一件「限时捡够金币面额」目标（按入账，不按枚数）');
+  const P = C.YONGJIN;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 直接喂真实入账面额（绕开拾取的磁吸/倍率），专用于零随机断言：
+  //   目标制状态机本身不碰 nextRand，拾取系统的随机不属于本件的验证范围。
+  function feed(w, amount, who) {
+    SIM.onYongjinGold(w, who || (w.self || w.player), amount);
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.yongjinNextTick = 0;
+    SIM.tickYongjin(w);
+  }
+  function finish(w, amount) {
+    feed(w, amount);
+    w.time = w.yongjinDeadline + 0.01;
+    SIM.tickYongjin(w);
+  }
+  // 隔离世界：其它机制全推远、关武器、清场；本件默认开窗由 openWindow 精确触发。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9;
+    w.shootNextTick = 1e9;
+    w.generalNextTick = 1e9;
+    w.evadeNextTick = 1e9;
+    w.temperNextTick = 1e9;
+    w.swarmNextTick = 1e9;
+    w.huntNextTick = 1e9;
+    w.vengeNextTick = 1e9;
+    w.ascendNextTick = 1e9;
+    w.unsealNextTick = 1e9;
+    w.yongjinNextTick = 0;     // 本件默认开窗，干净世界里由 openWindow 精确触发
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场没怪可打、没钱可捡）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('首发已进 altar 收官区（怪量足够撑起捡钱窗口）',
+    P.startSec / 30 >= 15, 'startSec=' + P.startSec);
+  expect('窗口短于间隔（两轮不许叠在一起），且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('目标面额按轮递增且封顶（第 2 轮 +8，第 99 轮到 max）',
+    SIM.yongjinNeedFor(0) === P.needGold &&
+    SIM.yongjinNeedFor(1) === P.needGold + P.goldStep &&
+    SIM.yongjinNeedFor(99) === P.maxGold,
+    '0=' + SIM.yongjinNeedFor(0) + ' 1=' + SIM.yongjinNeedFor(1) +
+    ' 99=' + SIM.yongjinNeedFor(99));
+  expect('目标面额至少 24、封顶 48（30 秒靠捡钱做得到，但不白送）',
+    P.needGold >= 24 && P.needGold <= P.maxGold && P.maxGold <= 48,
+    'need=' + P.needGold + ' max=' + P.maxGold);
+  expect('奖励仍是「一箱 + 零钱」（与前二十件同口径）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  expect('首发时刻错开全部既有事件（含启匣 546、寻仇 534、猎变 528）',
+    ['BOUNTY', 'SERENITY', 'GLEAN', 'ONSLAUGHT', 'STRIDE', 'MEND', 'THUNDER', 'PERIL',
+      'CAULDRON', 'BELL', 'HEALER', 'ESCORT', 'MARKET', 'METEOR', 'SUMMONER', 'DEVOURER',
+      'DEW', 'STREAK', 'BESTIARY', 'SHOOT', 'GENERAL', 'EVADE', 'TEMPER', 'SWARM',
+      'HUNT', 'VENGE', 'ASCEND', 'UNSEAL'
+    ].every(function (k) {
+      return !C[k] || !C[k].startSec || C[k].startSec !== P.startSec;
+    }), 'yongjin=' + P.startSec + ' unseal=' + C.UNSEAL.startSec);
+  expect('中文表名存在（前端播报用的就是它）',
+    typeof P.name === 'string' && P.name.length > 0, P.name);
+
+  // ---------- 2. 零随机（直接调状态机入口与钩子）----------
+  const wR = cleanWorld(11701);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feed(wR, P.needGold);
+  wR.time = wR.yongjinDeadline + 0.01;
+  SIM.tickYongjin(wR);
+  expect('★开窗/入账/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(11702);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, P.needGold - 1);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 3. 时序 / 零实体 ----------
+  const wT = cleanWorld(11710);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickYongjin(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.yongjinRounds === 0 && evs(wT, 'yongjin_start').length === 0,
+    'rounds=' + wT.yongjinRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.yongjinActive === 1 && wT.yongjinRounds === 1,
+    'rounds=' + wT.yongjinRounds + ' active=' + wT.yongjinActive);
+  expect('★★开窗零实体：没怪、没球、没特效、没 zone、没 strike（与前二十件同族）',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'yongjin_start')[0];
+  expect('开窗播报一次说清三件事：多久 / 多少面额 / 轮次',
+    !!st && st.sec === P.windowSec && st.need === P.needGold && st.round === 1 &&
+    evs(wT, 'yongjin_start').length === 1, JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（整数 tick 换算，零漂移）',
+    Math.abs(wT.yongjinDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.yongjinDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.yongjinNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.yongjinNextTick);
+  SIM.tickYongjin(wT);
+  expect('同帧重复调用不会二次开窗', wT.yongjinRounds === 1,
+    'rounds=' + wT.yongjinRounds);
+  wT.time = wT.yongjinDeadline - 0.001;
+  SIM.tickYongjin(wT);
+  expect('到期前一帧不发奖也不结算', wT.yongjinActive === 1 &&
+    wT.yongjinGold === 0 && evs(wT, 'yongjin_done').length === 0 &&
+    evs(wT, 'yongjin_fail').length === 0,
+    'active=' + wT.yongjinActive + ' gold=' + wT.yongjinGold);
+
+  // ---------- 4. 过半（连续面额：>= 跨阈值 + 标记位防刷屏）----------
+  const wH = cleanWorld(11721);
+  openWindow(wH);
+  feed(wH, Math.floor((P.needGold - 1) / 2));
+  expect('过半前零播报', evs(wH, 'yongjin_half').length === 0,
+    'half=' + evs(wH, 'yongjin_half').length + ' gold=' + wH.yongjinGold);
+  feed(wH, 1);
+  expect('过半报一次', evs(wH, 'yongjin_half').length === 1,
+    'half=' + evs(wH, 'yongjin_half').length);
+  for (let i = 0; i < 100; i++) feed(wH, 1);
+  expect('多捡钱不刷屏（过半播报恰好一次）', evs(wH, 'yongjin_half').length === 1,
+    'half=' + evs(wH, 'yongjin_half').length);
+  const wH2 = cleanWorld(11722);
+  openWindow(wH2);
+  // ★一次大额入账直接跨过 half：用 === 判会漏报，必须钉 >=。
+  feed(wH2, P.needGold);
+  expect('★★★一次大额入账直接跨过半程也报（钉「>=」而不是「===」）',
+    evs(wH2, 'yongjin_half').length === 1 &&
+    evs(wH2, 'yongjin_half')[0].got === P.needGold,
+    'half=' + evs(wH2, 'yongjin_half').length +
+    ' got=' + ((evs(wH2, 'yongjin_half')[0] || {}).got));
+  const wH3 = cleanWorld(11723);
+  openWindow(wH3);
+  finish(wH3, P.needGold);
+  expect('整轮只报一次过半（数字锁在首次跨半那一刻）',
+    evs(wH3, 'yongjin_half').length === 1,
+    'half=' + evs(wH3, 'yongjin_half').length);
+
+  // ---------- 5. 达标 ----------
+  const wD = cleanWorld(11730);
+  openWindow(wD);
+  finish(wD, P.needGold);
+  expect('窗口内挣够面额 → 达成', wD.yongjinActive === 0 && wD.yongjinDone === 1 &&
+    evs(wD, 'yongjin_done').length === 1, 'done=' + wD.yongjinDone);
+  expect('宝箱正好一个（与前二十件同口径）', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'yongjin_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got === P.needGold && dn.need === P.needGold &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feed(wD, 200);
+  SIM.tickYongjin(wD);
+  expect('★达标后再捡钱、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.yongjinDone === 1 && evs(wD, 'yongjin_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.yongjinDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickYongjin(wD);
+  expect('下一轮目标递增、面额清零', wD.yongjinRounds === 2 &&
+    wD.yongjinNeed === P.needGold + P.goldStep && wD.yongjinGold === 0,
+    'need=' + wD.yongjinNeed + ' gold=' + wD.yongjinGold);
+
+  // ---------- 6. 落空（什么都不给、不责备）----------
+  const wF = cleanWorld(11740);
+  openWindow(wF);
+  finish(wF, P.needGold - 1);
+  expect('差一点也落空', wF.yongjinActive === 0 && wF.yongjinFailed === 1 &&
+    wF.yongjinDone === 0, 'failed=' + wF.yongjinFailed + ' done=' + wF.yongjinDone);
+  expect('★★落空时一个掉落物都不多', wF.pickups.length === 0,
+    'pickups=' + wF.pickups.length);
+  expect('★★落空绝不出现「达成」播报', evs(wF, 'yongjin_done').length === 0,
+    'done=' + evs(wF, 'yongjin_done').length);
+  const fl = evs(wF, 'yongjin_fail')[0];
+  expect('落空只陈述还差多少（没有责备字眼），且数字正确',
+    !!fl && fl.left === 1 && fl.got === P.needGold - 1 && fl.need === P.needGold,
+    JSON.stringify(fl || null));
+  wF.tick = startTick + Math.round(P.everySec * HZ) * 10;
+  wF.time = wF.tick / HZ;
+  wF.yongjinNextTick = 1e9;
+  SIM.tickYongjin(wF);
+  expect('推到很晚也不补发（不追认落空的轮次）', wF.pickups.length === 0 &&
+    wF.yongjinDone === 0, 'pickups=' + wF.pickups.length);
+  const goldAfterFail = wF.yongjinGold;
+  feed(wF, 100);
+  expect('落空后再捡钱也不计数（钩子只认 active）',
+    wF.yongjinGold === goldAfterFail && wF.yongjinActive === 0,
+    'gold=' + wF.yongjinGold + '（落空时 ' + goldAfterFail + '）');
+
+  // ---------- 7. ★★★核心新轴：只数自己的、只数真实入账面额 ----------
+  const wB = cleanWorld(11750);
+  openWindow(wB);
+  const pB = wB.self || wB.player;
+  const mate = Object.assign({}, pB);
+  feed(wB, 5, mate);
+  expect('★队友捡的钱不算（钩子核对 p === self）', wB.yongjinGold === 0,
+    'gold=' + wB.yongjinGold);
+  feed(wB, 7);
+  expect('自己一笔入账 7 点就记 7 点（按面额，不按枚数）', wB.yongjinGold === 7,
+    'gold=' + wB.yongjinGold);
+  feed(wB, 2);
+  expect('再入账 2 点累加到 9（正向对照，证明闸不是恒关）', wB.yongjinGold === 9,
+    'gold=' + wB.yongjinGold);
+  feed(wB, 0);
+  feed(wB, -3);
+  expect('★★非正数入账不算（拒绝分支不污染计数）', wB.yongjinGold === 9,
+    'gold=' + wB.yongjinGold);
+  const wOut = cleanWorld(11751);
+  feed(wOut, 5);
+  expect('窗口外捡钱不算', wOut.yongjinGold === 0, 'gold=' + wOut.yongjinGold);
+
+  // ---------- 8. ★★★灵魂断言：真实 step 拾取链路 ----------
+  const wReal = cleanWorld(11760);
+  openWindow(wReal);
+  const pReal = wReal.self || wReal.player;
+  pReal.attrs.goldMul = 4;          // 模拟金面具：一枚面值 2 的钱实际入账 8
+  SIM.spawnPickup(wReal, 'gold', pReal.x, pReal.y, 2, 30);
+  const statsGoldBefore = wReal.stats.gold;
+  SIM.step(wReal, { mx: 0, my: 0 });
+  expect('★★★真实 step：只认真入账 8 点，不是名义面值 2、也不是 1 枚',
+    wReal.yongjinGold === 8 && wReal.stats.gold - statsGoldBefore === 8,
+    'yongjin=' + wReal.yongjinGold + ' stats+' + (wReal.stats.gold - statsGoldBefore));
+  const wChest = cleanWorld(11761);
+  openWindow(wChest);
+  const pC = wChest.self || wChest.player;
+  const statsBeforeChest = wChest.stats.gold;
+  const lvBeforeChest = pC.level;
+  SIM.spawnPickup(wChest, 'chest', pC.x, pC.y, 1, 30);
+  SIM.step(wChest, { mx: 0, my: 0 });
+  expect('★★★宝箱附带的 15 金确实入账，但涌金诀一分都不算（钉钩子在 gold 分支）',
+    wChest.stats.gold - statsBeforeChest > 0 && pC.level > lvBeforeChest &&
+    wChest.yongjinGold === 0,
+    'stats+' + (wChest.stats.gold - statsBeforeChest) + ' level ' + lvBeforeChest +
+    '→' + pC.level + ' yongjin=' + wChest.yongjinGold);
+  const wOther = cleanWorld(11762);
+  openWindow(wOther);
+  const pO = wOther.self || wOther.player;
+  SIM.spawnPickup(wOther, 'exp', pO.x, pO.y, 5, 30);
+  SIM.spawnPickup(wOther, 'heart', pO.x - 5, pO.y, 1, 30);
+  SIM.step(wOther, { mx: 0, my: 0 });
+  expect('★★捡精魄/红心一个都不算（钩子只挂 gold 分支）',
+    wOther.yongjinGold === 0, 'gold=' + wOther.yongjinGold);
+  const wLoop = cleanWorld(11763);
+  openWindow(wLoop);
+  finish(wLoop, P.needGold);
+  SIM.step(wLoop, { mx: 0, my: 0 });
+  expect('★★达标奖励里的钱就算被自己捡掉，也不算进下一轮（active 闸）',
+    wLoop.yongjinGold === P.needGold && wLoop.yongjinDone === 1,
+    'gold=' + wLoop.yongjinGold + ' done=' + wLoop.yongjinDone);
+  const wOutStep = cleanWorld(11764);
+  const pOS = wOutStep.self || wOutStep.player;
+  const statsOutBefore = wOutStep.stats.gold;
+  SIM.spawnPickup(wOutStep, 'gold', pOS.x, pOS.y, 3, 30);
+  SIM.step(wOutStep, { mx: 0, my: 0 });
+  expect('★★窗口外真实捡钱一分不算（正向对照证明钱确实被捡了）',
+    wOutStep.yongjinGold === 0 && wOutStep.stats.gold - statsOutBefore === 3,
+    'yongjin=' + wOutStep.yongjinGold + ' stats+' + (wOutStep.stats.gold - statsOutBefore));
+
+  // ---------- 9. 剧情关隔离（两个入口都钉；step 验不了，见下面那条）----------
+  const wS = cleanWorld(11770);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch6' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  SIM.tickYongjin(wS);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.yongjinActive === 0 && wS.yongjinRounds === 0 && wS.yongjinGold === 0 &&
+    evs(wS, 'yongjin_start').length === 0,
+    'active=' + wS.yongjinActive + ' gold=' + wS.yongjinGold);
+  // ★先手动开 active，让钩子里的 story 闸成为唯一屏障（否则被 active 闸抢先挡住＝假绿）。
+  wS.yongjinActive = 1;
+  feed(wS, P.needGold);
+  expect('★★★剧情关就算强行开窗喂一大笔钱，钩子也不计数（钉钩子层 story 闸）',
+    wS.yongjinGold === 0 && evs(wS, 'yongjin_half').length === 0,
+    'gold=' + wS.yongjinGold);
+  const wS2 = SIM.createWorld({ charId: 'hunter', seed: 11771, modId: 'myth', stageId: 'ch6' });
+  expect('剧情关上限 540 秒 < 首发 558 秒：step 验不出，两个入口断言就是唯一依据',
+    wS2.matchSec < P.startSec && P.startSec > 540,
+    'ch6上限=' + wS2.matchSec + ' 首发=' + P.startSec);
+
+  // ---------- 10. ★钉住 step 段的调用点 ----------
+  const wStepOpen = cleanWorld(11780);
+  wStepOpen.tick = startTick - 1;
+  wStepOpen.time = wStepOpen.tick / HZ;
+  for (let k = 0; k < 3; k++) SIM.step(wStepOpen, { mx: 0, my: 0 });
+  expect('★★真实 step 跨过首发帧也会开窗（钉住 step 段的 tickYongjin 调用点）',
+    wStepOpen.yongjinActive === 1 && wStepOpen.yongjinRounds === 1 &&
+    evs(wStepOpen, 'yongjin_start').length === 1,
+    'active=' + wStepOpen.yongjinActive + ' rounds=' + wStepOpen.yongjinRounds +
     ' state=' + wStepOpen.state);
 }

@@ -1372,6 +1372,24 @@
       unsealDone: 0,
       unsealFailed: 0,
 
+      // ---------- 涌金诀（第七十六轮：限时捡够 N 点金币面额）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（0 = 还没排期，第一次走到 startSec 时排上）
+      yongjinNextTick: 0,
+      // 当前是否有窗口在进行（0/1）。同时是「这次捡钱要不要计数」的判据之一。
+      yongjinActive: 0,
+      // 本轮窗口内已经真实入账多少金币 / 目标面额。
+      yongjinGold: 0,
+      yongjinNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      yongjinDeadline: 0,
+      // 过半播报只发一次的标记（面额是连续量，标记位防的是跨阈值刷屏）
+      yongjinHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      yongjinRounds: 0,
+      yongjinDone: 0,
+      yongjinFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -3864,6 +3882,100 @@
       w.events.push({
         type: 'unseal_half', got: w.unsealChests, need: w.unsealNeed,
         left: Math.max(0, w.unsealNeed - w.unsealChests)
+      });
+    }
+  }
+
+  // ============================================================
+  // 涌金诀（第七十六轮：限时捡到 N 点金币面额）—— 目标制零实体第二十一件
+  // ============================================================
+
+  // 某一轮要挣多少金币面额：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function yongjinNeedFor(roundIndex) {
+    const P = C.YONGJIN;
+    if (!P) return 0;
+    return Math.min(P.maxGold, P.needGold + (roundIndex || 0) * P.goldStep);
+  }
+
+  // 每帧调一次（step 第 2.74 段，紧挨启匣诀 —— 同为「目标制、零实体」一族）。
+  function tickYongjin(w) {
+    const P = C.YONGJIN;
+    if (!P) return;
+    // ① 主线《补天纪》一律不挂：逐关手工配平，硬塞「限时挣钱」会冲掉配平。
+    if (w.storyStage) return;
+
+    if (w.yongjinActive) {
+      // ② 达标优先于到期：最后一帧刚好捡够也算数（与前二十件同口径）。
+      if (w.yongjinGold >= w.yongjinNeed) {
+        w.yongjinActive = 0;
+        w.yongjinDone = (w.yongjinDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励里的金币就算当场被捡走，也不算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'yongjin_done', got: w.yongjinGold, need: w.yongjinNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.yongjinDeadline) return;
+      // 到期没挣够：★什么都不给，且**不责备**。
+      w.yongjinActive = 0;
+      w.yongjinFailed = (w.yongjinFailed || 0) + 1;
+      w.events.push({
+        type: 'yongjin_fail', need: w.yongjinNeed, got: w.yongjinGold,
+        left: Math.max(0, Math.round(w.yongjinNeed - w.yongjinGold))
+      });
+      return;
+    }
+
+    // ③ 还没到第一次出现的时刻。★初值 0 不能开局误开（悬赏首发闸踩过）。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    // ④ 还没到下一轮。★不能写 `!w.yongjinNextTick`。
+    if (w.tick < w.yongjinNextTick) return;
+
+    // ⑤ 开一轮。到期时刻用 w.time 口径（整数 tick 换算，无漂移）。
+    w.yongjinRounds = (w.yongjinRounds || 0) + 1;
+    w.yongjinActive = 1;
+    w.yongjinGold = 0;
+    w.yongjinNeed = yongjinNeedFor(w.yongjinRounds - 1);
+    w.yongjinHalfNoted = 0;
+    w.yongjinDeadline = w.time + P.windowSec;
+    w.yongjinNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'yongjin_start', need: w.yongjinNeed, sec: P.windowSec,
+      round: w.yongjinRounds
+    });
+  }
+
+  // 金币入账钩子：挂在 updatePickups 的 gold 分支里，拿的是**真实入账**的 got
+  //   （已经乘过 attrs.goldMul 与难度 goldMul），所以一枚大钱可以顶几枚小钱。
+  // ★只数窗口内 w.self（自己）捡的钱；队友捡的、宝箱附带的 15 金（走 chest 分支）、
+  //   剧情关、窗口外都不算。
+  // 【过半标记位】面额是连续量，用 >= 防一次跨阈值漏报，标记位防刷屏。
+  function onYongjinGold(w, p, got) {
+    const P = C.YONGJIN;
+    if (!P || !w.yongjinActive || w.storyStage) return;
+    if (p !== (w.self || w.player)) return;
+    if (!(got > 0)) return;
+    w.yongjinGold = (w.yongjinGold || 0) + got;
+    const half = w.yongjinNeed / 2;
+    if (!w.yongjinHalfNoted && w.yongjinGold >= half) {
+      w.yongjinHalfNoted = 1;
+      w.events.push({
+        type: 'yongjin_half', got: w.yongjinGold, need: w.yongjinNeed,
+        left: Math.max(0, Math.round(w.yongjinNeed - w.yongjinGold))
       });
     }
   }
@@ -9084,6 +9196,10 @@
           p.shopGold += got;
           // 拾荒令（第五十七轮）：这一枚金币同样算一份收集。★只计数、不在这里发奖。
           onGleanPickup(w);
+          // 涌金诀（第七十六轮）：★数的是真实入账面额 got（已乘金面具/难度倍率），
+          //   不是这一枚算一份——与上一行拾荒令各记各的字段。宝箱附带的金币走
+          //   别的分支，不经过这里，天然不算进本件。
+          onYongjinGold(w, p, got);
         } else if (it.kind === 'heart') {
           // 饮露诀（第六十三轮）：★在 healPlayer 前后取真增量，只有"真回进血条"
           //   的那颗红心才计一颗。满血吃红心、回血溢出时 hpBefore 与之后相等 → 0，
@@ -10271,6 +10387,13 @@
     //   与 tick 段解耦，开箱发生在拾取时、下一帧 tick 即可结算发奖。
     tickUnseal(w);
 
+    // 【涌金诀】目标制零实体第二十一件，紧挨启匣诀 —— 二十一件的轴摆在一起。
+    //   本件第一次问「这一轮挣了多少金币（按真实入账面额，不按枚数）」。
+    // 【为什么 tick 在这一段】开窗与到期发奖只读写几个数字、发一箱金币，
+    //   不碰怪的位置；捡钱钩子挂在 updatePickups 的 gold 分支里，
+    //   与 tick 段解耦，捡到钱之后下一帧 tick 即可结算发奖。
+    tickYongjin(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -11089,6 +11212,11 @@
     unsealNeedFor: unsealNeedFor,
     tickUnseal: tickUnseal,
     onUnsealChest: onUnsealChest,
+    // 第七十六轮：涌金诀（限时捡够 N 点金币面额）——入口单独导出，测试要能在
+    //   精确 tick 上开一轮、精确注入一次入账，而不必真跑 558 秒等场上自然掉钱。
+    yongjinNeedFor: yongjinNeedFor,
+    tickYongjin: tickYongjin,
+    onYongjinGold: onYongjinGold,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
