@@ -1474,6 +1474,23 @@
       stillDone: 0,
       stillFailed: 0,
 
+      // ---------- 连珠诀（第八十三轮：连续拾取节奏）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      chainNextTick: 0,
+      chainActive: 0,
+      chainDeadline: 0,
+      chainRounds: 0,
+      // 本轮连上的份数 / 本轮最好成绩 / 目标份数
+      chainCur: 0,
+      chainBest: 0,
+      chainNeed: 0,
+      // 上一次成功拾取的 w.time（秒），用于断链判定
+      chainLastPick: 0,
+      chainHalfNoted: 0,
+      chainReached: 0,
+      chainDone: 0,
+      chainFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -4584,6 +4601,117 @@
       type: 'still_start', need: w.stillNeed, sec: P.windowSec,
       radius: P.radius, round: w.stillRounds
     });
+  }
+
+  // ============================================================
+  // 第八十三轮：连珠诀（目标制零实体第二十七件，全新轴「拾取节奏」）
+  // ============================================================
+  // 某一轮要连捡几份：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function chainNeedFor(roundIndex) {
+    const P = C.CHAIN;
+    return Math.min(P.maxPicks, P.needPicks + (roundIndex || 0) * P.pickStep);
+  }
+
+  // 断链检查：停手太久（距上一次真拾取超过 gapSec）就把连珠数清零。
+  // ★只清 chainCur，绝不清 chainBest 与 chainReached —— 达标是"拿在手里"的，
+  //   断链不能把已经到手的赏金追回去；最好成绩只用于到期播报。
+  function chainMaybeBreak(w) {
+    const P = C.CHAIN;
+    if (!P || !w.chainActive || w.chainCur <= 0) return;
+    if (w.time - w.chainLastPick > P.gapSec) w.chainCur = 0;
+  }
+
+  // 每帧调一次（step 第 2.80 段，紧挨磐石诀）。
+  // 开窗、到期、发奖全在这里；拾取钩子只计数，不在掉落循环里 spawnPickup。
+  function tickChain(w) {
+    const P = C.CHAIN;
+    if (!P) return;
+    // ① 主线《补天纪》逐关手工配平，不挂这套目标制。
+    if (w.storyStage) return;
+
+    if (w.chainActive) {
+      // ② 达标优先于断链、也优先于到期；need=0 是未开窗的默认态，绝不白送。
+      if (w.chainReached && w.chainNeed > 0) {
+        w.chainActive = 0;
+        w.chainDone = (w.chainDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励里的球/钱就算当场被捡走，也不算进新一轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'chain_done', got: w.chainCur, need: w.chainNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      // ③ 每帧断链检查：玩家停手不捡，链子也会自己断，不必等下一份拾取。
+      chainMaybeBreak(w);
+      if (w.time < w.chainDeadline) return;
+      // ④ 到期没连够：★什么都不给，且**不责备**。
+      w.chainActive = 0;
+      w.chainFailed = (w.chainFailed || 0) + 1;
+      w.events.push({
+        type: 'chain_fail', need: w.chainNeed, got: w.chainBest,
+        left: Math.max(0, w.chainNeed - w.chainBest)
+      });
+      return;
+    }
+
+    // ⑤ 首发闸：初值 0 必须靠 tick 比较，不能写 `!w.chainNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.chainNextTick) return;
+
+    // ⑥ 开一轮：到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.chainRounds = (w.chainRounds || 0) + 1;
+    w.chainActive = 1;
+    w.chainNeed = chainNeedFor(w.chainRounds - 1);
+    w.chainCur = 0;
+    w.chainBest = 0;
+    w.chainReached = 0;
+    w.chainHalfNoted = 0;
+    w.chainLastPick = w.time;
+    w.chainDeadline = w.time + P.windowSec;
+    w.chainNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'chain_start', need: w.chainNeed, sec: P.windowSec,
+      gap: P.gapSec, round: w.chainRounds
+    });
+  }
+
+  // 真拾取钩子：只挂在 updatePickups 里"确实被吃进去"的四类成功分支上。
+  // ★队友捡的不算（p 必须是 w.self）；满血红心不算（调用方只认真增量>0）；
+  //   摊位拒绝/祭坛拒绝/走过去没成交的物件根本到不了这里，天然不算。
+  // ★need=0 闸不可省：未开窗世界的默认态不能靠一次拾取白送达标。
+  function onChainPickup(w, p, kind) {
+    const P = C.CHAIN;
+    if (!P || !w.chainActive || w.storyStage) return;
+    if (!p || p !== (w.self || w.player)) return;
+    if (kind !== 'exp' && kind !== 'gold' && kind !== 'heart' && kind !== 'chest') return;
+    if (!(w.chainNeed > 0)) return;
+    chainMaybeBreak(w);
+    w.chainCur += 1;
+    w.chainLastPick = w.time;
+    if (w.chainCur > w.chainBest) w.chainBest = w.chainCur;
+    // 整数份逐次 +1：=== 与 >= 等价，标记位真正防的是达标后继续刷屏。
+    const half = w.chainNeed / 2;
+    if (!w.chainHalfNoted && w.chainCur >= half) {
+      w.chainHalfNoted = 1;
+      w.events.push({
+        type: 'chain_half', got: w.chainCur, need: w.chainNeed,
+        left: Math.max(0, w.chainNeed - w.chainCur)
+      });
+    }
+    if (w.chainCur >= w.chainNeed) w.chainReached = 1;
   }
 
   function killMob(w, m, wasFullBeforeHit, isWorld) {
@@ -9809,6 +9937,8 @@
           // 拾荒令（第五十七轮）：这一份精魄算进"限时收集"。★只计数、不在这里发奖。
           onGleanPickup(w);
           onJulingExp(w, p, expGot);
+          // 连珠诀（第八十三轮）：精魄被真吃进去，算一份连珠。
+          onChainPickup(w, p, 'exp');
         } else if (it.kind === 'gold') {
           // 难度金币倍率在这里乘，而不是结算时再乘：
           // 让 HUD 上跳的数字、结算面板里的数字、落库的数字永远是同一个 ——
@@ -9823,6 +9953,8 @@
           //   不是这一枚算一份——与上一行拾荒令各记各的字段。宝箱附带的金币走
           //   别的分支，不经过这里，天然不算进本件。
           onYongjinGold(w, p, got);
+          // 连珠诀（第八十三轮）：金币真入账才算一份，队友捡的不算。
+          onChainPickup(w, p, 'gold');
         } else if (it.kind === 'heart') {
           // 饮露诀（第六十三轮）：★在 healPlayer 前后取真增量，只有"真回进血条"
           //   的那颗红心才计一颗。满血吃红心、回血溢出时 hpBefore 与之后相等 → 0，
@@ -9830,7 +9962,10 @@
           //   都不算，本件只认红心本身（与养元诀"数所有回血"区分开）。
           const hpBeforeHeart = w.player.hp;
           healPlayer(w, it.value);
-          onDewHeart(w, w.player.hp - hpBeforeHeart);
+          const heartGained = w.player.hp - hpBeforeHeart;
+          onDewHeart(w, heartGained);
+          // 连珠诀（第八十三轮）：★只认真回进血条的红心；满血/溢出白吃不算一份。
+          if (heartGained > 0) onChainPickup(w, p, 'heart');
         } else if (it.kind === 'chest') {
           // 宝箱 = 一次免费升级。直接塞进 pendingLevels，复用现成的升级三选一流程：
           // 这样「开箱」走的是玩家最熟悉的那条路径，不需要为它发明新的界面。
@@ -9858,6 +9993,8 @@
           // ★刻意放在 chest 分支末尾（不是通用拾取出口）：捡经验/金币/红心
           //   都走不到这里，天然做到"只认宝箱"。队友开箱由钩子里的 self 闸排除。
           onUnsealChest(w, p);
+          // 连珠诀（第八十三轮）：宝箱被亲手打开，算一份连珠。
+          onChainPickup(w, p, 'chest');
         } else if (it.kind === 'shrine') {
           // 上古神龛（第三十五轮）：踩上去就领，不弹面板（理由见 const.js 的 SHRINES 段）。
           // 祝福记在 p 身上、由 recalcAttrs 汇总，所以升级/进化/买buff 都不会把它弄丢。
@@ -11051,6 +11188,12 @@
     onStillStay(w, dt);
     tickStill(w);
 
+    // 【连珠诀】目标制零实体第二十七件，紧挨磐石诀 —— 前二十六件数的是
+    //   "打了/挨了/捡了多少"或"去过哪儿/站没站住"，本件第一次数"捡得连不连贯"。
+    //   ★拾取钩子在 updatePickups 内只计数，这里统一开窗/断链/发奖，
+    //   避免在掉落数组压缩循环里 spawnPickup 把新奖励当帧再吃一遍。
+    tickChain(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -11904,6 +12047,11 @@
     stillNeedFor: stillNeedFor,
     tickStill: tickStill,
     onStillStay: onStillStay,
+    // 第八十三轮：连珠诀（连续拾取节奏）——三入口导出，测试既能精确喂钩子，
+    //   也能走真实 step 钉住 updatePickups 的四条成功分支与 tickChain 调用点。
+    chainNeedFor: chainNeedFor,
+    tickChain: tickChain,
+    onChainPickup: onChainPickup,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
