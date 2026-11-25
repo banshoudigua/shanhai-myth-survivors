@@ -1457,6 +1457,23 @@
       tagaDone: 0,
       tagaFailed: 0,
 
+      // ---------- 磐石诀（第八十二轮：原地站稳）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      stillNextTick: 0,
+      stillActive: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      stillDeadline: 0,
+      stillRounds: 0,
+      // 本轮累计站稳秒数 / 要求秒数
+      stillHold: 0,
+      stillNeed: 0,
+      // 站位锚点；null = 还没锚定（开窗那一帧由 tickStill 落锚）。
+      stillAnchorX: null,
+      stillAnchorY: null,
+      stillHalfNoted: 0,
+      stillDone: 0,
+      stillFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -4455,6 +4472,117 @@
     w.events.push({
       type: 'taga_start', need: w.tagaNeed, sec: P.windowSec,
       round: w.tagaRounds
+    });
+  }
+
+  // ============================================================
+  // 第八十二轮：磐石诀（目标制零实体第二十六件，全新轴「原地定力」）
+  // ============================================================
+  function stillNeedFor(roundIndex) {
+    const P = C.STILL;
+    return Math.min(P.maxSec, P.needSec + (roundIndex || 0) * P.secStep);
+  }
+
+  // 站位累计钩子：每帧在 tickStill 之前调，只读玩家坐标，零实体零随机。
+  // ★锚点法而不是「每帧位移法」：绕着锚点小幅晃动仍算站着，
+  //   真走出去一步就重新锚定并清零——玩家一眼能懂「挪远了要重来」。
+  function onStillStay(w, dt) {
+    const P = C.STILL;
+    if (!P || !w.stillActive || w.storyStage || !(dt > 0)) return;
+    const p = w.self || w.player;
+    // ★升级定格与阵亡都不算：那两种状态玩家没有「主动守住原地」。
+    if (!p || p.hp <= 0 || p.state === 'levelup') return;
+    if (w.stillAnchorX == null || w.stillAnchorY == null) {
+      w.stillAnchorX = p.x;
+      w.stillAnchorY = p.y;
+      return;
+    }
+    const dx = p.x - w.stillAnchorX;
+    const dy = p.y - w.stillAnchorY;
+    const r = P.radius;
+    if (dx * dx + dy * dy > r * r) {
+      // 出了圈：锚点跟到新位置，进度清零；这一帧不算站稳。
+      w.stillAnchorX = p.x;
+      w.stillAnchorY = p.y;
+      w.stillHold = 0;
+      return;
+    }
+    // ★need=0 是「没开窗」的默认态，绝不能靠它白送达标。
+    if (!(w.stillNeed > 0) || (w.stillHold || 0) >= w.stillNeed) return;
+    w.stillHold = Math.min(w.stillNeed, (w.stillHold || 0) + dt);
+    // 连续量过半用 >= + 标记位：防止跨过半程后每帧都播一次。
+    if (!w.stillHalfNoted && w.stillHold >= w.stillNeed / 2) {
+      w.stillHalfNoted = 1;
+      w.events.push({
+        type: 'still_half', got: Math.round(w.stillHold),
+        need: Math.round(w.stillNeed),
+        left: Math.ceil(w.stillNeed - w.stillHold)
+      });
+    }
+  }
+
+  function tickStill(w) {
+    const P = C.STILL;
+    if (!P) return;
+    // ① 主线《补天纪》逐关手工配平，不挂这套目标制。
+    if (w.storyStage) return;
+
+    if (w.stillActive) {
+      // ② 达标优先于到期：最后一帧刚好站满也算数。
+      if (w.stillNeed > 0 && (w.stillHold || 0) >= w.stillNeed) {
+        w.stillActive = 0;
+        w.stillDone = (w.stillDone || 0) + 1;
+        // ★先清 active 再发奖：奖励的球/钱就算当场被捡走也不算进新一轮。
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'still_done', got: Math.round(w.stillHold),
+          need: Math.round(w.stillNeed),
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.stillDeadline) return;
+      // 到期没站够：★什么都不给，且**不责备**。
+      w.stillActive = 0;
+      w.stillFailed = (w.stillFailed || 0) + 1;
+      w.events.push({
+        type: 'still_fail', need: Math.round(w.stillNeed),
+        got: Math.round(w.stillHold || 0),
+        left: Math.max(0, Math.ceil(w.stillNeed - (w.stillHold || 0)))
+      });
+      return;
+    }
+
+    // ③ 首发闸：初值 0 时必须靠 tick 比较，不能写 `!w.stillNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.stillNextTick) return;
+
+    // ⑤ 开一轮：到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.stillRounds = (w.stillRounds || 0) + 1;
+    w.stillActive = 1;
+    w.stillNeed = stillNeedFor(w.stillRounds - 1);
+    w.stillHold = 0;
+    w.stillHalfNoted = 0;
+    const p = w.self || w.player;
+    w.stillAnchorX = p ? p.x : null;
+    w.stillAnchorY = p ? p.y : null;
+    w.stillDeadline = w.time + P.windowSec;
+    w.stillNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'still_start', need: w.stillNeed, sec: P.windowSec,
+      radius: P.radius, round: w.stillRounds
     });
   }
 
@@ -10917,6 +11045,12 @@
     onTagaStay(w, dt);
     tickTaga(w);
 
+    // 【磐石诀】目标制零实体第二十六件，紧挨踏罡诀 —— 一个问「去过哪」，
+    //   一个问「敢不敢不动」。★钩子放在玩家移动之后：锚点取的是这一帧真实位置，
+    //   瞬移/被撞开都会立刻重锚；先累计再结算，站满当帧即发奖。
+    onStillStay(w, dt);
+    tickStill(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -11765,6 +11899,11 @@
     tagaZoneAt: tagaZoneAt,
     tickTaga: tickTaga,
     onTagaStay: onTagaStay,
+    // 第八十二轮：磐石诀（原地站稳）——三入口导出，测试既能精确注入站位，
+    //   也能走真实 step 钉住调用点。
+    stillNeedFor: stillNeedFor,
+    tickStill: tickStill,
+    onStillStay: onStillStay,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
