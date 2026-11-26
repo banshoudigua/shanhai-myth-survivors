@@ -1491,6 +1491,23 @@
       chainDone: 0,
       chainFailed: 0,
 
+      // ---------- 陷阵诀（第八十四轮：限时贴身击杀）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（初值 0，只能靠 tick 比较，不能写 `!w.meleeNextTick`）
+      meleeNextTick: 0,
+      meleeActive: 0,
+      // 本轮已完成的贴身击杀数 / 目标数（远射、天火白送都不算）
+      meleeNear: 0,
+      meleeNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      meleeDeadline: 0,
+      // 过半播报只发一次的标记（整数次累加，标记位防的是刷屏）
+      meleeHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      meleeRounds: 0,
+      meleeDone: 0,
+      meleeFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -4714,6 +4731,106 @@
     if (w.chainCur >= w.chainNeed) w.chainReached = 1;
   }
 
+  // ============================================================
+  // 第八十四轮：陷阵诀（贴身补刀）—— 目标制零实体第二十八件
+  // ============================================================
+
+  // 某一轮要几只贴身击杀：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function meleeNeedFor(roundIndex) {
+    const P = C.MELEE;
+    if (!P) return 0;
+    return Math.min(P.maxNear, P.needNear + (roundIndex || 0) * P.nearStep);
+  }
+
+  // 每帧调一次（step 第 2.81 段，紧挨连珠诀）。开窗/到期/发奖都在这里，
+  // 击杀钩子只计数；剧情关逐关手工配平，一律不挂。
+  function tickMelee(w) {
+    const P = C.MELEE;
+    if (!P) return;
+    if (w.storyStage) return;
+
+    if (w.meleeActive) {
+      // ★达标优先于到期：deadline 那一帧补到最后一刀也算数。
+      if (w.meleeNear >= w.meleeNeed && w.meleeNeed > 0) {
+        w.meleeActive = 0;
+        w.meleeDone = (w.meleeDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励球当帧被吃掉也不会算进本轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'melee_done', got: w.meleeNear, need: w.meleeNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.meleeDeadline) return;
+      // 到期没杀够：★什么都不给，且不责备（与前二十七件同口径）。
+      w.meleeActive = 0;
+      w.meleeFailed = (w.meleeFailed || 0) + 1;
+      w.events.push({
+        type: 'melee_fail', need: w.meleeNeed, got: w.meleeNear,
+        left: Math.max(0, w.meleeNeed - w.meleeNear)
+      });
+      return;
+    }
+
+    // ★首发闸：初值 0 必须靠 tick 比较，不能写 `!w.meleeNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.meleeNextTick) return;
+
+    // 开一轮：到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.meleeRounds = (w.meleeRounds || 0) + 1;
+    w.meleeActive = 1;
+    w.meleeNear = 0;
+    w.meleeNeed = meleeNeedFor(w.meleeRounds - 1);
+    w.meleeHalfNoted = 0;
+    w.meleeDeadline = w.time + P.windowSec;
+    w.meleeNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'melee_start', need: w.meleeNeed, sec: P.windowSec,
+      maxDist: P.maxDist, round: w.meleeRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 唯一漏斗里，与 onShootKill 并列但判据相反。
+  // ★距离按击杀瞬间坐标算；★天火/灵泉白送不算（rageMute 隔离线）；
+  // ★need=0 是未开窗默认态，绝不白送达标。
+  function onMeleeKill(w, m) {
+    const P = C.MELEE;
+    if (!P || !w.meleeActive || w.storyStage) return;
+    if (!(w.meleeNeed > 0)) return;
+    // 与射日诀同一条随机流隔离线：环境伤害砸死的不算"亲手贴身补刀"。
+    if (w.rageMute > 0) return;
+    if (!m) return;
+    const p = w.self || w.player;
+    if (!p) return;
+    const dx = m.x - p.x;
+    const dy = m.y - p.y;
+    // ★平方比较，含边界：正好 160px 算，160.01px 不算。
+    if (dx * dx + dy * dy > P.maxDist * P.maxDist) return;
+    w.meleeNear += 1;
+    // 整数次逐次 +1：标记位只防达标后继续刷屏。
+    const half = w.meleeNeed / 2;
+    if (!w.meleeHalfNoted && w.meleeNear >= half) {
+      w.meleeHalfNoted = 1;
+      w.events.push({
+        type: 'melee_half', got: w.meleeNear, need: w.meleeNeed,
+        left: Math.max(0, w.meleeNeed - w.meleeNear)
+      });
+    }
+  }
+
   function killMob(w, m, wasFullBeforeHit, isWorld) {
     if (!m.alive) return;
     m.alive = false;
@@ -4733,6 +4850,9 @@
     // 射日诀的击杀计数（第六十七轮）。同处并列，但按**击杀瞬间与玩家的距离**判：
     // ★与前面几件互不干扰——贴脸补刀不算、天火砸死不算，只认真·远距离输出。
     onShootKill(w, m);
+    // 陷阵诀的击杀计数（第八十四轮）。同处并列，但按**距离上限**判：
+    // ★与射日诀正好相反——远射不算、天火白送不算，只认真·贴身补刀。
+    onMeleeKill(w, m);
     // 斩将令的击杀计数（第六十八轮）。同处并列，但按**怪的 tier 档次**判：
     // ★与前面几件互不干扰——小怪杀再多也不算、天火砸死不算，只认真·精英击杀。
     onGeneralKill(w, m);
@@ -11194,6 +11314,11 @@
     //   避免在掉落数组压缩循环里 spawnPickup 把新奖励当帧再吃一遍。
     tickChain(w);
 
+    // 【陷阵诀】目标制零实体第二十八件，紧挨连珠诀 —— 一个问"捡得连不连贯"，
+    //   一个问"敢不敢贴上去补最后一刀"。★击杀钩子在 killMob 里只计数，
+    //   这里统一开窗/到期/发奖；远射与环境白送都不算。
+    tickMelee(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -12052,6 +12177,11 @@
     chainNeedFor: chainNeedFor,
     tickChain: tickChain,
     onChainPickup: onChainPickup,
+    // 第八十四轮：陷阵诀（贴身补刀）——三入口导出，测试既能精确喂钩子，
+    //   也能走真实 step 钉住 killMob 漏斗与 tickMelee 调用点。
+    meleeNeedFor: meleeNeedFor,
+    tickMelee: tickMelee,
+    onMeleeKill: onMeleeKill,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
