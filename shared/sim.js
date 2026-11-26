@@ -1508,6 +1508,25 @@
       meleeDone: 0,
       meleeFailed: 0,
 
+      // ---------- 百兵诀（第八十五轮：限时武器广度）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（初值 0，只能靠 tick 比较，不能写 `!w.arsenalNextTick`）
+      arsenalNextTick: 0,
+      arsenalActive: 0,
+      // 本轮已用过的武器 id 集合（对象当集合，开窗时清空）
+      arsenalSeen: {},
+      // 本轮已用过的武器种数 / 目标数
+      arsenalKinds: 0,
+      arsenalNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      arsenalDeadline: 0,
+      // 过半播报只发一次的标记（整数种数逐次 +1，标记位防的是刷屏）
+      arsenalHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      arsenalRounds: 0,
+      arsenalDone: 0,
+      arsenalFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1967,7 +1986,7 @@
       // 崩山诀（第七十八轮）：把「击杀前满血」与「是不是世界伤害」一并传进漏斗。
       // ★tickBurn（灼烧磨死）那一处调 killMob 不传这两个参数 → 天然不算本件，
       //   这正是"一击秒杀"与"慢慢磨死"的分界线（灵魂断言钉这里）。
-      killMob(w, m, wasFullBeforeHit, isWorld);
+      killMob(w, m, wasFullBeforeHit, isWorld, src);
     }
     return dmg;
   }
@@ -4831,7 +4850,105 @@
     }
   }
 
-  function killMob(w, m, wasFullBeforeHit, isWorld) {
+  // ============================================================
+  // 百兵诀（第八十五轮：限时武器广度）
+  // ============================================================
+
+  // 某一轮要几种武器：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function arsenalNeedFor(roundIndex) {
+    const P = C.ARSENAL;
+    if (!P) return 0;
+    return Math.min(P.maxKinds, P.needKinds + (roundIndex || 0) * P.kindStep);
+  }
+
+  // 每帧调一次（step 第 2.82 段，紧挨陷阵诀）。开窗/到期/发奖都在这里，
+  // 击杀钩子只记"哪件兵器打出的最后一击"；剧情关逐关手工配平，一律不挂。
+  function tickArsenal(w) {
+    const P = C.ARSENAL;
+    if (!P) return;
+    if (w.storyStage) return;
+
+    if (w.arsenalActive) {
+      // ★达标优先于到期：deadline 那一帧补到最后一刀也算数。
+      if (w.arsenalKinds >= w.arsenalNeed && w.arsenalNeed > 0) {
+        w.arsenalActive = 0;
+        w.arsenalDone = (w.arsenalDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励球当帧被吃掉也不会算进本轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'arsenal_done', got: w.arsenalKinds, need: w.arsenalNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.arsenalDeadline) return;
+      // 到期没换够兵器：★什么都不给，且不责备（与前二十八件同口径）。
+      w.arsenalActive = 0;
+      w.arsenalFailed = (w.arsenalFailed || 0) + 1;
+      w.events.push({
+        type: 'arsenal_fail', need: w.arsenalNeed, got: w.arsenalKinds,
+        left: Math.max(0, w.arsenalNeed - w.arsenalKinds)
+      });
+      return;
+    }
+
+    // ★首发闸：初值 0 必须靠 tick 比较，不能写 `!w.arsenalNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.arsenalNextTick) return;
+
+    // 开一轮：到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.arsenalRounds = (w.arsenalRounds || 0) + 1;
+    w.arsenalActive = 1;
+    w.arsenalSeen = {};
+    w.arsenalKinds = 0;
+    w.arsenalNeed = arsenalNeedFor(w.arsenalRounds - 1);
+    w.arsenalHalfNoted = 0;
+    w.arsenalDeadline = w.time + P.windowSec;
+    w.arsenalNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'arsenal_start', need: w.arsenalNeed, sec: P.windowSec,
+      round: w.arsenalRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 唯一漏斗里，与 onMeleeKill 并列但问的是"哪件兵器"。
+  // ★src 必须是真·武器 id（基础/进化/组合技都在 WEAPON_MAP 里）：
+  //   荆棘反伤 thorns、天火/灵泉/引魂灯收尾等世界伤害都没有"哪件兵器打出去"这个问题。
+  // ★need=0 是未开窗默认态，绝不白送达标。
+  function onArsenalKill(w, src, isWorld) {
+    const P = C.ARSENAL;
+    if (!P || !w.arsenalActive || w.storyStage) return;
+    if (!(w.arsenalNeed > 0)) return;
+    if (isWorld || !src || !C.WEAPON_MAP || !C.WEAPON_MAP[src]) return;
+    if (!w.arsenalSeen) w.arsenalSeen = {};
+    // ★按武器 id 去重：同一把杀一百只也只算一种。
+    if (w.arsenalSeen[src]) return;
+    w.arsenalSeen[src] = 1;
+    w.arsenalKinds += 1;
+    // 整数种数逐次 +1：标记位只防达标后继续刷屏。
+    const half = w.arsenalNeed / 2;
+    if (!w.arsenalHalfNoted && w.arsenalKinds >= half) {
+      w.arsenalHalfNoted = 1;
+      w.events.push({
+        type: 'arsenal_half', got: w.arsenalKinds, need: w.arsenalNeed,
+        left: Math.max(0, w.arsenalNeed - w.arsenalKinds)
+      });
+    }
+  }
+
+  function killMob(w, m, wasFullBeforeHit, isWorld, src) {
     if (!m.alive) return;
     m.alive = false;
     w.stats.kills += 1;
@@ -4865,6 +4982,9 @@
     // 反击诀的击杀计数（第八十轮）。同处并列，但按**挨打后 4 秒的反击期**判：
     // ★必须先真受伤开门、且天火白送不算；与崩山诀的"满血一击"互不干扰。
     onRetaliateKill(w, isWorld);
+    // 百兵诀的击杀计数（第八十五轮）。同处并列，但按**最后一击的武器 id 去重**：
+    // ★荆棘反伤 / 天火 / 灵泉 / 引魂灯白送都不算；同种武器杀再多只算一种。
+    onArsenalKill(w, src, isWorld);
 
     // 掉落经验球
     const def = m.def;
@@ -11319,6 +11439,11 @@
     //   这里统一开窗/到期/发奖；远射与环境白送都不算。
     tickMelee(w);
 
+    // 【百兵诀】目标制零实体第二十九件，紧挨陷阵诀 —— 一个问"贴多近杀"，
+    //   一个问"换没换兵器"。★击杀钩子在 killMob 里按武器 id 去重，
+    //   这里统一开窗/到期/发奖；环境白送与被动反伤都不算。
+    tickArsenal(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -12182,6 +12307,11 @@
     meleeNeedFor: meleeNeedFor,
     tickMelee: tickMelee,
     onMeleeKill: onMeleeKill,
+    // 第八十五轮：百兵诀（武器广度）——三入口导出，测试既能精确喂钩子，
+    //   也能走真实 damageMob → killMob 漏斗与 step 的 tickArsenal 调用点。
+    arsenalNeedFor: arsenalNeedFor,
+    tickArsenal: tickArsenal,
+    onArsenalKill: onArsenalKill,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验

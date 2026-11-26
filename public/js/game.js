@@ -2610,6 +2610,22 @@ function goLobby(why) {
     } else if (e.type === 'melee_fail') {
       // 到期：★不责备玩家——只陈述"还差几只"这个事实。
       pushToast('陷阵诀到期：还差 ' + (e.left || 0) + ' 只贴身击杀，赏金散去', false);
+    } else if (e.type === 'arsenal_start') {
+      // 百兵诀（第八十五轮）：目标制零实体第二十九件——第一次数"换了几件兵器"。
+      // ★一次说清：多久 / 几种武器 / 同种杀再多只算一种 / 反伤与环境白送不算。
+      pushToast((C.ARSENAL ? C.ARSENAL.name : '百兵诀') + '：' + (e.sec || 0) +
+        ' 秒内用 ' + (e.need || 0) + ' 种不同兵器亲手击杀妖物（同种杀再多只算一种，' +
+        '荆棘反伤与天火白送不算），达成赏宝箱与金币', true);
+    } else if (e.type === 'arsenal_half') {
+      // 过半：整数种数逐次 +1，标记位保证只播一次。
+      pushToast('百兵诀过半：已用 ' + (e.got || 0) + ' / ' + (e.need || 0) +
+        ' 种兵器，还差 ' + (e.left || 0) + ' 种（换把武器打！）', true);
+    } else if (e.type === 'arsenal_done') {
+      // 达成：报清用了几种武器与落点，与前二十八件同一口径。
+      pushToast('百兵诀成！用 ' + (e.got || 0) + ' 种兵器清妖，宝箱与金币已落在脚下', true);
+    } else if (e.type === 'arsenal_fail') {
+      // 到期：★不责备玩家——只陈述"还差几种"这个事实。
+      pushToast('百兵诀到期：还差 ' + (e.left || 0) + ' 种兵器没用上，赏金散去', false);
     } else if (e.type === 'lantern') {
       // 引魂灯（第四十六轮）：全项目第一个**要求一条路线**的点位（一次三盏、散在三个方向）。
       // 【提示条必须一次说清四件事】几盏、往哪走、多久、点齐给什么 ——
