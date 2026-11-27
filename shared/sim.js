@@ -1527,6 +1527,23 @@
       arsenalDone: 0,
       arsenalFailed: 0,
 
+      // ---------- 伏魔诀（第八十六轮：限时异常状态利用）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（初值 0，只能靠 tick 比较，不能写 `!w.hexNextTick`）
+      hexNextTick: 0,
+      hexActive: 0,
+      // 本轮已击杀的带状态妖物数 / 目标数
+      hexCount: 0,
+      hexNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      hexDeadline: 0,
+      // 过半播报只发一次的标记（整数次逐次 +1，标记位防的是刷屏）
+      hexHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      hexRounds: 0,
+      hexDone: 0,
+      hexFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1986,7 +2003,8 @@
       // 崩山诀（第七十八轮）：把「击杀前满血」与「是不是世界伤害」一并传进漏斗。
       // ★tickBurn（灼烧磨死）那一处调 killMob 不传这两个参数 → 天然不算本件，
       //   这正是"一击秒杀"与"慢慢磨死"的分界线（灵魂断言钉这里）。
-      killMob(w, m, wasFullBeforeHit, isWorld, src);
+      // ★第 6 参 directKill=true：只在这里（真·攻击打死）传，tickBurn 那处不传 → 灼烧磨死不算。
+      killMob(w, m, wasFullBeforeHit, isWorld, src, true);
     }
     return dmg;
   }
@@ -4948,7 +4966,115 @@
     }
   }
 
-  function killMob(w, m, wasFullBeforeHit, isWorld, src) {
+  // ============================================================
+  // 伏魔诀（第八十六轮：限时异常状态利用）
+  // ============================================================
+
+  // 某一轮要杀几只带状态妖物：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function hexNeedFor(roundIndex) {
+    const P = C.HEX;
+    if (!P) return 0;
+    return Math.min(P.maxHex, P.needHex + (roundIndex || 0) * P.hexStep);
+  }
+
+  // 击杀瞬间妖物身上是否带着异常状态（眩晕/冰寒/烙印/灼烧）。
+  // ★四种状态字段各自独立，任何一个 >0 都算；读的是击杀那一刻的值，
+  //   扣血后状态不会立刻消失，但斗篷倒计时会 —— 所以钩子必须在 killMob 里当场读。
+  // ★抽成单独函数只为可读与测试，零随机、零副作用。
+  function mobIsHexed(m) {
+    if (!m) return false;
+    return (m.stun > 0) || (m.chillT > 0) || (m.markT > 0) || (m.burnT > 0);
+  }
+
+  // 每帧调一次（step 第 2.83 段，紧挨百兵诀）。开窗/到期/发奖都在这里，
+  // 击杀钩子只记"杀了几只带状态的妖物"；剧情关逐关手工配平，一律不挂。
+  function tickHex(w) {
+    const P = C.HEX;
+    if (!P) return;
+    if (w.storyStage) return;
+
+    if (w.hexActive) {
+      // ★达标优先于到期：deadline 那一帧补到最后一刀也算数。
+      if (w.hexCount >= w.hexNeed && w.hexNeed > 0) {
+        w.hexActive = 0;
+        w.hexDone = (w.hexDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励球当帧被吃掉也不会算进本轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'hex_done', got: w.hexCount, need: w.hexNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.hexDeadline) return;
+      // 到期没杀够带状态妖物：★什么都不给，且不责备（与前二十九件同口径）。
+      w.hexActive = 0;
+      w.hexFailed = (w.hexFailed || 0) + 1;
+      w.events.push({
+        type: 'hex_fail', need: w.hexNeed, got: w.hexCount,
+        left: Math.max(0, w.hexNeed - w.hexCount)
+      });
+      return;
+    }
+
+    // ★首发闸：初值 0 必须靠 tick 比较，不能写 `!w.hexNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.hexNextTick) return;
+
+    // 开一轮：到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.hexRounds = (w.hexRounds || 0) + 1;
+    w.hexActive = 1;
+    w.hexCount = 0;
+    w.hexNeed = hexNeedFor(w.hexRounds - 1);
+    w.hexHalfNoted = 0;
+    w.hexDeadline = w.time + P.windowSec;
+    w.hexNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'hex_start', need: w.hexNeed, sec: P.windowSec,
+      round: w.hexRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 唯一漏斗里，与百兵诀并列但问的是"怪身上有没有状态"。
+  // ★isWorld 闸：天火/灵泉/引魂灯收尾砸死不算白送（与前几件同口径）。
+  // ★need=0 是未开窗默认态，绝不白送达标；story 闸双管（tick + 钩子）。
+  // ★★灼烧磨死不算：tickBurn 那处调 killMob 不传 isWorld → 天然不算，
+  //   这正是「主动挂控制再清怪」与「被动灼烧白送」的分界线（灵魂断言钉这里）。
+  function onHexKill(w, m, isWorld, directKill) {
+    const P = C.HEX;
+    if (!P || !w.hexActive || w.storyStage) return;
+    if (isWorld) return;
+    // ★★只认真·直接击杀：tickBurn（灼烧磨死）那处调 killMob 不传 directKill，
+    //   天然不算 —— 这正是「主动挂控制再亲手打」与「站桩等灼烧白送」的分界线。
+    //   ★不能靠 isWorld 拦：tickBurn 也不传 isWorld（undefined 是假值，拦不住）。
+    if (!directKill) return;
+    if (!(w.hexNeed > 0)) return;
+    if (!mobIsHexed(m)) return;
+    w.hexCount += 1;
+    // 整数次逐次 +1：标记位只防达标后继续刷屏。
+    const half = w.hexNeed / 2;
+    if (!w.hexHalfNoted && w.hexCount >= half) {
+      w.hexHalfNoted = 1;
+      w.events.push({
+        type: 'hex_half', got: w.hexCount, need: w.hexNeed,
+        left: Math.max(0, w.hexNeed - w.hexCount)
+      });
+    }
+  }
+
+  function killMob(w, m, wasFullBeforeHit, isWorld, src, directKill) {
     if (!m.alive) return;
     m.alive = false;
     w.stats.kills += 1;
@@ -4985,6 +5111,9 @@
     // 百兵诀的击杀计数（第八十五轮）。同处并列，但按**最后一击的武器 id 去重**：
     // ★荆棘反伤 / 天火 / 灵泉 / 引魂灯白送都不算；同种武器杀再多只算一种。
     onArsenalKill(w, src, isWorld);
+    // 伏魔诀的击杀计数（第八十六轮）。同处并列，但按**击杀瞬间怪身上有没有状态**：
+    // ★天火/灵泉/引魂灯白送不算（isWorld）；灼烧磨死不算（directKill 只从 damageMob 传）。
+    onHexKill(w, m, isWorld, directKill);
 
     // 掉落经验球
     const def = m.def;
@@ -11444,6 +11573,11 @@
     //   这里统一开窗/到期/发奖；环境白送与被动反伤都不算。
     tickArsenal(w);
 
+    // 【伏魔诀】目标制零实体第三十件，紧挨百兵诀 —— 前面问"换没换兵器"，
+    //   这里问"有没有给妖物挂上控制再打"。★击杀钩子在 killMob 里读怪身上的
+    //   四种异常状态，这里统一开窗/到期/发奖；环境白送与灼烧磨死都不算。
+    tickHex(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -12312,6 +12446,12 @@
     arsenalNeedFor: arsenalNeedFor,
     tickArsenal: tickArsenal,
     onArsenalKill: onArsenalKill,
+    // 第八十六轮：伏魔诀（异常状态利用）——三入口导出，测试既能精确喂钩子，
+    //   也能走真实 damageMob → killMob 漏斗与 step 的 tickHex 调用点。
+    hexNeedFor: hexNeedFor,
+    tickHex: tickHex,
+    onHexKill: onHexKill,
+    mobIsHexed: mobIsHexed,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
