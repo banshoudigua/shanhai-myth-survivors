@@ -1432,6 +1432,7 @@ testMelee();console.log('');
 testArsenal();console.log('');
 testHex();console.log('');
 testCrush();console.log('');
+testEvolve();console.log('');
 
 // ============================================================
 // 第八十一轮：踏罡诀（目标制零实体第二十五件，全新轴「四方站位覆盖」）
@@ -1498,7 +1499,7 @@ function testTaga() {
     w.retaliateNextTick = 1e9;
     w.arsenalNextTick = 1e9;
     w.hexNextTick = 1e9; // 第八十六轮：伏魔诀 816s 开窗，默认推远
-    w.crushNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
+    w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
     w.tagaNextTick = 0;  // 本件默认开窗，干净世界里由 openWindow 精确触发
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -3197,7 +3198,7 @@ function testRage() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -3409,7 +3410,7 @@ function testMoon() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     SIM.setSelf(w, w.player);
     return w;
   }
@@ -5743,7 +5744,7 @@ function testDevourer() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     SIM.setSelf(w, p);
@@ -6136,7 +6137,7 @@ function testBoon() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.boonNextTick = 1e9;
     w.mobs.length = 0;
     w.pickups.length = 0;         // ★地图自带的宝箱/神龛也清掉：数「地上有几座碑」才干净
@@ -6564,7 +6565,7 @@ function testBell() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     // ★第五十轮：影傀也要推远。这一条不是"顺手"，是反向验证抓出来的 ——
@@ -7090,7 +7091,7 @@ function testMerge() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 0;
@@ -7620,7 +7621,7 @@ function testEscort() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8034,7 +8035,7 @@ function testMarket() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8463,7 +8464,7 @@ function testCauldron() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.boonNextTick = 1e9;
     w.bellNextTick = 1e9;
     w.mergeNextTick = 1e9;
@@ -8849,7 +8850,7 @@ function testBounty() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9142,7 +9143,7 @@ function testHealer() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9437,7 +9438,7 @@ function testSerenity() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -9712,7 +9713,7 @@ function testGlean() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10037,7 +10038,7 @@ function testForge() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10369,7 +10370,7 @@ function testStride() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -10714,7 +10715,7 @@ function testMend() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11065,7 +11066,7 @@ function testThunder() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11413,7 +11414,7 @@ function testPeril() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -11761,7 +11762,7 @@ function testDew() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -12106,7 +12107,7 @@ function testStreak() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -12498,7 +12499,7 @@ function testBestiary() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13269,7 +13270,7 @@ function testShoot() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13614,7 +13615,7 @@ function testGeneral() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -13637,7 +13638,7 @@ function testGeneral() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     SIM.tickGeneral(w);
   }
   // 按 tier 直接喂击杀钩子：不真 spawn，隔离掉落与随机流
@@ -14339,7 +14340,7 @@ function testTemper() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -14365,7 +14366,7 @@ function testTemper() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     SIM.tickTemper(w);
   }
   // ★走调用方入口 damagePlayer（不是直接喂 onTemperHurt）：
@@ -15144,7 +15145,7 @@ function testHunt() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.rageMute = 0;
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -15494,7 +15495,7 @@ function testVenge() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     SIM.tickVenge(w);
   }
   function finish(w, count) {
@@ -15550,7 +15551,7 @@ function testVenge() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -15873,7 +15874,7 @@ function testAscend() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     SIM.tickAscend(w);
   }
   function finish(w, count) {
@@ -15930,7 +15931,7 @@ function testAscend() {
     w.julingNextTick = 1e9; // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9; // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -16603,7 +16604,7 @@ function testYongjin() {
     w.julingNextTick = 1e9;    // 第七十七轮：聚灵诀 564s 开窗，默认推远
     w.onehitNextTick = 1e9;    // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -16970,7 +16971,7 @@ function testJuling() {
     w.julingNextTick = 0;     // 本件默认开窗，干净世界里由 openWindow 精确触发
     w.onehitNextTick = 1e9;   // 第七十八轮：崩山诀 576s 开窗，默认推远
     w.retaliateNextTick = 1e9; // 第八十轮：反击诀 588s 开窗，默认推远
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -17740,7 +17741,7 @@ function testRetaliate() {
     w.julingNextTick = 1e9;
     w.onehitNextTick = 1e9;
     w.retaliateNextTick = 0;  // 本件默认开窗，干净世界里由 openWindow 精确触发
-    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
+    w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 1e9; w.meleeNextTick = 1e9; w.arsenalNextTick = 1e9; w.hexNextTick = 1e9; w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 踏罡/连珠/陷阵/百兵/裂石开窗，默认推远
     w.mobs.length = 0;
     w.pickups.length = 0;
     w.events.length = 0;
@@ -18103,7 +18104,7 @@ function testStill() {
     w.retaliateNextTick = 1e9;
     w.arsenalNextTick = 1e9;
     w.hexNextTick = 1e9; // 第八十六轮：伏魔诀 816s 开窗，默认推远
-    w.crushNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
+    w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
     w.tagaNextTick = 1e9; w.stillNextTick = 0; // 本件默认开窗
     w.mobs.length = 0;
     w.pickups.length = 0;
@@ -18478,7 +18479,7 @@ function testChain() {
     w.retaliateNextTick = 1e9;
     w.arsenalNextTick = 1e9;
     w.hexNextTick = 1e9; // 第八十六轮：伏魔诀 816s 开窗，默认推远
-    w.crushNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
+    w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
     w.tagaNextTick = 1e9; w.stillNextTick = 1e9; w.chainNextTick = 0; // 本件默认开窗
     w.meleeNextTick = 1e9; // 第八十四轮：陷阵诀 744s 开窗，本件推时间时不能误开
     w.mobs.length = 0;
@@ -18838,7 +18839,7 @@ function testMelee() {
     w.retaliateNextTick = 1e9;
     w.arsenalNextTick = 1e9;
     w.hexNextTick = 1e9; // 第八十六轮：伏魔诀 816s 开窗，默认推远
-    w.crushNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
+    w.crushNextTick = 1e9; w.evolveNextTick = 1e9; // 第八十七轮：裂石诀 864s 开窗，默认推远
     w.tagaNextTick = 1e9;
     w.stillNextTick = 1e9;
     w.chainNextTick = 1e9;
@@ -20263,4 +20264,402 @@ function testCrush() {
   SIM.damageMob(wStep, realMob(wStep, 11075, 1000), wStep.crushNeedDmg, 0, 0, 'meteor');
   expect('★★真实 damageMob 的天火不算（世界白送，漏斗层再钉一次）',
     wStep.crushCount === 1, 'count=' + wStep.crushCount);
+}
+
+// ============================================================
+// 第八十八轮：化形诀（目标制零实体第三十二件，全新轴「进化/组合兵器击杀」）
+// ============================================================
+function testEvolve() {
+  console.log('[第八十八轮] 化形诀：第一件「养成深度」目标（进化/组合兵器轴）');
+  const P = C.EVOLVE;
+  const HZ = C.TICK_HZ;
+  const startTick = Math.round(P.startSec * HZ);
+  const EVO_SRC = C.EVOLUTIONS[0].id;   // 进化形态
+  const COMBO_SRC = C.COMBOS[0].id;     // 组合技
+
+  function evs(w, t) {
+    return w.events.filter(function (e) { return e.type === t; });
+  }
+  function byKind(w, kind) {
+    return w.pickups.filter(function (it) { return it.kind === kind; });
+  }
+  // 隔离世界：其它机制全推远、关武器与暴击，只留化形诀这一条轴。
+  function cleanWorld(seed) {
+    const w = SIM.createWorld({ seed: seed });
+    const p = w.player;
+    p.weapons.length = 0;
+    p.expNext = 1e9;          // 吃球不弹升级面板，世界不会定格
+    p.hp = p.maxHp;
+    p.rage = 0;
+    p.attrs.crit = 0;
+    p.attrs.exec = 0;
+    w.nextWaveTick = 1e9;
+    w.meteorNextTick = 1e9;
+    w.challengerNextTick = 1e9;
+    w.summonerNextTick = 1e9;
+    w.healerNextTick = 1e9;
+    w.leyNextTick = 1e9;
+    w.pactNextTick = 1e9;
+    w.twinNextTick = 1e9;
+    w.lanternNextTick = 1e9;
+    w.devourerNextTick = 1e9;
+    w.boonNextTick = 1e9;
+    w.bellNextTick = 1e9;
+    w.mergeNextTick = 1e9;
+    w.escortNextTick = 1e9;
+    w.marketNextTick = 1e9;
+    w.cauldronNextTick = 1e9;
+    w.bountyNextTick = 1e9;
+    w.serenityNextTick = 1e9;
+    w.gleanNextTick = 1e9;
+    w.forgeNextTick = 1e9;
+    w.strideNextTick = 1e9;
+    w.mendNextTick = 1e9;
+    w.thunderNextTick = 1e9;
+    w.perilNextTick = 1e9;
+    w.dewNextTick = 1e9;
+    w.streakNextTick = 1e9;
+    w.bestiaryNextTick = 1e9;
+    w.shootNextTick = 1e9;
+    w.generalNextTick = 1e9;
+    w.evadeNextTick = 1e9;
+    w.temperNextTick = 1e9;
+    w.swarmNextTick = 1e9;
+    w.huntNextTick = 1e9;
+    w.vengeNextTick = 1e9;
+    w.ascendNextTick = 1e9;
+    w.unsealNextTick = 1e9;
+    w.yongjinNextTick = 1e9;
+    w.julingNextTick = 1e9;
+    w.onehitNextTick = 1e9;
+    w.retaliateNextTick = 1e9;
+    w.tagaNextTick = 1e9;
+    w.stillNextTick = 1e9;
+    w.chainNextTick = 1e9;
+    w.meleeNextTick = 1e9;
+    w.arsenalNextTick = 1e9;
+    w.hexNextTick = 1e9;
+    w.crushNextTick = 1e9;
+    w.evolveNextTick = 0;     // 本件默认开窗，干净世界里显式打开
+    w.rageMute = 0;
+    w.mobs.length = 0;
+    w.pickups.length = 0;
+    w.events.length = 0;
+    SIM.setSelf(w, p);
+    return w;
+  }
+  function openWindow(w) {
+    w.tick = startTick;
+    w.time = w.tick / HZ;
+    w.evolveNextTick = 0;
+    SIM.tickEvolve(w);
+  }
+  // 直接喂钩子（隔离掉落与随机流）。★src 用 == null 判空：
+  //   空字符串是「未知来源」的被测值，不能被兜底成进化武器。
+  function feed(w, n, src, isWorld, directKill) {
+    for (let i = 0; i < n; i++) {
+      SIM.onEvolveKill(w, src == null ? EVO_SRC : src,
+        isWorld || false, directKill === false ? false : true);
+    }
+  }
+  function finish(w, kills, src) {
+    feed(w, kills || 0, src);
+    w.time = w.evolveDeadline + 0.01;
+    SIM.tickEvolve(w);
+  }
+  // 造一只指定血量的真怪，走真实 damageMob → killMob 漏斗（seed 不抽主随机流）。
+  function realMob(w, seed, hp) {
+    const p = w.self || w.player;
+    const m = SIM.spawnMob(w, 'bat', p.x + 50, p.y, 1, 0, seed);
+    m.hp = hp;
+    m.maxHp = hp;
+    return m;
+  }
+
+  // ---------- 1. 表自洽 ----------
+  expect('首发帧不压在 30 秒波次网格上（否则开窗那场是空场）',
+    P.startSec % 30 !== 0, P.startSec + ' % 30 = ' + (P.startSec % 30));
+  expect('窗口短于间隔，且不短于 20 秒',
+    P.windowSec >= 20 && P.windowSec < P.everySec, P.windowSec + ' / ' + P.everySec);
+  expect('击杀数按轮递增且封顶',
+    SIM.evolveNeedFor(0) === P.needKills &&
+    SIM.evolveNeedFor(1) === P.needKills + P.killStep &&
+    SIM.evolveNeedFor(99) === P.maxKills,
+    '0=' + SIM.evolveNeedFor(0) + ' 1=' + SIM.evolveNeedFor(1) +
+    ' 99=' + SIM.evolveNeedFor(99));
+  expect('奖励仍是「一箱 + 零钱」（与前三十一件同口径）',
+    P.rewardChest >= 1 && P.rewardChest <= 2 && P.goldDrops >= 1 &&
+    P.rewardGold >= 1 && P.rewardGold <= 5,
+    'chest=' + P.rewardChest + ' gold=' + P.goldDrops + '×' + P.rewardGold);
+  const GOALS = ['BOUNTY', 'SERENITY', 'GLEAN', 'FORGE', 'STRIDE', 'MEND', 'THUNDER',
+    'PERIL', 'DEW', 'STREAK', 'BESTIARY', 'SHOOT', 'GENERAL', 'EVADE', 'TEMPER',
+    'SWARM', 'HUNT', 'VENGE', 'ASCEND', 'UNSEAL', 'YONGJIN', 'JULING', 'ONEHIT',
+    'RETALIATE', 'TAGA', 'STILL', 'CHAIN', 'MELEE', 'ARSENAL', 'HEX', 'CRUSH'];
+  // ★相位只对「同为 132 秒周期」的事件有意义：拾荒令 138 秒/悬赏 150 秒等
+  //   与本件周期不同，拿 132 去除它们的首发秒数会得出错误的「相位撞车」。
+  expect('★★首发晚于全部带排期的既有目标制，且同周期相位唯一',
+    GOALS.every(function (k) {
+      const q = C[k];
+      if (!q || !q.startSec) return true;
+      return q.startSec < P.startSec &&
+        (q.everySec !== P.everySec ||
+          (q.startSec % P.everySec) !== (P.startSec % P.everySec));
+    }), 'evolve=' + P.startSec + '（相位 ' + (P.startSec % P.everySec) +
+    '）crush=' + C.CRUSH.startSec + '（相位 ' + (C.CRUSH.startSec % P.everySec) + '）');
+  expect('中文表名存在（前端 toast 可读）', typeof P.name === 'string' && P.name.length > 0,
+    'name=' + P.name);
+  expect('首发晚于最长剧情关上限（step 验不出，靠入口断言守剧情闸）',
+    P.startSec > 540, 'startSec=' + P.startSec);
+  expect('首发晚于前一件（裂石诀），窗口不重叠',
+    P.startSec > C.CRUSH.startSec + C.CRUSH.windowSec,
+    'evolve=' + P.startSec + ' crushEnd=' + (C.CRUSH.startSec + C.CRUSH.windowSec));
+  expect('进化与组合技都存在（本件不是空表玩法）',
+    C.EVOLUTIONS.length > 0 && C.COMBOS.length > 0,
+    'evo=' + C.EVOLUTIONS.length + ' combo=' + C.COMBOS.length);
+
+  // ---------- 2. 化形来源判据 ----------
+  expect('进化兵器被识别（表上的 evolved 标记）',
+    SIM.evolveSourceOk(EVO_SRC), 'src=' + EVO_SRC);
+  expect('组合技被识别（表上的 combo 标记）',
+    SIM.evolveSourceOk(COMBO_SRC), 'src=' + COMBO_SRC);
+  expect('★★基础武器不算（养成深度必须是真进化/组合）',
+    !SIM.evolveSourceOk('whip'), 'src=whip');
+  expect('★★荆棘反伤不算（没有「哪件兵器打出去」这件事）',
+    !SIM.evolveSourceOk('thorns'), 'src=thorns');
+  expect('★未知来源不算', !SIM.evolveSourceOk('not_a_weapon'));
+  expect('★空来源与 null 都不算',
+    !SIM.evolveSourceOk('') && !SIM.evolveSourceOk(null));
+
+  // ---------- 3. 零随机（直接调入口，隔离战斗掉落）----------
+  const wR = cleanWorld(12000);
+  const rng0 = wR.rngState;
+  openWindow(wR);
+  feed(wR, P.needKills + 2);
+  finish(wR, P.needKills);
+  expect('★开窗/计数/达标发奖全过程一个 nextRand 都不抽',
+    wR.rngState === rng0, 'rng ' + rng0 + ' → ' + wR.rngState);
+  const wR2 = cleanWorld(12001);
+  const rng1 = wR2.rngState;
+  openWindow(wR2);
+  finish(wR2, 1);
+  expect('★到期落空也不抽随机（失败分支同样是纯状态迁移）',
+    wR2.rngState === rng1, 'rng ' + rng1 + ' → ' + wR2.rngState);
+
+  // ---------- 4. 时序 / 零实体 ----------
+  const wT = cleanWorld(12010);
+  wT.tick = startTick - 1;
+  wT.time = wT.tick / HZ;
+  SIM.tickEvolve(wT);
+  expect('到点前一帧零轮、零播报（初值 0 不会开局误开）',
+    wT.evolveRounds === 0 && evs(wT, 'evolve_start').length === 0,
+    'rounds=' + wT.evolveRounds);
+  openWindow(wT);
+  expect('到点整帧正好开一轮', wT.evolveActive === 1 && wT.evolveRounds === 1,
+    'rounds=' + wT.evolveRounds + ' active=' + wT.evolveActive);
+  expect('★★开窗零实体：没怪、没球、没特效、没 zone、没 strike',
+    wT.mobs.length === 0 && wT.pickups.length === 0 &&
+    wT.effects.length === 0 && wT.zones.length === 0 && wT.strikes.length === 0,
+    'mob=' + wT.mobs.length + ' pickup=' + wT.pickups.length +
+    ' fx=' + wT.effects.length + ' zone=' + wT.zones.length + ' strike=' + wT.strikes.length);
+  const st = evs(wT, 'evolve_start')[0];
+  expect('开窗播报一次说清三件事：多久 / 几只 / 第几轮',
+    !!st && st.sec === P.windowSec && st.need === P.needKills && st.round === 1 &&
+    evs(wT, 'evolve_start').length === 1, JSON.stringify(st || null));
+  expect('到期时刻 = 开窗时刻 + windowSec（零漂移）',
+    Math.abs(wT.evolveDeadline - (startTick / HZ + P.windowSec)) < 1e-9,
+    'deadline=' + wT.evolveDeadline);
+  expect('下一轮排期 = 本轮 + everySec（不会同帧再开）',
+    wT.evolveNextTick === startTick + Math.round(P.everySec * HZ),
+    'next=' + wT.evolveNextTick);
+  SIM.tickEvolve(wT);
+  expect('同帧重复调用不会二次开窗', wT.evolveRounds === 1,
+    'rounds=' + wT.evolveRounds);
+  wT.time = wT.evolveDeadline - 0.001;
+  SIM.tickEvolve(wT);
+  expect('到期前一帧不发奖也不结算', wT.evolveActive === 1 &&
+    wT.evolveCount === 0 && evs(wT, 'evolve_done').length === 0 &&
+    evs(wT, 'evolve_fail').length === 0,
+    'active=' + wT.evolveActive + ' count=' + wT.evolveCount);
+
+  // ---------- 5. 过半（整数次累加：标记位防刷屏）----------
+  const wH = cleanWorld(12020);
+  openWindow(wH);
+  feed(wH, Math.floor((P.needKills - 1) / 2));
+  expect('过半前零播报', evs(wH, 'evolve_half').length === 0,
+    'half=' + evs(wH, 'evolve_half').length + ' count=' + wH.evolveCount);
+  feed(wH, 1);
+  expect('过半报一次', evs(wH, 'evolve_half').length === 1,
+    'half=' + evs(wH, 'evolve_half').length);
+  feed(wH, P.needKills + 4);
+  expect('★多杀不刷屏（过半播报恰好一次）', evs(wH, 'evolve_half').length === 1,
+    'half=' + evs(wH, 'evolve_half').length);
+  const wH2 = cleanWorld(12021);
+  openWindow(wH2);
+  feed(wH2, P.needKills + 2);
+  expect('★★整轮只报一次过半（数字锁在首次跨半那一刻）',
+    evs(wH2, 'evolve_half').length === 1 &&
+    evs(wH2, 'evolve_half')[0].got === Math.ceil(P.needKills / 2),
+    'half=' + evs(wH2, 'evolve_half').length +
+    ' got=' + ((evs(wH2, 'evolve_half')[0] || {}).got));
+  const wMix = cleanWorld(12022);
+  openWindow(wMix);
+  feed(wMix, 1, EVO_SRC);
+  feed(wMix, 1, COMBO_SRC);
+  expect('进化形态与组合技的击杀都会累计（同一条轴两个入口）',
+    wMix.evolveCount === 2, 'count=' + wMix.evolveCount);
+
+  // ---------- 6. 达标 / 落空 ----------
+  const wD = cleanWorld(12040);
+  openWindow(wD);
+  finish(wD, P.needKills);
+  expect('杀够化形兵器击杀 → 达成', wD.evolveActive === 0 && wD.evolveDone === 1 &&
+    evs(wD, 'evolve_done').length === 1, 'done=' + wD.evolveDone);
+  expect('宝箱正好一个', byKind(wD, 'chest').length === P.rewardChest,
+    'chest=' + byKind(wD, 'chest').length);
+  expect('金币枚数 × 面值正确',
+    byKind(wD, 'gold').length === P.goldDrops &&
+    byKind(wD, 'gold').every(function (it) { return it.value === P.rewardGold; }),
+    'gold=' + byKind(wD, 'gold').length);
+  const pDrop = wD.self || wD.player;
+  expect('奖励落在玩家脚下（偏移只有撒开的 14px）',
+    byKind(wD, 'chest').every(function (it) {
+      return Math.sqrt((it.x - pDrop.x) * (it.x - pDrop.x) +
+        (it.y - pDrop.y) * (it.y - pDrop.y)) < 20;
+    }), 'player=' + Math.round(pDrop.x) + ',' + Math.round(pDrop.y));
+  const dn = evs(wD, 'evolve_done')[0];
+  expect('达标播报的 got/need/奖励数字来自事件本身',
+    !!dn && dn.got >= P.needKills && dn.need === P.needKills &&
+    dn.chest === P.rewardChest && dn.gold === P.goldDrops * P.rewardGold,
+    JSON.stringify(dn || null));
+  const pickupsAfter = wD.pickups.length;
+  feed(wD, 3);
+  SIM.tickEvolve(wD);
+  expect('★达标后再杀、再推时间都不二次发奖', wD.pickups.length === pickupsAfter &&
+    wD.evolveDone === 1 && evs(wD, 'evolve_done').length === 1,
+    'pickups=' + wD.pickups.length + ' done=' + wD.evolveDone);
+  wD.tick = startTick + Math.round(P.everySec * HZ);
+  wD.time = wD.tick / HZ;
+  SIM.tickEvolve(wD);
+  expect('下一轮击杀数递增、计数清零',
+    wD.evolveActive === 1 && wD.evolveNeed === SIM.evolveNeedFor(1) &&
+    wD.evolveCount === 0,
+    'need=' + wD.evolveNeed + ' count=' + wD.evolveCount);
+  const wLast = cleanWorld(12041);
+  wLast.tick = startTick;
+  wLast.time = wLast.tick / HZ;
+  wLast.evolveRounds = 99;
+  SIM.tickEvolve(wLast);
+  expect('击杀数封顶后不再涨', wLast.evolveNeed === P.maxKills,
+    'need=' + wLast.evolveNeed);
+  const wF = cleanWorld(12050);
+  openWindow(wF);
+  finish(wF, P.needKills - 1);
+  expect('差一只落空：零掉落、零达成播报',
+    wF.evolveActive === 0 && wF.evolveDone === 0 && wF.evolveFailed === 1 &&
+    wF.pickups.length === 0 && evs(wF, 'evolve_done').length === 0,
+    'failed=' + wF.evolveFailed + ' pick=' + wF.pickups.length);
+  const fl = evs(wF, 'evolve_fail')[0];
+  expect('落空不责备，只陈述「还差几只」这个事实',
+    !!fl && fl.need === P.needKills && fl.got === P.needKills - 1 && fl.left === 1,
+    JSON.stringify(fl || null));
+  feed(wF, P.needKills);
+  SIM.tickEvolve(wF);
+  expect('★落空后补喂也不补发奖（当轮已结束）',
+    wF.evolveDone === 0 && wF.pickups.length === 0, 'done=' + wF.evolveDone);
+
+  // ---------- 7. 核心灵魂断言：白送不算 ----------
+  const wSoul = cleanWorld(12060);
+  openWindow(wSoul);
+  feed(wSoul, P.needKills + 5, EVO_SRC, true);
+  expect('★★环境伤害（天火/灵泉/引魂灯）不算（世界白送）',
+    wSoul.evolveCount === 0, 'count=' + wSoul.evolveCount);
+  const wThorn = cleanWorld(12061);
+  openWindow(wThorn);
+  feed(wThorn, P.needKills + 5, 'thorns');
+  expect('★★荆棘反伤不算（没有「哪件兵器打出去」这件事）',
+    wThorn.evolveCount === 0, 'count=' + wThorn.evolveCount);
+  const wBase = cleanWorld(12062);
+  openWindow(wBase);
+  feed(wBase, P.needKills + 5, 'whip');
+  expect('★★基础兵器杀再多也不算（本件问的是养成深度）',
+    wBase.evolveCount === 0, 'count=' + wBase.evolveCount);
+  const wSrc = cleanWorld(12063);
+  openWindow(wSrc);
+  feed(wSrc, P.needKills + 5, 'not_a_weapon');
+  feed(wSrc, P.needKills + 5, '');
+  expect('★未知来源与空来源都不算', wSrc.evolveCount === 0,
+    'count=' + wSrc.evolveCount);
+  const wNoDirect = cleanWorld(12064);
+  openWindow(wNoDirect);
+  feed(wNoDirect, P.needKills + 5, EVO_SRC, false, false);
+  expect('★★非直接击杀不算（灼烧磨死走的就是这条路）',
+    wNoDirect.evolveCount === 0, 'count=' + wNoDirect.evolveCount);
+  const wZero = cleanWorld(12065);
+  openWindow(wZero);
+  wZero.evolveNeed = 0;
+  feed(wZero, P.needKills);
+  expect('★★need=0 异常残留也不计数（绝不白送）', wZero.evolveCount === 0,
+    'count=' + wZero.evolveCount);
+  wZero.evolveCount = 7;
+  SIM.tickEvolve(wZero);
+  expect('★★need=0 且异常满额也不达标发奖',
+    wZero.evolveDone === 0 && evs(wZero, 'evolve_done').length === 0 &&
+    wZero.pickups.length === 0,
+    'done=' + wZero.evolveDone + ' pick=' + wZero.pickups.length);
+  const wOut = cleanWorld(12066);
+  SIM.onEvolveKill(wOut, EVO_SRC, false, true);
+  expect('★窗口外化形兵器击杀不算', wOut.evolveCount === 0,
+    'count=' + wOut.evolveCount);
+  // 真实 tickBurn：灼烧磨死（killMob 不传 directKill）必须不算。
+  const wBurn = cleanWorld(12067);
+  openWindow(wBurn);
+  const mBurn = realMob(wBurn, 12068, 5);
+  mBurn.burnT = 1;
+  mBurn.burnTick = 0;
+  mBurn.burnTickSec = 0.5;
+  mBurn.burnDmg = 99;
+  mBurn.burnSrc = EVO_SRC;
+  mBurn.burnOwner = wBurn.self;
+  SIM.step(wBurn, { mx: 0, my: 0 });
+  expect('★★真实灼烧磨死不算（哪怕火来自进化兵器）',
+    !mBurn.alive && wBurn.evolveCount === 0,
+    'alive=' + mBurn.alive + ' count=' + wBurn.evolveCount);
+
+  // ---------- 8. 剧情关隔离 + 真实漏斗 / step 调用点 ----------
+  const wS = cleanWorld(12070);
+  wS.modId = 'myth';
+  wS.storyStage = { id: 'ch6' };
+  wS.tick = startTick;
+  wS.time = wS.tick / HZ;
+  SIM.tickEvolve(wS);
+  feed(wS, P.needKills);
+  expect('★★直接调入口：剧情关不开窗、不计数、零播报',
+    wS.evolveActive === 0 && wS.evolveRounds === 0 && wS.evolveCount === 0 &&
+    evs(wS, 'evolve_start').length === 0,
+    'active=' + wS.evolveActive + ' count=' + wS.evolveCount);
+  const wS2 = cleanWorld(12071);
+  openWindow(wS2);
+  wS2.storyStage = { id: 'ch6' };
+  feed(wS2, P.needKills);
+  expect('★★强行开窗后剧情关也不计数（钩子 story 闸）',
+    wS2.evolveCount === 0, 'count=' + wS2.evolveCount);
+  const wStep = cleanWorld(12072);
+  wStep.tick = startTick - 1;
+  wStep.time = wStep.tick / HZ;
+  SIM.step(wStep, { mx: 0, my: 0 });
+  expect('★真实 step 跨首发帧也开窗（钉 step 调用点）',
+    wStep.evolveActive === 1 && evs(wStep, 'evolve_start').length === 1,
+    'active=' + wStep.evolveActive + ' start=' + evs(wStep, 'evolve_start').length);
+  SIM.damageMob(wStep, realMob(wStep, 12073, 1), 50, 0, 0, EVO_SRC);
+  expect('★★真实进化兵器击杀计入一次（走 damageMob → killMob 漏斗）',
+    wStep.evolveCount === 1, 'count=' + wStep.evolveCount);
+  SIM.damageMob(wStep, realMob(wStep, 12074, 1), 50, 0, 0, 'whip');
+  expect('★★真实基础兵器击杀不算（漏斗层再钉一次）',
+    wStep.evolveCount === 1, 'count=' + wStep.evolveCount);
+  SIM.damageMob(wStep, realMob(wStep, 12075, 1), 50, 0, 0, 'thorns');
+  expect('★★真实反伤击杀不算（漏斗层再钉一次）',
+    wStep.evolveCount === 1, 'count=' + wStep.evolveCount);
+  SIM.damageMob(wStep, realMob(wStep, 12076, 1), 50, 0, 0, 'meteor');
+  expect('★★真实天火击杀不算（世界白送，漏斗层再钉一次）',
+    wStep.evolveCount === 1, 'count=' + wStep.evolveCount);
 }

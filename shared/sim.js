@@ -1562,6 +1562,23 @@
       crushDone: 0,
       crushFailed: 0,
 
+      // ---------- 化形诀（第八十八轮：限时进化/组合兵器击杀）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（初值 0，只能靠 tick 比较，不能写 `!w.evolveNextTick`）
+      evolveNextTick: 0,
+      evolveActive: 0,
+      // 本轮已由进化/组合兵器亲手击杀的妖物数 / 目标数
+      evolveCount: 0,
+      evolveNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      evolveDeadline: 0,
+      // 过半播报只发一次的标记（整数次逐次 +1，标记位防的是刷屏）
+      evolveHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      evolveRounds: 0,
+      evolveDone: 0,
+      evolveFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -5200,6 +5217,111 @@
     }
   }
 
+  // ============================================================
+  // 化形诀（第八十八轮：限时进化/组合兵器击杀）
+  // ============================================================
+
+  // 某一轮要杀几只：按轮号线性增长、封顶。抽出来给表自洽断言单独验。
+  function evolveNeedFor(roundIndex) {
+    const P = C.EVOLVE;
+    if (!P) return 0;
+    return Math.min(P.maxKills, P.needKills + (roundIndex || 0) * P.killStep);
+  }
+
+  // 最后一击的来源是不是「化形后的兵器」：进化形态与组合技都带独立标记，
+  // 两者都在 WEAPON_MAP 里。基础武器 / 反伤 / 天火 / 空来源一律不是。
+  // ★只读表上的布尔标记，不按名字猜、不按伤害高低猜。
+  function evolveSourceOk(src) {
+    if (!src || !C.WEAPON_MAP) return false;
+    const def = C.WEAPON_MAP[src];
+    if (!def) return false;
+    return !!(def.evolved || def.combo);
+  }
+
+  // 每帧调一次（step 第 2.83 段，紧挨裂石诀）。开窗/到期/发奖都在这里，
+  // 击杀钩子只记「最后一击是不是化形兵器」；剧情关逐关手工配平，一律不挂。
+  function tickEvolve(w) {
+    const P = C.EVOLVE;
+    if (!P) return;
+    if (w.storyStage) return;
+
+    if (w.evolveActive) {
+      // ★达标优先于到期：deadline 那一帧补到最后一刀也算数。
+      if (w.evolveCount >= w.evolveNeed && w.evolveNeed > 0) {
+        w.evolveActive = 0;
+        w.evolveDone = (w.evolveDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励球当帧被吃掉也不会算进本轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'evolve_done', got: w.evolveCount, need: w.evolveNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.evolveDeadline) return;
+      // 到期没用化形兵器清够：★什么都不给，且不责备（与前三十一件同口径）。
+      w.evolveActive = 0;
+      w.evolveFailed = (w.evolveFailed || 0) + 1;
+      w.events.push({
+        type: 'evolve_fail', need: w.evolveNeed, got: w.evolveCount,
+        left: Math.max(0, w.evolveNeed - w.evolveCount)
+      });
+      return;
+    }
+
+    // ★首发闸：初值 0 必须靠 tick 比较，不能写 `!w.evolveNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.evolveNextTick) return;
+
+    // 开一轮：到期时刻用 w.time 口径（整数 tick 换算，零漂移）。
+    w.evolveRounds = (w.evolveRounds || 0) + 1;
+    w.evolveActive = 1;
+    w.evolveCount = 0;
+    w.evolveNeed = evolveNeedFor(w.evolveRounds - 1);
+    w.evolveHalfNoted = 0;
+    w.evolveDeadline = w.time + P.windowSec;
+    w.evolveNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'evolve_start', need: w.evolveNeed, sec: P.windowSec,
+      round: w.evolveRounds
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 唯一漏斗里，与百兵诀并列但问的是「养成深度」。
+  // ★四道闸：窗口外 / 剧情关 / 世界伤害 / 非化形来源；再加 directKill 排除灼烧磨死。
+  // ★need=0 是未开窗默认态，绝不白送达标。
+  function onEvolveKill(w, src, isWorld, directKill) {
+    const P = C.EVOLVE;
+    if (!P || !w.evolveActive || w.storyStage) return;
+    if (!(w.evolveNeed > 0)) return;
+    if (isWorld) return;
+    // ★灼烧磨死（tickBurn 调 killMob 不传 directKill）不算亲手用化形兵器击杀。
+    if (!directKill) return;
+    if (!evolveSourceOk(src)) return;
+    w.evolveCount += 1;
+    // 整数次逐次 +1：标记位只防达标后继续刷屏。
+    const half = w.evolveNeed / 2;
+    if (!w.evolveHalfNoted && w.evolveCount >= half) {
+      w.evolveHalfNoted = 1;
+      w.events.push({
+        type: 'evolve_half', got: w.evolveCount, need: w.evolveNeed,
+        left: Math.max(0, w.evolveNeed - w.evolveCount)
+      });
+    }
+  }
+
   function killMob(w, m, wasFullBeforeHit, isWorld, src, directKill) {
     if (!m.alive) return;
     m.alive = false;
@@ -5240,6 +5362,9 @@
     // 伏魔诀的击杀计数（第八十六轮）。同处并列，但按**击杀瞬间怪身上有没有状态**：
     // ★天火/灵泉/引魂灯白送不算（isWorld）；灼烧磨死不算（directKill 只从 damageMob 传）。
     onHexKill(w, m, isWorld, directKill);
+    // 化形诀的击杀计数（第八十八轮）。同处并列，但按**最后一击是不是进化/组合兵器**：
+    // ★基础兵器 / 反伤 / 天火白送都不算；灼烧磨死也不算（directKill 闸）。
+    onEvolveKill(w, src, isWorld, directKill);
 
     // 掉落经验球
     const def = m.def;
@@ -11709,6 +11834,11 @@
     //   这里统一开窗/到期/发奖；环境伤害、荆棘反伤与溢出都不算。
     tickCrush(w);
 
+    // 【化形诀】目标制零实体第三十二件，紧挨裂石诀 —— 前面问"这一下有多重"，
+    //   这里问"是不是进化或组合兵器打出来的"。★击杀钩子在 killMob 漏斗按来源标记记数，
+    //   这里统一开窗/到期/发奖；基础兵器、反伤、天火与灼烧磨死都不算。
+    tickEvolve(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -12589,6 +12719,12 @@
     crushDmgFor: crushDmgFor,
     tickCrush: tickCrush,
     onCrushHit: onCrushHit,
+    // 第八十八轮：化形诀（进化/组合兵器击杀）——四入口导出，测试既能精确喂钩子，
+    //   也能走真实 damageMob → killMob 漏斗与 step 的 tickEvolve 调用点。
+    evolveNeedFor: evolveNeedFor,
+    evolveSourceOk: evolveSourceOk,
+    tickEvolve: tickEvolve,
+    onEvolveKill: onEvolveKill,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
