@@ -2642,6 +2642,23 @@ function goLobby(why) {
     } else if (e.type === 'hex_fail') {
       // 到期：★不责备玩家——只陈述"还差几只"这个事实。
       pushToast('伏魔诀到期：还差 ' + (e.left || 0) + ' 只带状态妖物，赏金散去', false);
+    } else if (e.type === 'crush_start') {
+      // 裂石诀（第八十七轮）：目标制零实体第三十一件——第一次问「这一下有多重」。
+      // ★一次说清：多久 / 几次 / 单次伤害门槛 / 溢出不算 / 白送不算。
+      pushToast((C.CRUSH ? C.CRUSH.name : '裂石诀') + '：' + (e.sec || 0) +
+        ' 秒内打出 ' + (e.need || 0) + ' 次 ' + (e.needDmg || 0) +
+        ' 点以上真伤（按实际扣血算，溢出不算；天火与荆棘反伤不算），达成赏宝箱与金币', true);
+    } else if (e.type === 'crush_half') {
+      // 过半：整数次逐次 +1，标记位保证只播一次。
+      pushToast('裂石诀过半：重击 ' + (e.got || 0) + ' / ' + (e.need || 0) +
+        ' 次，还差 ' + (e.left || 0) + ' 次（把伤害打到一击上！）', true);
+    } else if (e.type === 'crush_done') {
+      // 达成：报清重击次数与落点，与前三十件同一口径。
+      pushToast('裂石诀成！打出 ' + (e.got || 0) + ' 次重击，宝箱与金币已落在脚下', true);
+    } else if (e.type === 'crush_fail') {
+      // 到期：★不责备玩家——只陈述"还差几次"这个事实。
+      pushToast('裂石诀到期：还差 ' + (e.left || 0) + ' 次重击（每次须 ' +
+        (e.needDmg || 0) + ' 点真伤），赏金散去', false);
     } else if (e.type === 'lantern') {
       // 引魂灯（第四十六轮）：全项目第一个**要求一条路线**的点位（一次三盏、散在三个方向）。
       // 【提示条必须一次说清四件事】几盏、往哪走、多久、点齐给什么 ——

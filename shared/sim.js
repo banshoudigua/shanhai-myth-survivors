@@ -1544,6 +1544,24 @@
       hexDone: 0,
       hexFailed: 0,
 
+      // ---------- 裂石诀（第八十七轮：限时单发重击）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（初值 0，只能靠 tick 比较，不能写 `!w.crushNextTick`）
+      crushNextTick: 0,
+      crushActive: 0,
+      // 本轮已打出的重击次数 / 目标次数 / 本轮伤害阈值
+      crushCount: 0,
+      crushNeed: 0,
+      crushNeedDmg: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      crushDeadline: 0,
+      // 过半播报只发一次的标记（整数次逐次 +1，标记位防的是刷屏）
+      crushHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      crushRounds: 0,
+      crushDone: 0,
+      crushFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -1967,9 +1985,17 @@
     //   ★判的是 m.hp >= m.maxHp：回春巫回满血的怪也算满血（它确实被治满了）；
     //   ★maxHp<=0 的手搓测试怪不算（没有"满血"这个概念）。
     const wasFullBeforeHit = m.maxHp > 0 && m.hp >= m.maxHp;
+    // 裂石诀（第八十七轮）：★扣血前记下这一击打在了多少血上。
+    //   实际扣掉的血 = min(dmg, 打之前血量)，溢出不算重击（与淬骨诀同口径）。
+    const hpBeforeHit = m.hp;
 
     m.hp -= dmg;
     w.stats.dmgDealt += dmg;
+
+    // 裂石诀只认「真·武器打出的重击」：世界伤害不算、荆棘反伤（src 非武器 id）不算。
+    // ★钩子放在扣血之后、击杀判定之前：残怪被打死那一击也要如实记账。
+    const realHit = Math.max(0, Math.min(dmg, hpBeforeHit));
+    onCrushHit(w, src, realHit, isWorld);
 
     // 破军令（第五十八轮）：只把"真·玩家输出"计进限时伤害目标。
     // ★isWorld（天火/灵泉/引魂灯）不算——那是世界伤害，不随 build 变化，
@@ -5070,6 +5096,106 @@
       w.events.push({
         type: 'hex_half', got: w.hexCount, need: w.hexNeed,
         left: Math.max(0, w.hexNeed - w.hexCount)
+      });
+    }
+  }
+
+  // ============================================================
+  // 裂石诀（第八十七轮：限时单发重击）
+  // ============================================================
+
+  // 某一轮要打出几次重击 / 伤害阈值：按轮号线性增长、封顶，抽出来给表自洽断言单独验。
+  function crushNeedFor(roundIndex) {
+    const P = C.CRUSH;
+    if (!P) return 0;
+    return Math.min(P.maxHits, P.needHits + (roundIndex || 0) * P.hitStep);
+  }
+  function crushDmgFor(roundIndex) {
+    const P = C.CRUSH;
+    if (!P) return 0;
+    return Math.min(P.maxDmg, P.minDmg + (roundIndex || 0) * P.dmgStep);
+  }
+
+  // 每帧调一次（step 紧挨伏魔诀）。开窗/到期/发奖都在这里，伤害钩子只记次数。
+  // 剧情关逐关手工配平，一律不挂。
+  function tickCrush(w) {
+    const P = C.CRUSH;
+    if (!P) return;
+    if (w.storyStage) return;
+
+    if (w.crushActive) {
+      // ★达标优先于到期：deadline 那一帧补上最后一击也算数。
+      if (w.crushCount >= w.crushNeed && w.crushNeed > 0) {
+        w.crushActive = 0;
+        w.crushDone = (w.crushDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励球当帧被拾取也不会算进本轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'crush_done', got: w.crushCount, need: w.crushNeed,
+          needDmg: w.crushNeedDmg, chest: P.rewardChest || 0,
+          gold: gn * (P.rewardGold || 0), x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.crushDeadline) return;
+      // 到期没打够重击：★什么都不给，且不责备（与前三十件同口径）。
+      w.crushActive = 0;
+      w.crushFailed = (w.crushFailed || 0) + 1;
+      w.events.push({
+        type: 'crush_fail', need: w.crushNeed, needDmg: w.crushNeedDmg,
+        got: w.crushCount, left: Math.max(0, w.crushNeed - w.crushCount)
+      });
+      return;
+    }
+
+    // ★首发闸：初值 0 必须靠 tick 比较，不能写 `!w.crushNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.crushNextTick) return;
+
+    w.crushRounds = (w.crushRounds || 0) + 1;
+    w.crushActive = 1;
+    w.crushCount = 0;
+    w.crushNeed = crushNeedFor(w.crushRounds - 1);
+    w.crushNeedDmg = crushDmgFor(w.crushRounds - 1);
+    w.crushHalfNoted = 0;
+    w.crushDeadline = w.time + P.windowSec;
+    w.crushNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'crush_start', need: w.crushNeed, needDmg: w.crushNeedDmg,
+      sec: P.windowSec, round: w.crushRounds
+    });
+  }
+
+  // 伤害钩子：挂在 damageMob 的结算段（不是 killMob —— 没打死的重击也要算）。
+  // 四道闸：窗口外 / 剧情关 / 世界伤害 / 非武器来源（荆棘反伤），再加阈值与 need>0。
+  function onCrushHit(w, src, realHit, isWorld) {
+    const P = C.CRUSH;
+    if (!P || !w.crushActive || w.storyStage) return;
+    if (isWorld) return;
+    // ★只认真·武器伤害：荆棘反伤 src='thorns'、未知/空来源都不算。
+    if (!C.WEAPON_MAP || !C.WEAPON_MAP[src]) return;
+    if (!(w.crushNeed > 0)) return;
+    // ★按真实扣血判定：溢出不算（对 1 血怪打 999 不白送）。
+    if (!(realHit >= w.crushNeedDmg)) return;
+    w.crushCount += 1;
+    // 整数次逐次 +1：标记位只防达标后继续刷屏。
+    const half = w.crushNeed / 2;
+    if (!w.crushHalfNoted && w.crushCount >= half) {
+      w.crushHalfNoted = 1;
+      w.events.push({
+        type: 'crush_half', got: w.crushCount, need: w.crushNeed,
+        left: Math.max(0, w.crushNeed - w.crushCount)
       });
     }
   }
@@ -11578,6 +11704,11 @@
     //   四种异常状态，这里统一开窗/到期/发奖；环境白送与灼烧磨死都不算。
     tickHex(w);
 
+    // 【裂石诀】目标制零实体第三十一件，紧挨伏魔诀 —— 前面问"杀的时候身上有没有状态"，
+    //   这里问"这一下打出去有多重"。★伤害钩子在 damageMob 结算段按真实扣血记数，
+    //   这里统一开窗/到期/发奖；环境伤害、荆棘反伤与溢出都不算。
+    tickCrush(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -12452,6 +12583,12 @@
     tickHex: tickHex,
     onHexKill: onHexKill,
     mobIsHexed: mobIsHexed,
+    // 第八十七轮：裂石诀（单发重击）——四入口导出，测试既能精确喂钩子，
+    //   也能走真实 damageMob → step 钉住伤害结算与 tickCrush 调用点。
+    crushNeedFor: crushNeedFor,
+    crushDmgFor: crushDmgFor,
+    tickCrush: tickCrush,
+    onCrushHit: onCrushHit,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验
