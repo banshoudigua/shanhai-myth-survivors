@@ -1596,6 +1596,23 @@
       finishDone: 0,
       finishFailed: 0,
 
+      // ---------- 乘胜诀（第九十轮：限时在血怒爆发期内清妖）----------
+      // ★全是服务端事实，一个都不进快照——客户端只要四条播报。
+      // 下一轮排期 tick（初值 0，只能靠 tick 比较，不能写 `!w.momentumNextTick`）
+      momentumNextTick: 0,
+      momentumActive: 0,
+      // 本轮在血怒里亲手击杀数 / 目标数
+      momentumCount: 0,
+      momentumNeed: 0,
+      // 本轮到期时刻（w.time 口径，秒）
+      momentumDeadline: 0,
+      // 过半播报只发一次的标记（整数次逐次 +1，标记位防的是刷屏）
+      momentumHalfNoted: 0,
+      // 本局发过几轮 / 达成几次 / 落空几次（只用于观察与测试，不参与逻辑）
+      momentumRounds: 0,
+      momentumDone: 0,
+      momentumFailed: 0,
+
       // 当前所在关卡 id。开局为 null，第一波会立刻把「踏入荒村墓园」推成事件。
       // 存 id 而不是波次数字：调关卡区间时这里不用跟着改（见 spawnWave）。
       stageId: null,
@@ -5440,10 +5457,112 @@
     }
   }
 
+  // ============================================================
+  // 乘胜诀（第九十轮：限时在血怒爆发期内清妖）
+  // ============================================================
+
+  // 某一轮要杀几只：按轮号线性增长、封顶。
+  function momentumNeedFor(roundIndex) {
+    const P = C.MOMENTUM;
+    if (!P) return 0;
+    return Math.min(P.maxKills, P.needKills + (roundIndex || 0) * P.killStep);
+  }
+
+  // 每帧调一次（step 紧挨补刀诀）。开窗/到期/发奖都在这里，击杀钩子只记次数。
+  // 剧情关逐关手工配平，一律不挂。
+  function tickMomentum(w) {
+    const P = C.MOMENTUM;
+    if (!P) return;
+    // ★手搓的极简测试世界没有这个字段：不该被新事件突然落箱污染旧断言。
+    if (w.momentumNextTick == null) return;
+    if (w.storyStage) return;
+
+    if (w.momentumActive) {
+      // ★达标优先于到期：deadline 那一帧补到最后一刀也算数。
+      if (w.momentumCount >= w.momentumNeed && w.momentumNeed > 0) {
+        w.momentumActive = 0;
+        w.momentumDone = (w.momentumDone || 0) + 1;
+        const p = w.self || w.player;
+        const x = p ? p.x : w.map.w / 2;
+        const y = p ? p.y : w.map.h / 2;
+        // ★先清 active 再发奖：奖励球当帧被拾取也不会算进本轮。
+        for (let i = 0; i < (P.rewardChest || 0); i++) {
+          spawnPickup(w, 'chest', x, y, 1, C.DROPS.chest.life);
+        }
+        const gn = P.goldDrops || 0;
+        for (let i = 0; i < gn; i++) {
+          const ang = (Math.PI * 2 / (gn || 1)) * i + 0.4;
+          spawnPickup(w, 'gold',
+            x + Math.cos(ang) * 14, y + Math.sin(ang) * 14, P.rewardGold);
+        }
+        w.events.push({
+          type: 'momentum_done', got: w.momentumCount, need: w.momentumNeed,
+          chest: P.rewardChest || 0, gold: gn * (P.rewardGold || 0),
+          x: Math.round(x), y: Math.round(y)
+        });
+        return;
+      }
+      if (w.time < w.momentumDeadline) return;
+      // 到期没在血怒里杀够：★什么都不给，且不责备（与前三十三件同口径）。
+      w.momentumActive = 0;
+      w.momentumFailed = (w.momentumFailed || 0) + 1;
+      w.events.push({
+        type: 'momentum_fail', need: w.momentumNeed, got: w.momentumCount,
+        left: Math.max(0, w.momentumNeed - w.momentumCount)
+      });
+      return;
+    }
+
+    // ★首发闸：初值 0 必须靠 tick 比较，不能写 `!w.momentumNextTick`。
+    if (w.tick < Math.round(P.startSec * C.TICK_HZ)) return;
+    if (w.tick < w.momentumNextTick) return;
+
+    w.momentumRounds = (w.momentumRounds || 0) + 1;
+    w.momentumActive = 1;
+    w.momentumCount = 0;
+    w.momentumNeed = momentumNeedFor(w.momentumRounds - 1);
+    w.momentumHalfNoted = 0;
+    w.momentumDeadline = w.time + P.windowSec;
+    w.momentumNextTick = w.tick + Math.round(P.everySec * C.TICK_HZ);
+    w.events.push({
+      type: 'momentum_start', need: w.momentumNeed, sec: P.windowSec,
+      round: w.momentumRounds, rageSec: C.RAGE.durationSec
+    });
+  }
+
+  // 击杀钩子：挂在 killMob 唯一漏斗里，判据是「出手前这名玩家正在血怒里」。
+  // ★wasRaging 必须在 bumpRage 之前抓：触发血怒的那一刀不算乘胜。
+  // ★六道闸：窗口外 / 剧情关 / need=0 / 世界伤害 / 非直接击杀 / 非真武器来源。
+  function onMomentumKill(w, wasRaging, isWorld, src, directKill) {
+    const P = C.MOMENTUM;
+    if (!P || !w.momentumActive || w.storyStage) return;
+    if (!(w.momentumNeed > 0)) return;
+    if (isWorld) return;
+    // ★灼烧磨死（tickBurn 调 killMob 不传 directKill）不算亲手乘胜。
+    if (!directKill) return;
+    // ★荆棘反伤、未知/空来源没有「哪一招趁势打出去」这件事。
+    if (!C.WEAPON_MAP || !C.WEAPON_MAP[src]) return;
+    // ★爆发结束后 / 冷却期 / 触发血怒的那一刀，全都不算。
+    if (!wasRaging) return;
+    w.momentumCount += 1;
+    // 整数次逐次 +1：标记位只防达标后继续刷屏。
+    const half = w.momentumNeed / 2;
+    if (!w.momentumHalfNoted && w.momentumCount >= half) {
+      w.momentumHalfNoted = 1;
+      w.events.push({
+        type: 'momentum_half', got: w.momentumCount, need: w.momentumNeed,
+        left: Math.max(0, w.momentumNeed - w.momentumCount)
+      });
+    }
+  }
+
   function killMob(w, m, wasFullBeforeHit, isWorld, src, directKill, wasLowBeforeHit) {
     if (!m.alive) return;
     m.alive = false;
     w.stats.kills += 1;
+    // ★乘胜诀要在 bumpRage 之前抓「这一刀出手时是否已在血怒里」：
+    //   先 bump 再判断的话，攒满 12 连杀那一刀会白送一次乘胜计数。
+    const wasRaging = !!(w.player && w.player.rage > 0);
     // 血怒的连杀计数（第三十八轮）。放在这里而不是掉落逻辑里：
     // 「打死一只」是唯一的事实，掉落那些分支会随 tier 走不同路径，漏一条就少算。
     bumpRage(w);
@@ -5486,6 +5605,9 @@
     // 补刀诀的击杀计数（第八十九轮）。同处并列，但按**出手前怪是不是残血**判：
     // ★与崩山诀正相反——满血一击不算、天火白送不算、灼烧磨死不算、反伤不算。
     onFinishKill(w, wasLowBeforeHit, isWorld, src, directKill);
+    // 乘胜诀的击杀计数（第九十轮）。同处并列，但按**出手前是否正在血怒**判：
+    // ★触发血怒的那一刀、冷却期、天火白送都不算；只认真·爆发期输出。
+    onMomentumKill(w, wasRaging, isWorld, src, directKill);
 
     // 掉落经验球
     const def = m.def;
@@ -11965,6 +12087,11 @@
     //   这里统一开窗/到期/发奖；满血秒杀、天火、反伤与灼烧磨死都不算。
     tickFinish(w);
 
+    // 【乘胜诀】目标制零实体第三十四件，紧挨补刀诀 —— 前面问「怪残不残」，
+    //   这里问「你自己是不是正在血怒爆发里」。★击杀钩子在 killMob 漏斗按
+    //   出手前的 p.rage 判，触发血怒的那一刀不算；这里统一开窗/到期/发奖。
+    tickMomentum(w);
+
     // ---------- 2.6 剧情节拍 ----------
     // 【为什么不放在 spawnWave 里】节拍是「时间到了就说一句」，
     // 与波次无关；而 spawnWave 只在波次到来时跑，两者节奏不同。
@@ -12856,6 +12983,12 @@
     finishNeedFor: finishNeedFor,
     tickFinish: tickFinish,
     onFinishKill: onFinishKill,
+    // 第九十轮：乘胜诀（血怒爆发期清妖）——入口单独导出，测试要能精确注入
+    //   「出手前是否在血怒里」这一事实，也要走真实 damageMob → killMob 漏斗
+    //   钉住「触发血怒的那一刀不算」这条灵魂边界。
+    momentumNeedFor: momentumNeedFor,
+    tickMomentum: tickMomentum,
+    onMomentumKill: onMomentumKill,
     // ★onUnsealChest 只做计数；★关键边界（队友开箱 / 剧情关 / 只认真开箱分支）
     //   必须走上面已导出的 step 才能让真实 updatePickups 走到 chest 分支。
     // ★gainExp 单独导出：宝箱白送升级不算这条灵魂边界只能在真 gainExp 上验

@@ -2692,6 +2692,24 @@ function goLobby(why) {
     } else if (e.type === 'finish_fail') {
       // 到期：★不责备玩家——只陈述"还差几只"这个事实。
       pushToast('补刀诀到期：还差 ' + (e.left || 0) + ' 只残血妖物，赏金散去', false);
+    } else if (e.type === 'momentum_start') {
+      // 乘胜诀（第九十轮）：目标制零实体第三十四件——第一次问「你正在爆发吗」。
+      // ★一次说清：多久 / 几只 / 必须在血怒爆发期 / 触发血怒那一刀与白送都不算。
+      pushToast((C.MOMENTUM ? C.MOMENTUM.name : '乘胜诀') + '：' + (e.sec || 0) +
+        ' 秒内在血怒爆发期亲手击杀 ' + (e.need || 0) +
+        ' 只妖物（每次血怒约 ' + (e.rageSec || 8) +
+        ' 秒，触发血怒那一刀、天火、反伤与灼烧磨死都不算），达成赏宝箱与金币', true);
+    } else if (e.type === 'momentum_half') {
+      // 过半：整数次逐次 +1，标记位保证只播一次。
+      pushToast('乘胜诀过半：爆发期击杀 ' + (e.got || 0) + ' / ' + (e.need || 0) +
+        ' 只，还差 ' + (e.left || 0) + ' 只（趁血怒还没结束！）', true);
+    } else if (e.type === 'momentum_done') {
+      // 达成：报清爆发期击杀数与落点，与前三十三件同一口径。
+      pushToast('乘胜诀成！爆发期清了 ' + (e.got || 0) +
+        ' 只妖物，宝箱与金币已落在脚下', true);
+    } else if (e.type === 'momentum_fail') {
+      // 到期：★不责备玩家——只陈述"还差几只"这个事实。
+      pushToast('乘胜诀到期：还差 ' + (e.left || 0) + ' 只爆发期击杀，赏金散去', false);
     } else if (e.type === 'lantern') {
       // 引魂灯（第四十六轮）：全项目第一个**要求一条路线**的点位（一次三盏、散在三个方向）。
       // 【提示条必须一次说清四件事】几盏、往哪走、多久、点齐给什么 ——
